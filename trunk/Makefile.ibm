@@ -1,0 +1,17 @@
+OBJS = varsM.o MatrixM.o ChargeIOM.o ChargeM.o Charge.o
+
+FC = xlf90
+RM = rm -f
+LD = xlf90
+
+bader: $(OBJS)
+	$(RM) $@
+	$(LD) $(LINK) $(OBJS) -o $@
+
+.SUFFIXES: .f90 .o
+
+.f90.o:
+	$(FC) -c $(FFLAGS) $*.f90
+
+FFLAGS = -O3 -qsuffix=f=f90 -qnolm
+LINK = -bmaxdata:0x80000000 -bmaxstack:0x10000000 -lxlf90
