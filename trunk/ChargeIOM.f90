@@ -3,7 +3,7 @@
 !    Module for reading and writing charge density data
 !
 ! By Andri Arnaldson and Graeme Henkelman
-! Last modified by AA on Sept. 02 2004
+! Last modified by AA on Aug. 02 2005
 !-----------------------------------------------------------------------------------!
 
 MODULE ChargeIOM
@@ -21,18 +21,18 @@ MODULE ChargeIOM
 
 !-----------------------------------------------------------------------------------!
 ! read_charge: Reads the charge density from a file in vasp or Gaussian cube format,
-!    by first reading the header, and then calling read_charge_density
+!    by first reading the header, and then charges
 !-----------------------------------------------------------------------------------!
 
   SUBROUTINE read_charge()
 
     REAL(q2),DIMENSION(3,3) :: B
     REAL(q2),DIMENSION(3) :: box,v
-    REAL(q2) :: side,vol
+    REAL(q2) :: side,vol,t
     INTEGER :: i
     INTEGER,DIMENSION(110) :: elements
     CHARACTER(LEN=7) :: text
-    INTEGER :: cr,count_max,t1,t2
+    INTEGER :: cr,count_max,t1,t2,nx,ny,nz
 
     CALL system_clock(t1,cr,count_max)
 
@@ -77,15 +77,18 @@ MODULE ChargeIOM
     ELSE
 ! temp. readin
       WRITE(*,'(1A27)') 'GAUSSIAN-STYLE INPUT FILE'
-      READ(100,'(2/,1I5,3(3X,1F9.6))') ndim,box
+! Skip the first two lines
+      READ(100,*) text
+      READ(100,*) text 
+      READ(100,*) ndim,box
       corner=box
       wdim=ndim
 !      ALLOCATE(Rcar(ndim,3),Rdir(ndim,3),voronoi_charge(wdim,4),nel(ndim))
 ! Do not allocate voronoi_charge here
       ALLOCATE(Rcar(ndim,3),Rdir(ndim,3),nel(ndim))
-      READ(100,'(1I5,3X,1F9.6)') ngxf,steps(1)
-      READ(100,'(1I5,15X,1F9.6)') ngyf,steps(2)
-      READ(100,'(1I5,27X,1F9.6)') ngzf,steps(3)
+      READ(100,*) ngxf,steps(1),t,t
+      READ(100,*) ngyf,t,steps(2),t
+      READ(100,*) ngzf,t,t,steps(3)
       ALLOCATE(max_rho(ngxf,ngyf,ngzf))
       IF(ngxf<0) ngxf=(-1)*ngxf  ! This should really indicate the units (Bohr/Ang)
       box(1)=REAL((ngxf),q2)*steps(1)
@@ -101,7 +104,7 @@ MODULE ChargeIOM
       END DO
       CALL transpose_matrix(lattice,B,3,3)
       DO i=1,ndim
-        READ(100,'(1I5,12X,3(3X,1F9.6))') nel(i),Rdir(i,:)
+        READ(100,*) nel(i),t,Rdir(i,:)
         Rdir(i,:)=(Rdir(i,:)-corner)/(box-steps)
         CALL matrix_vector(B,Rdir(i,:),v,3,3)
         Rcar(i,:)=v
@@ -109,9 +112,12 @@ MODULE ChargeIOM
     END IF
     nrho=ngxf*ngyf*ngzf
     ALLOCATE(rho(ngxf,ngyf,ngzf))
-    CALL read_charge_density()
-    IF (.not.vasp) rho=rho*vol
- 
+    IF (vasp) THEN
+      READ(100,*) (((rho(nx,ny,nz),nx=1,ngxf),ny=1,ngyf),nz=1,ngzf)
+    ELSE
+      READ(100,*) (((rho(nx,ny,nz),nz=1,ngzf),ny=1,ngyf),nx=1,ngxf)
+      rho=rho*vol 
+    END IF
     WRITE(*,'(1A12,1I5,1A2,1I4,1A2,1I4)') 'FFT-grid: ',ngxf,'x',ngyf,'x',ngzf
     WRITE(*,'(2x,A,1A20)') 'CLOSE ... ', chargefile
     CLOSE(100)
@@ -120,28 +126,7 @@ MODULE ChargeIOM
 
   RETURN
   END SUBROUTINE read_charge
-
-!------------------------------------------------------------------------------------!
-! charge_density: Read in the charge density. This suboutine is called from 
-!    read_charge.
-!------------------------------------------------------------------------------------!
-
-  SUBROUTINE read_charge_density()
-
-    INTEGER :: nx,ny,nz
-
-    IF (vasp) THEN
-      READ(100,*) (((rho(nx,ny,nz),nx=1,ngxf),ny=1,ngyf),nz=1,ngzf)
-    ELSE
-      DO nx=1,ngxf
-        DO ny=1,ngyf
-          READ(100,'(6E13.5)') (rho(nx,ny,nz) , nz=1,ngzf)
-        END DO
-      END DO
-    END IF
-  RETURN
-  END SUBROUTINE read_charge_density
-
+!
 !------------------------------------------------------------------------------------!
 ! output: Write out a summary of the bader analysis.
 !         AtomVolumes.dat: Stores the 'significant' Bader volumes associated with
