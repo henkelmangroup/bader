@@ -1,0 +1,22 @@
+OBJS = varsM.o        \
+       MatrixM.o      \
+       ChargeIOM.o    \
+       ChargeM.o      \
+       Charge.o
+
+bader: $(OBJS)
+	$(FC) $(LINK) -o $@ $(OBJS) 
+       
+.SUFFIXES: .f90 .o
+
+.f90.o:
+	$(FC) $(LINK) $(FFLAGS) -c $*.f90
+
+FC = /export/home/local/pgi/linux86/5.2/bin/pgf90
+
+FFLAGS = -tp px -O3 -fast
+
+LINK = -Bstatic 
+
+clean:
+	rm -f *.o *.mod *.lst bader
