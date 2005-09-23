@@ -4,6 +4,9 @@
 !
 ! By Andri Arnaldsson and Graeme Henkelman
 ! Last modified by GH on Apr 24 2005
+!
+! we need to add volume information
+!
 !-----------------------------------------------------------------------------------!
 MODULE ChargeM
   USE varsM , ONLY : q2,max_rho,rho,Rdir,bader_charge,dipole,Rcar,voronoi_charge,   &
