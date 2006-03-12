@@ -15,7 +15,7 @@ MODULE charge
 
 ! Public, allocatable variables
   REAL(q2),ALLOCATABLE,DIMENSION(:,:,:) :: rho
-  INTEGER :: ngxf,ngyf,ngzf,nrho
+  INTEGER :: nxf,nyf,nzf,nrho
   LOGICAL :: halfstep
 
 ! Public, static variables
@@ -88,7 +88,7 @@ MODULE charge
     END DO
     DO
       IF(py > 0) EXIT
-      py=py+ngyf
+      py=py+nyf
     END DO
     DO
       IF(py <= nyf) EXIT
@@ -196,21 +196,21 @@ MODULE charge
 
     ix=FLOOR(px)
     IF (ix == 0) THEN
-      ix=ngxf
+      ix=nxf
       ixm=1
     ELSE
       ixm=ix+1
     END IF
     iy=FLOOR(py)
     IF (iy == 0) THEN
-      iy=ngyf
+      iy=nyf
       iym=1
     ELSE
       iym=iy+1
     END IF
     iz=FLOOR(pz)
     IF (iz == 0) THEN
-      iz=ngzf
+      iz=nzf
       izm=1
     ELSE
       izm=iz+1

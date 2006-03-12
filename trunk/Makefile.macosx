@@ -1,8 +1,15 @@
-OBJS = varsM.o        \
-       MatrixM.o      \
-       ChargeIOM.o    \
-       ChargeM.o      \
-       Charge.o
+OBJS = vars.o         \
+       matrix.o       \
+       ions.o         \
+       options.o      \
+       chgcar.o       \
+       cube.o         \
+       charge.o       \
+       io.o           \
+       bader.o        \
+       voronoi.o      \
+       multipole.o    \
+       main.o
 
 bader: $(OBJS)
 	$(FC) $(LINK) -o $@ $(OBJS) 

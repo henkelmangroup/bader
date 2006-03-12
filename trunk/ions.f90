@@ -7,15 +7,16 @@
 !-----------------------------------------------------------------------------------!
 
 MODULE ions
+  USE vars , ONLY : q2 
   USE matrix , ONLY : transpose_matrix,matrix_vector
   IMPLICIT NONE
 
-  REAL(q2),ALLOCATABLE,DIMENSION(:,:) :: rcar,rdir
+  REAL(q2),ALLOCATABLE,DIMENSION(:,:) :: r_car,r_dir
   REAL(q2),DIMENSION(3,3) :: lattice
   INTEGER :: natypes,na
 
   PRIVATE
-  PUBLIC :: rcar,rdir,lattice,natypes,na
+  PUBLIC :: r_car,r_dir,lattice,natypes,na
 
 !------------------------------------------------------------------------------------!
 

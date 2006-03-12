@@ -27,7 +27,7 @@ MODULE voronoi
 !-----------------------------------------------------------------------------------!
   SUBROUTINE voronoi()
 
-    REAL(q2),DIMENSION(ndim,3) :: Ratm
+    REAL(q2),DIMENSION(ndim,3) :: r_atm
     REAL(q2),DIMENSION(3) :: Rcur,dR,ngf,ngf_2
     REAL(q2) :: dist,min_dist,shift
     INTEGER :: i,nx,ny,nz,closest,tenths_done,cr,count_max,t1,t2
@@ -41,37 +41,37 @@ MODULE voronoi
     wdim=ndim
     ALLOCATE(voronoi_charge(wdim,4))
 
-    ngf(1)=REAL(ngxf,q2)
-    ngf(2)=REAL(ngyf,q2)
-    ngf(3)=REAL(ngzf,q2)
+    ngf(1)=REAL(nxf,q2)
+    ngf(2)=REAL(nyf,q2)
+    ngf(3)=REAL(nzf,q2)
     ngf_2=REAL(ngf,q2)/2.0_q2
 
     shift=0.5_q2
     IF (vasp) shift=1.0_q2
 
-    Ratm(:,1)=Rdir(:,1)*ngf(1)+shift
-    Ratm(:,2)=Rdir(:,2)*ngf(2)+shift
-    Ratm(:,3)=Rdir(:,3)*ngf(3)+shift
+    r_atm(:,1)=r_dir(:,1)*ngf(1)+shift
+    r_atm(:,2)=r_dir(:,2)*ngf(2)+shift
+    r_atm(:,3)=r_dir(:,3)*ngf(3)+shift
 
     voronoi_charge=0.0_q2
     tenths_done=0
-    DO nx=1,ngxf
+    DO nx=1,nxf
       Rcur(1)=REAL(nx,q2)
-      IF ((nx*10/ngxf) > tenths_done) THEN
-        tenths_done=(nx*10/ngxf)
+      IF ((nx*10/nxf) > tenths_done) THEN
+        tenths_done=(nx*10/nxf)
 !        WRITE(*,'(1X,1I4,1A6)') (tenths_done*10),'% done'
         WRITE(*,'(A,$)') '**'
       END IF
-      DO ny=1,ngyf
+      DO ny=1,nyf
         Rcur(2)=REAL(ny,q2)
-        DO nz=1,ngzf
+        DO nz=1,nzf
           Rcur(3)=REAL(nz,q2)
           closest=1
-          dR=Rcur-Ratm(1,:)
+          dR=Rcur-r_atm(1,:)
           CALL dpbc(dR,ngf,ngf_2)
           min_dist=DOT_PRODUCT(dR,dR)
           DO i=2,wdim
-            dR=Rcur-Ratm(i,:)
+            dR=Rcur-r_atm(i,:)
             CALL dpbc(dR,ngf,ngf_2)
             dist=DOT_PRODUCT(dR,dR)
             IF (dist < min_dist) THEN
@@ -80,14 +80,14 @@ MODULE voronoi
             END IF
           END DO
           voronoi_charge(closest,4)=voronoi_charge(closest,4)+                    &
-                               rho_value(nx,ny,nz,ngxf,ngyf,ngzf)
+                               rho_value(nx,ny,nz,nxf,nyf,nzf)
         END DO
       END DO
     END DO
     WRITE(*,*)
 ! Don't have this normalization for MONDO
     voronoi_charge(:,4)=voronoi_charge(:,4)/REAL(nrho,q2)
-    voronoi_charge(:,1:3)=Rcar
+    voronoi_charge(:,1:3)=r_car
 
     CALL system_clock(t2,cr,count_max)
     WRITE(*,'(1A12,1F6.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'

@@ -38,20 +38,20 @@ MODULE multipole
     dipole=0
     shift=0.5_q2
     IF (vasp) shift=1.0_q2
-    ringf(1)=1.0_q2/REAL(ngxf,q2)
-    ringf(2)=1.0_q2/REAL(ngyf,q2) 
-    ringf(3)=1.0_q2/REAL(ngzf,q2)
+    ringf(1)=1.0_q2/REAL(nxf,q2)
+    ringf(2)=1.0_q2/REAL(nyf,q2) 
+    ringf(3)=1.0_q2/REAL(nzf,q2)
     tenths_done=0
-    DO nx=1,ngxf
-      IF ((nx*10/ngxf) > tenths_done) THEN
-        tenths_done=(nx*10/ngxf)
+    DO nx=1,nxf
+      IF ((nx*10/nxf) > tenths_done) THEN
+        tenths_done=(nx*10/nxf)
         WRITE(*,'(A,$)') '**'
       END IF
-      DO ny=1,ngyf
-        DO nz=1,ngzf
+      DO ny=1,nyf
+        DO nz=1,nzf
           atom=bader_atom(max_rho(nx,ny,nz))
           v(1:3)=(/nx,ny,nz/)
-          dv=(v-shift)*ringf-Rdir(atom,:)
+          dv=(v-shift)*ringf-r_dir(atom,:)
           CALL dpbc_dir(dv)
           dipole(atom,:)=dipole(atom,:)-dv*rho(nx,ny,nz)
         END DO
