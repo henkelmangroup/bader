@@ -1,22 +1,23 @@
 !-----------------------------------------------------------------------------------!
 ! Bader charge density analysis program
-!    Module with variables for the density
+!    Module with density variables
 !
 ! By Andri Arnaldson and Graeme Henkelman
 ! Last modified
 !-----------------------------------------------------------------------------------!
 
-MODULE densityM
-!  USE varsM , ONLY : q1,q2,max_rho,rho,Rdir,bader_charge,voronoi_charge,Rcar,dipole,&
-!  &                  bader_dist,bader_achg,bader_atom,num_atom,nel,lattice,corner,  &
-!  &                  steps,addup,bader_tol,ndim,ngxf,ngyf,ngzf,bdim,nrho,vasp,wdim, &
-!  &                  chargefile,na,natypes,min_dist
-  USE matrixM , ONLY : transpose_matrix,matrix_vector
+MODULE density
+  USE ions , ONLY : rcar,rdir,lattice,natypes,na
+  USE chgcar , ONLY :
+  USE cube , ONLY :
   IMPLICIT NONE
 
+  REAL(q2),ALLOCATABLE,DIMENSION(:,:,:) :: rho
+  INTEGER :: ngxf,ngyf,ngzf,nrho
+  LOGICAL :: halfstep
+
   PRIVATE
-  PUBLIC :: read_charge,output,write_max_rho,Vallvolume,Vatomvolume,Vspecvolume,    &
-  &         Gallvolume,Gatomvolume,Gspecvolume
+  PUBLIC :: rho,ngxf,ngyf,ngzf,nrho,halfstep
   CONTAINS
 
 !-----------------------------------------------------------------------------------!
@@ -660,4 +661,4 @@ MODULE densityM
 
 !------------------------------------------------------------------------------------!
 
-END MODULE ChargeIOM
+END MODULE density

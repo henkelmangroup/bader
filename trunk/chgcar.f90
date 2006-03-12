@@ -1,17 +1,18 @@
 !-----------------------------------------------------------------------------------!
 ! Bader charge density analysis program
-!    Module for reading and writing charge density data
+!    Module for reading and writing VASP CHGCAR files
 !
 ! By Andri Arnaldson and Graeme Henkelman
-! Last modified by AA on Aug. 02 2005
+! Last modified by 
 !-----------------------------------------------------------------------------------!
 
-MODULE ChargeIOM
-  USE varsM , ONLY : q1,q2,max_rho,rho,Rdir,bader_charge,voronoi_charge,Rcar,dipole,&
-  &                  bader_dist,bader_achg,bader_atom,num_atom,nel,lattice,corner,  &
-  &                  steps,addup,bader_tol,ndim,ngxf,ngyf,ngzf,bdim,nrho,vasp,wdim, &
-  &                  chargefile,na,natypes,min_dist
-  USE matrixM , ONLY : transpose_matrix,matrix_vector
+MODULE chgcar
+  USE vars , ONLY : q1,q2
+! ,max_rho,rho,Rdir,bader_charge,voronoi_charge,Rcar,dipole,&
+!  &                  bader_dist,bader_achg,bader_atom,num_atom,nel,lattice,corner,  &
+!  &                  steps,addup,bader_tol,ndim,ngxf,ngyf,ngzf,bdim,nrho,vasp,wdim, &
+!  &                  chargefile,na,natypes,min_dist
+  USE matrix , ONLY : transpose_matrix,matrix_vector
   IMPLICIT NONE
 
   PRIVATE

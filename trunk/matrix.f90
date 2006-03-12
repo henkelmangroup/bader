@@ -5,12 +5,12 @@
 ! By Andri Arnaldsson and Graeme Henkelman
 ! Last modified by GH on Feb 14 2003
 !-----------------------------------------------------------------------------------!
-MODULE MatrixM
-  USE varsM , ONLY : q2
+MODULE matrix
+  USE vars , ONLY : q2
   IMPLICIT NONE
 
   PRIVATE
-  PUBLIC :: matrix_multip,matrix_vector,transpose_matrix
+  PUBLIC :: matrix_multip,matrix_vector,transpose_matrix,volume
 !  PUBLIC :: q1,q2,pi,matrix_multip,matrix_vector,transpose_matrix
 !  INTEGER,PARAMETER :: q1=SELECTED_REAL_KIND(6,30)         ! single precision
 !  INTEGER,PARAMETER :: q2=SELECTED_REAL_KIND(15,305)       ! double precision
@@ -81,8 +81,23 @@ MODULE MatrixM
   RETURN
   END SUBROUTINE transpose_matrix
 
+!------------------------------------------------------------------------------------!
+! volume: Function returning the triple product of the lattice vectors.
+!------------------------------------------------------------------------------------!
+    
+  FUNCTION volume(h)
+    REAL(q2),INTENT(IN),DIMENSION(3,3) :: h
+    REAL(q2) :: volume
+    
+    volume = h(1,1)*(h(2,2)*h(3,3)-h(2,3)*h(3,2))                                    &
+  &       -h(1,2)*(h(2,1)*h(3,3)-h(3,1)*h(2,3))                                      &
+  &       +h(1,3)*(h(2,1)*h(3,2)-h(3,1)*h(2,2))
+
+  RETURN
+  END FUNCTION volume
+
 !-----------------------------------------------------------------------------------!
 
-END MODULE MatrixM
+END MODULE matrix
 
 
