@@ -1,27 +1,34 @@
-  MODULE options
+  MODULE options_mod
     IMPLICIT NONE
 
-    TYPE l_list
+    TYPE :: l_list_obj
       LOGICAL :: lp_all,lp_atom,lp_none,lo_cube,lo_chgcar,lc_all,lc_bader,lc_voronoi,          &
      &           lc_dipole,lc_ldos,li_cube,li_chgcar
-    END TYPE l_list   
-    TYPE(l_list) :: opts
-    CHARACTER(LEN=120) :: chargefile
+    END TYPE l_list_obj
+
+    TYPE :: options_obj
+      TYPE(l_list_obj) llist 
+      CHARACTER(LEN=120) :: chargefile
+    END TYPE options_obj
+
+!    TYPE(l_list) :: options
+
     PRIVATE
-    PUBLIC :: get_opt,l_list,opts,chargefile
+    PUBLIC :: get_options,l_list_obj,options_obj
 
     CONTAINS
 !----------------------------------------------------------------------------------------------!
 
-    SUBROUTINE get_opt()
+    SUBROUTINE get_options(opts)
 
+      TYPE(options_obj) :: opts
       LOGICAL :: ertil
       INTEGER :: n,iargc,i,ip,m,it,l
       CHARACTER(LEN=120) :: p
       CHARACTER(LEN=30) :: in
 
-      opts=l_list(.FALSE.,.FALSE.,.FALSE.,.FALSE.,.FALSE.,.FALSE.,.FALSE.,.FALSE.,        &
-     &                 .FALSE.,.FALSE.,.FALSE.,.FALSE.)
+      opts%llist=l_list_obj(.FALSE.,.FALSE.,.FALSE.,.FALSE.,.FALSE.,.FALSE.,.FALSE.,         &
+     &                 .FALSE.,.FALSE.,.FALSE.,.FALSE.,.FALSE.)
 
       n=IARGC()
       IF (MOD(n-1,2) /= 0) THEN
@@ -29,12 +36,12 @@
         STOP
       END IF
       IF (n >= 1) THEN
-        CALL GETARG(1,chargefile)               ! Get the charge density filename
+        CALL GETARG(1,opts%chargefile)               ! Get the charge density filename
 ! Make sure that that charge density file exists here
-        i=LEN_TRIM(ADJUSTL(chargefile))
-        INQUIRE(FILE=chargefile(1:i),EXIST=ertil)
+        i=LEN_TRIM(ADJUSTL(opts%chargefile))
+        INQUIRE(FILE=opts%chargefile(1:i),EXIST=ertil)
         IF (.NOT. ertil) THEN
-          WRITE(*,'(2X,A,A)') chargefile(1:i),' DOES NOT EXIST IN THIS DIRECTORY'
+          WRITE(*,'(2X,A,A)') opts%chargefile(1:i),' DOES NOT EXIST IN THIS DIRECTORY'
           STOP
         END IF 
         DO m=2,n-1,2
@@ -56,44 +63,44 @@
           IF (p(1:ip) == '-v') THEN                                   ! Verbose
           ELSEIF (p(1:ip) == '-p') THEN                               ! Print options
             IF (in(1:it) == 'ALL' .OR. in(1:it) == 'all') THEN
-              opts%lp_all=.true.
+              opts%llist%lp_all=.true.
             ELSEIF (in(1:it) == 'ATOM' .OR. in(1:it) == 'atom') THEN
-              opts%lp_atom=.true.
+              opts%llist%lp_atom=.true.
             ELSEIF (in(1:it) == 'NONE' .OR. in(1:it) == 'none') THEN
-              opts%lp_none=.true.
+              opts%llist%lp_none=.true.
             ELSE
               WRITE(*,'(A,A,A)') ' Unknown option "',in(1:it),'"'
               STOP
             END IF
           ELSEIF (p(1:ip) == '-o') THEN                               ! Output file type
             IF (in(1:it) == 'CUBE' .OR. in(1:it) == 'cube') THEN
-              opts%lo_cube=.true.
+              opts%llist%lo_cube=.true.
             ELSEIF (in(1:it) == 'CHGCAR' .OR. in(1:it) == 'chgcar') THEN
-              opts%lo_chgcar=.true.
+              opts%llist%lo_chgcar=.true.
             ELSE
               WRITE(*,'(A,A,A)') ' Unknown option "',in(1:it),'"'
               STOP
             END IF  
           ELSEIF (p(1:ip) == '-c') THEN                               ! Calculate
             IF (in(1:it) == 'ALL' .OR. in(1:it) == 'all') THEN
-              opts%lc_all=.true.
+              opts%llist%lc_all=.true.
             ELSEIF (in(1:it) == 'BADER' .OR. in(1:it) == 'bader') THEN
-              opts%lc_bader=.true.
+              opts%llist%lc_bader=.true.
             ELSEIF (in(1:it) == 'VORONOI' .OR. in(1:it) == 'voronoi') THEN
-              opts%lc_voronoi=.true.
+              opts%llist%lc_voronoi=.true.
             ELSEIF (in(1:it) == 'DIPOLE' .OR. in(1:it) == 'dipole') THEN
-              opts%lc_dipole=.true.
+              opts%llist%lc_dipole=.true.
             ELSEIF (in(1:it) == 'LDOS' .OR. in(1:it) == 'lDOs') THEN
-              opts%lc_ldos=.true.
+              opts%llist%lc_ldos=.true.
             ELSE
               WRITE(*,'(A,A,A)') ' Unknown option "',in(1:it),'"'
               STOP
             END IF
           ELSEIF (p(1:ip) == '-i') THEN                               ! Output file type
             IF (in(1:it) == 'CUBE' .OR. in(1:it) == 'cube') THEN
-              opts%li_cube=.true.
+              opts%llist%li_cube=.true.
             ELSEIF (in(1:it) == 'CHGCAR' .OR. in(1:it) == 'chgcar') THEN
-              opts%li_chgcar=.true.
+              opts%llist%li_chgcar=.true.
             ELSE
               WRITE(*,'(A,A,A)') ' Unknown option "',in(1:it),'"'
               STOP
@@ -107,8 +114,8 @@
       END IF
  
     RETURN
-    END SUBROUTINE get_opt
+    END SUBROUTINE get_options
 
 !----------------------------------------------------------------------------------------------!
 
-  END module options
+  END module options_mod

@@ -17,27 +17,28 @@
      IMPLICIT NONE
 
 ! variables
-     type(ions_obj), intent(inout) :: ions
-     type(charge_obj), intent(inout) :: chg
+     TYPE(ions_obj) :: ions
+     TYPE(charge_obj) :: chg
+     TYPE(options_obj) :: opts
      LOGICAL :: ertil
 
 ! Get the control variables
-     CALL get_opt()
+     CALL get_options(opts)
 
 ! Make sure that that charge density file exists here
-     i=LEN_TRIM(ADJUSTL(chargefile))
-     INQUIRE(FILE=chargefile(1:i),EXIST=ertil)
+     i=LEN_TRIM(ADJUSTL(opts%chargefile))
+     INQUIRE(FILE=opts%chargefile(1:i),EXIST=ertil)
      IF (.NOT. ertil) THEN
-       WRITE(*,'(2X,A,A)') chargefile(1:i),' DOES NOT EXIST IN THIS DIRECTORY'
+       WRITE(*,'(2X,A,A)') opts%chargefile(1:i),' DOES NOT EXIST IN THIS DIRECTORY'
        STOP
      END IF
 
 ! Call the read routines  .... from io.f90
-     CALL read_charge(ions,chg,chargefile)
+     CALL read_charge(ions,chg,opts%chargefile)
 
 ! Calculate
-     IF (options%lc_bader) CALL bader(ions,chg)
-     IF (options%lc_dipole) CALL multipole()
+     IF (options%llist%lc_bader) CALL bader(ions,chg)
+     IF (options%llist%lc_dipole) CALL multipole()
 ! call mindist()
      IF (options%lc_voronoi) CALL voronoi()  
 

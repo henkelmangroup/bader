@@ -1,14 +1,14 @@
-OBJS = vars.o         \
-       matrix.o       \
-       ions.o         \
-       options.o      \
-       charge.o       \
-       chgcar.o       \
-       cube.o         \
-       io.o           \
-       bader.o        \
-       voronoi.o      \
-       multipole.o    \
+OBJS = vars_mod.o         \
+       matrix_mod.o       \
+       ions_mod.o         \
+       options_mod.o      \
+       charge_mod.o       \
+       chgcar_mod.o       \
+       cube_mod.o         \
+       io_mod.o           \
+       bader_mod.o        \
+       voronoi_mod.o      \
+       multipole_mod.o    \
        main.o
 
 bader: $(OBJS)
