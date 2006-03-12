@@ -11,6 +11,7 @@
 MODULE bader
   USE vars , ONLY : q2
   USE matrix
+  USE charge
   IMPLICIT NONE
 
 ! Public parameters
@@ -39,7 +40,7 @@ MODULE bader
 
     REAL(q2),ALLOCATABLE,DIMENSION(:,:) :: tmp
     REAL(q2),DIMENSION(3,3) :: B
-    REAL(q2),DIMENSION(3) :: v,rngf
+    REAL(q2),DIMENSION(3) :: v,rnf
     INTEGER :: nx,ny,nz,px,py,pz,i,pdim,pnum,known_max,bnum,p,tenths_done
     INTEGER :: cr,count_max,t1,t2
 
@@ -56,13 +57,13 @@ MODULE bader
     max_rho=0
     bnum=0
     tenths_done=0
-    DO nx=1,ngxf
-      IF ((nx*10/ngxf) > tenths_done) THEN
-        tenths_done=(nx*10/ngxf)
+    DO nx=1,nxf
+      IF ((nx*10/nxf) > tenths_done) THEN
+        tenths_done=(nx*10/nxf)
         WRITE(*,'(A,$)') '**'
       END IF
-      DO ny=1,ngyf
-        DO nz=1,ngzf
+      DO ny=1,nyf
+        DO nz=1,nzf
           px=nx
           py=ny
           pz=nz
@@ -96,9 +97,9 @@ MODULE bader
     END DO
     WRITE(*,*)
 
-    DO nx=1,ngxf
-      DO ny=1,ngyf
-        DO nz=1,ngzf
+    DO nx=1,nxf
+      DO ny=1,nyf
+        DO nz=1,nzf
           bader_charge(max_rho(nx,ny,nz),4)=bader_charge(max_rho(nx,ny,nz),4)+      &
   &                    rho(nx,ny,nz)
         END DO
@@ -116,11 +117,11 @@ MODULE bader
 ! Don't have this normalization in MONDO
     bader_charge(:,4)=bader_charge(:,4)/REAL(nrho,q2)
 
-    rngf(1)=REAL(ngxf,q2)
-    rngf(2)=REAL(ngyf,q2)
-    rngf(3)=REAL(ngzf,q2)
+    rnf(1)=REAL(nxf,q2)
+    rnf(2)=REAL(nyf,q2)
+    rnf(3)=REAL(nzf,q2)
     DO i=1,bdim
-      bader_charge(i,1:3)=(bader_charge(i,1:3)-1.0_q2)/rngf
+      bader_charge(i,1:3)=(bader_charge(i,1:3)-1.0_q2)/rnf
     END DO
 
     CALL charge2atom()
@@ -150,7 +151,7 @@ MODULE bader
     path(pnum,1:3)=(/px,py,pz/)
 
     DO
-      IF(max_neighbour(px,py,pz,ngxf,ngyf,ngzf)) THEN
+      IF(max_neighbour(px,py,pz,nxf,nyf,nzf)) THEN
         pnum=pnum+1
         IF (pnum > pdim) THEN
           ALLOCATE(tmp(pdim,3))
@@ -178,8 +179,7 @@ MODULE bader
 !    grid from the point (px,py,pz).  Return a logical indicating if the current
 !    point is a charge density maximum.
 !-----------------------------------------------------------------------------------!
-  FUNCTION max_neighbour(px,py,pz,ngxf,ngyf,ngzf)
-    INTEGER,INTENT(IN) :: ngxf,ngyf,ngzf
+  FUNCTION max_neighbour(px,py,pz)
     INTEGER,INTENT(INOUT) :: px,py,pz
     LOGICAL :: max_neighbour
 
@@ -201,14 +201,14 @@ MODULE bader
     pxm=px
     pym=py
     pzm=pz
-    rho_ctr=rho_value(px,py,pz,ngxf,ngyf,ngzf)
+    rho_ctr=rho_value(px,py,pz,nxf,nyf,nzf)
     DO dx=-1,1
       pxt=px+dx
       DO dy=-1,1
         pyt=py+dy
         DO dz=-1,1
           pzt=pz+dz
-          rho_tmp=rho_value(pxt,pyt,pzt,ngxf,ngyf,ngzf)
+          rho_tmp=rho_value(pxt,pyt,pzt,nxf,nyf,nzf)
           rho_tmp=rho_ctr+w(dx,dy,dz)*(rho_tmp-rho_ctr)
           IF (rho_tmp > rho_max) THEN
             rho_max=rho_tmp
@@ -290,17 +290,17 @@ MODULE bader
     min_dist=0.0_q2
     shift=0.5_q2
     IF (vasp) shift=1.0_q2
-    ringf(1)=1.0_q2/REAL(ngxf,q2)
-    ringf(2)=1.0_q2/REAL(ngyf,q2)
-    ringf(3)=1.0_q2/REAL(ngzf,q2)
+    ringf(1)=1.0_q2/REAL(nxf,q2)
+    ringf(2)=1.0_q2/REAL(nyf,q2)
+    ringf(3)=1.0_q2/REAL(nzf,q2)
     tenths_done=0
-    DO nx=1,ngxf
-      IF ((nx*10/ngxf) > tenths_done) THEN
-        tenths_done=(nx*10/ngxf)
+    DO nx=1,nxf
+      IF ((nx*10/nxf) > tenths_done) THEN
+        tenths_done=(nx*10/nxf)
         WRITE(*,'(A,$)') '**'
       END IF
-      DO ny=1,ngyf
-        DO nz=1,ngzf
+      DO ny=1,nyf
+        DO nz=1,nzf
 
 !         Check to see if this is at the edge of an atomic volume
           atom=bader_atom(max_rho(nx,ny,nz))

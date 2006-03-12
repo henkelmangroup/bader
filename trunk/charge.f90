@@ -11,6 +11,12 @@ MODULE charge
   USE matrix
   IMPLICIT NONE
 
+! Public, allocatable variables
+  REAL(q2),ALLOCATABLE,DIMENSION(:,:,:) :: rho
+
+! Public, static variables
+  INTEGER :: ngxf,ngyf,ngzf
+
   PRIVATE
   PUBLIC :: rho_value,pbc,dpbc_dir,dpbc,pbcq2,verticies
   CONTAINS
@@ -21,9 +27,8 @@ MODULE charge
 !    charge density array without a bunch of if statements at the place the value
 !    is needed.
 !-----------------------------------------------------------------------------------!
-  FUNCTION rho_value(px,py,pz,ngxf,ngyf,ngzf)
+  FUNCTION rho_value(px,py,pz)
     INTEGER,INTENT(IN) :: px,py,pz
-    INTEGER,INTENT(IN) :: ngxf,ngyf,ngzf
     REAL(q2) :: rho_value
 
     INTEGER :: pxt,pyt,pzt
@@ -33,27 +38,27 @@ MODULE charge
     pzt=pz
     DO
       IF(pxt >= 1) EXIT
-      pxt=pxt+ngxf
+      pxt=pxt+nxf
     END DO
     DO
-      IF(pxt <= ngxf) EXIT
-      pxt=pxt-ngxf
+      IF(pxt <= nxf) EXIT
+      pxt=pxt-nxf
     END DO
     DO
       IF(pyt >= 1) EXIT
-      pyt=pyt+ngyf
+      pyt=pyt+nyf
     END DO
     DO
-      IF(pyt <= ngyf) EXIT
-      pyt=pyt-ngyf
+      IF(pyt <= nyf) EXIT
+      pyt=pyt-nyf
     END DO
     DO
       IF(pzt >= 1) EXIT
-      pzt=pzt+ngzf
+      pzt=pzt+nzf
     END DO
     DO
-      IF(pzt <= ngzf) EXIT
-      pzt=pzt-ngzf
+      IF(pzt <= nzf) EXIT
+      pzt=pzt-nzf
     END DO
 
     rho_value=rho(pxt,pyt,pzt)
@@ -62,7 +67,7 @@ MODULE charge
   END FUNCTION rho_value
 
 !-----------------------------------------------------------------------------------!
-! pbc: Wrap the point (px,py,pz) to the boundary conditions [0,ngf].
+! pbc: Wrap the point (px,py,pz) to the boundary conditions [0,nf].
 !-----------------------------------------------------------------------------------!
   SUBROUTINE pbc(px,py,pz)
 
@@ -70,27 +75,27 @@ MODULE charge
 
     DO
       IF(px > 0) EXIT
-      px=px+ngxf
+      px=px+nxf
     END DO
     DO
-      IF(px <= ngxf) EXIT
-      px=px-ngxf
+      IF(px <= nxf) EXIT
+      px=px-nxf
     END DO
     DO
       IF(py > 0) EXIT
       py=py+ngyf
     END DO
     DO
-      IF(py <= ngyf) EXIT
-      py=py-ngyf
+      IF(py <= nyf) EXIT
+      py=py-nyf
     END DO
     DO
       IF(pz > 0) EXIT
-      pz=pz+ngzf
+      pz=pz+nzf
     END DO
     DO
-      IF(pz <= ngzf) EXIT
-      pz=pz-ngzf
+      IF(pz <= nzf) EXIT
+      pz=pz-nzf
     END DO
 
   RETURN
@@ -120,20 +125,20 @@ MODULE charge
 !-----------------------------------------------------------------------------------!
 ! dpbc:  Wrap the vector dR to the boundary conditions [-ngf/2,ngf/2].
 !-----------------------------------------------------------------------------------!
-  SUBROUTINE dpbc(dR,ngf,ngf_2)
-    REAL(q2),INTENT(IN),DIMENSION(3) :: ngf,ngf_2
+  SUBROUTINE dpbc(dR,nf,nf_2)
+    REAL(q2),INTENT(IN),DIMENSION(3) :: nf,nf_2
     REAL(q2),INTENT(INOUT),DIMENSION(3) :: dR
 
     INTEGER :: i
 
     DO i=1,3
       DO
-        IF(dR(i) > -ngf_2(i)) EXIT
-        dR(i)=dR(i)+ngf(i)
+        IF(dR(i) > -nf_2(i)) EXIT
+        dR(i)=dR(i)+nf(i)
       END DO
       DO
-        IF(dR(i) < ngf_2(i)) EXIT
-        dR(i)=dR(i)-ngf(i)
+        IF(dR(i) < nf_2(i)) EXIT
+        dR(i)=dR(i)-nf(i)
       END DO
     END DO
 
@@ -141,35 +146,35 @@ MODULE charge
   END SUBROUTINE dpbc
 
 !-----------------------------------------------------------------------------------!
-! pbc: Wrap the REAL(q2) point (px,py,pz) to the boundary conditions [0,ngf].
+! pbc: Wrap the REAL(q2) point (px,py,pz) to the boundary conditions [0,nf].
 !-----------------------------------------------------------------------------------!
-  SUBROUTINE pbcq2(px,py,pz,rngxf,rngyf,rngzf)
+  SUBROUTINE pbcq2(px,py,pz,rnxf,rnyf,rnzf)
     REAL(q2),INTENT(INOUT) :: px,py,pz
-    REAL(q2),INTENT(IN) :: rngxf,rngyf,rngzf
+    REAL(q2),INTENT(IN) :: rnxf,rnyf,rnzf
 
     DO
       IF(px >= 0.0_q2) EXIT
-      px=px+rngxf
+      px=px+rnxf
     END DO
     DO
-      IF(px < rngxf) EXIT
-      px=px-rngxf
+      IF(px < rnxf) EXIT
+      px=px-rnxf
     END DO
     DO
       IF(py >= 0.0_q2) EXIT
-      py=py+rngyf
+      py=py+rnyf
     END DO
     DO
-      IF(py < rngyf) EXIT
-      py=py-rngyf
+      IF(py < rnyf) EXIT
+      py=py-rnyf
     END DO
     DO
       IF(pz >= 0.0_q2) EXIT
-      pz=pz+rngzf
+      pz=pz+rnzf
     END DO
     DO
-      IF(pz < rngzf) EXIT
-      pz=pz-rngzf
+      IF(pz < rnzf) EXIT
+      pz=pz-rnzf
     END DO
 
   RETURN
