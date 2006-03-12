@@ -243,13 +243,13 @@ MODULE bader
     bader_achg=0.0_q2
     CALL transpose_matrix(lattice,B,3,3)
     DO i=1,bdim
-      dv=bader_charge(i,1:3)-Rdir(1,:)
+      dv=bader_charge(i,1:3)-r_dir(1,:)
       CALL dpbc_dir(dv)
       CALL matrix_vector(B,dv,v,3,3)
       dminsq=DOT_PRODUCT(v,v)
       dindex=1
       DO j=2,ndim
-        dv=bader_charge(i,1:3)-Rdir(j,:)
+        dv=bader_charge(i,1:3)-r_dir(j,:)
         CALL dpbc_dir(dv)
         CALL matrix_vector(B,dv,v,3,3)
         dsq=DOT_PRODUCT(v,v)
@@ -324,7 +324,7 @@ MODULE bader
 !         If this is an edge cell, check if it is the closest to the atom so far
           IF (bader_edge) THEN
             v(1:3)=(/nx,ny,nz/)
-            dv=(v-shift)*ringf-Rdir(atom,:)
+            dv=(v-shift)*ringf-r_dir(atom,:)
             CALL dpbc_dir(dv)
             dist=DOT_PRODUCT(dv,dv)
             IF ((min_dist(atom,4)==0.0_q2) .OR. (dist < min_dist(atom,4))) THEN
