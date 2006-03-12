@@ -6,15 +6,19 @@
 ! Last modified by GH on June 14 2004
 !-----------------------------------------------------------------------------------!
   PROGRAM Charge
-     USE options , ONLY : get_opt,l_list,options
-     USE io
-     USE bader 
-     USE multipole
-     USE voronoi
+     USE options_mod , ONLY : get_opt,l_list,options
+     USE charge_mod
+     USE ions_mod
+     USE io_mod
+     USE bader_mod 
+     USE multipole_mod
+     USE voronoi_mod
 
      IMPLICIT NONE
 
-! Local variables
+! variables
+     type(ions_obj), intent(inout) :: ions
+     type(charge_obj), intent(inout) :: chg
      LOGICAL :: ertil
 
 ! Get the control variables
@@ -29,10 +33,10 @@
      END IF
 
 ! Call the read routines  .... from io.f90
-     CALL read_charge()
+     CALL read_charge(ions,chg,chargefile)
 
 ! Calculate
-     IF (options%lc_bader) CALL bader()
+     IF (options%lc_bader) CALL bader(ions,chg)
      IF (options%lc_dipole) CALL multipole()
 ! call mindist()
      IF (options%lc_voronoi) CALL voronoi()  
@@ -111,14 +115,14 @@
 !        ELSE
 !          CALL Gallvolume()
 !        END IF
-!        CALL write_max_rho()
+!        CALL write_bader_num()
 !      CASE (2)
 !        IF(vasp) THEN
 !          CALL Vatomvolume()
 !        ELSE
 !          CALL Gatomvolume()
 !        END IF
-!        CALL write_max_rho()
+!        CALL write_bader_num()
 !      CASE (3)
 !        IF(vasp) THEN
 !          CALL Vspecvolume()
