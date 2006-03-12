@@ -8,24 +8,19 @@
 
 MODULE chgcar
   USE vars , ONLY : q1,q2
-! ,max_rho,rho,Rdir,bader_charge,voronoi_charge,Rcar,dipole,&
-!  &                  bader_dist,bader_achg,bader_atom,num_atom,nel,lattice,corner,  &
-!  &                  steps,addup,bader_tol,ndim,ngxf,ngyf,ngzf,bdim,nrho,vasp,wdim, &
-!  &                  chargefile,na,natypes,min_dist
   USE matrix , ONLY : transpose_matrix,matrix_vector
   IMPLICIT NONE
 
   PRIVATE
-  PUBLIC :: read_charge,output,write_max_rho,Vallvolume,Vatomvolume,Vspecvolume,    &
-  &         Gallvolume,Gatomvolume,Gspecvolume
+  PUBLIC :: read_charge_chgcar,write_max_rho_chgcar,write_all_bader_chgcar,         &
+  &         write_sel_bader_chgcar,write_all_atom_chgcar,write_sel_atom_chgcar
   CONTAINS
-
 !-----------------------------------------------------------------------------------!
 ! read_charge: Reads the charge density from a file in vasp or Gaussian cube format,
 !    by first reading the header, and then charges
 !-----------------------------------------------------------------------------------!
 
-  SUBROUTINE read_charge()
+  SUBROUTINE read_charge_chgcar()
 
     REAL(q2),DIMENSION(3,3) :: B
     REAL(q2),DIMENSION(3) :: box,v
