@@ -9,8 +9,8 @@ MODULE charge
   USE vars , ONLY : q2
   USE matrix
   USE ions , ONLY : r_car,r_dir,lattice,natypes,na
-  USE chgcar
-  USE cube
+!  USE chgcar
+!  USE cube
   IMPLICIT NONE
 
 ! Public, allocatable variables
@@ -18,12 +18,12 @@ MODULE charge
   INTEGER :: nxf,nyf,nzf,nrho
   LOGICAL :: halfstep
 
-! Public, static variables
-  INTEGER :: rho,nxf,nyf,nzf,nrho,halfstep
+!! Public, static variables
+!  INTEGER :: rho,nxf,nyf,nzf,nrho,halfstep
 
   PRIVATE
-!  PUBLIC :: read_charge,write_all_bader,write_sel_bader,write_all_atom,write_sel_atom
   PUBLIC :: rho_value,pbc,dpbc_dir,dpbc,pbcq2,verticies
+  PUBLIC :: rho,nxf,nyf,nzf,nrho,halfstep
   CONTAINS
 
 !-----------------------------------------------------------------------------------!

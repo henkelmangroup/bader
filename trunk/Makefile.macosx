@@ -2,9 +2,9 @@ OBJS = vars.o         \
        matrix.o       \
        ions.o         \
        options.o      \
+       charge.o       \
        chgcar.o       \
        cube.o         \
-       charge.o       \
        io.o           \
        bader.o        \
        voronoi.o      \

@@ -8,6 +8,9 @@
 
 MODULE chgcar
   USE vars , ONLY : q1,q2
+  USE ions
+  USE options
+  USE charge
   USE matrix , ONLY : transpose_matrix,matrix_vector
   IMPLICIT NONE
 

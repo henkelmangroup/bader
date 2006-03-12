@@ -14,9 +14,10 @@ MODULE ions
   REAL(q2),ALLOCATABLE,DIMENSION(:,:) :: r_car,r_dir
   REAL(q2),DIMENSION(3,3) :: lattice
   INTEGER :: natypes,na
+  INTEGER,ALLOCATABLE,DIMENSION(:) :: num_atom,nel
 
   PRIVATE
-  PUBLIC :: r_car,r_dir,lattice,natypes,na
+  PUBLIC :: r_car,r_dir,lattice,natypes,na,num_atom,nel
 
 !------------------------------------------------------------------------------------!
 

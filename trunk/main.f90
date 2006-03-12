@@ -6,7 +6,7 @@
 ! Last modified by GH on June 14 2004
 !-----------------------------------------------------------------------------------!
   PROGRAM Charge
-     USE options , ONLY : get_opt,l_list,todo_list
+     USE options , ONLY : get_opt,l_list,options
      USE io
      USE bader 
      USE multipole
@@ -32,10 +32,10 @@
      CALL read_charge()
 
 ! Calculate
-     IF (todo_list%lc_bader) CALL bader()
-     IF (todo_list%lc_dipole) CALL multipole()
+     IF (options%lc_bader) CALL bader()
+     IF (options%lc_dipole) CALL multipole()
 ! call mindist()
-     IF (todo_list%lc_voronoi) CALL voronoi()  
+     IF (options%lc_voronoi) CALL voronoi()  
 
 
 ! Write out the volumes !!!!     

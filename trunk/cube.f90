@@ -8,6 +8,8 @@
 
 MODULE cube
   USE matrix , ONLY : transpose_matrix,matrix_vector
+  USE options
+  USE charge
   IMPLICIT NONE
 
   PRIVATE

@@ -8,7 +8,10 @@
 
 MODULE io
   USE vars , ONLY : q1,q2
+  USE options 
   USE matrix , ONLY : transpose_matrix,matrix_vector
+  USE chgcar
+  USE cube
   IMPLICIT NONE
 
   PRIVATE
@@ -34,93 +37,16 @@ MODULE io
 
     CALL system_clock(t1,cr,count_max)
 
-    vasp=.false.
+!    vasp=.false.
 
     OPEN(100,FILE=chargefile,STATUS='old',ACTION='read',BLANK='null',PAD='yes')
-    WRITE(*,'(/,1A11,1A20)') 'OPEN ... ',chargefile
-    READ(100,'(6/,1A7)') text
-    REWIND(100)
-    IF (text == 'Direct') THEN
-      elements=0
-      vasp=.true.
-      WRITE(*,'(2x,A)') 'VASP-STYLE INPUT FILE'
-      READ(100,'(/,1F20.16)') side
-      READ(100,'(3F13.6)') (lattice(i,1:3) , i=1,3)
-      READ(100,'(110I4)') elements
-      READ(100,*)
-      DO i=1,110
-        if(elements(i).eq.0) exit
-      ENDDO
-      natypes=i-1
-      ALLOCATE(num_atom(natypes))
-      DO i=1,natypes
-        num_atom(i)=elements(i)
-      END DO
-      ndim=SUM(elements)
-      lattice=side*lattice
-      CALL transpose_matrix(lattice,B,3,3)
-      wdim=ndim
-!      ALLOCATE(r_car(ndim,3),r_dir(ndim,3),voronoi_charge(wdim,4))
-! Do not allocate voronoi_charge here
-      ALLOCATE(r_car(ndim,3),r_dir(ndim,3))
-      DO i=1,ndim
-!   Shouldn't r_dir be multiplied by side?
-        READ(100,'(3(2X,1F8.6))') r_dir(i,:)
-        CALL matrix_vector(B,r_dir(i,:),v,3,3)
-        r_car(i,:)=v
-      END DO
-      READ(100,*) 
-      READ(100,*) nxf,nyf,nzf
-      ALLOCATE(max_rho(nxf,nyf,nzf))
-    ELSE
-! temp. readin
-      WRITE(*,'(1A27)') 'GAUSSIAN-STYLE INPUT FILE'
-! Skip the first two lines
-      READ(100,*) text
-      READ(100,*) text 
-      READ(100,*) ndim,box
-      corner=box
-      wdim=ndim
-!      ALLOCATE(r_car(ndim,3),r_dir(ndim,3),voronoi_charge(wdim,4),nel(ndim))
-! Do not allocate voronoi_charge here
-      ALLOCATE(r_car(ndim,3),r_dir(ndim,3),nel(ndim))
-      READ(100,*) nxf,steps(1),t,t
-      READ(100,*) nyf,t,steps(2),t
-      READ(100,*) nzf,t,t,steps(3)
-      ALLOCATE(max_rho(nxf,nyf,nzf))
-      IF(nxf<0) nxf=(-1)*nxf  ! This should really indicate the units (Bohr/Ang)
-      box(1)=REAL((nxf),q2)*steps(1)
-      box(2)=REAL((nyf),q2)*steps(2)
-      box(3)=REAL((nzf),q2)*steps(3)
-      lattice=0.0_q2
-      DO i=1,3
-        lattice(i,i)=box(i)
-      END DO
-      vol=volume(lattice)
-      DO i=1,3
-        lattice(i,i)=lattice(i,i)-steps(i)
-      END DO
-      CALL transpose_matrix(lattice,B,3,3)
-      DO i=1,ndim
-        READ(100,*) nel(i),t,r_dir(i,:)
-        r_dir(i,:)=(r_dir(i,:)-corner)/(box-steps)
-        CALL matrix_vector(B,r_dir(i,:),v,3,3)
-        r_car(i,:)=v
-      END DO
-    END IF
-    nrho=nxf*nyf*nzf
-    ALLOCATE(rho(nxf,nyf,nzf))
-    IF (vasp) THEN
-      READ(100,*) (((rho(nx,ny,nz),nx=1,nxf),ny=1,nyf),nz=1,nzf)
-    ELSE
-      READ(100,*) (((rho(nx,ny,nz),nz=1,nzf),ny=1,nyf),nx=1,nxf)
-      rho=rho*vol 
-    END IF
-    WRITE(*,'(1A12,1I5,1A2,1I4,1A2,1I4)') 'FFT-grid: ',nxf,'x',nyf,'x',nzf
-    WRITE(*,'(2x,A,1A20)') 'CLOSE ... ', chargefile
-    CLOSE(100)
-    CALL system_clock(t2,cr,count_max)
-    WRITE(*,'(1A12,1F6.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
+
+!    WRITE(*,'(/,1A11,1A20)') 'OPEN ... ',chargefile
+!    READ(100,'(6/,1A7)') text
+!    REWIND(100)
+
+    IF (opts%li_chgcar) CALL read_charge_chgcar()
+    IF (opts%li_cube) CALL read_charge_cube()   
 
   RETURN
   END SUBROUTINE read_charge
