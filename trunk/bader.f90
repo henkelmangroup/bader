@@ -29,7 +29,7 @@ MODULE bader
 
   PRIVATE
   PUBLIC :: max_rho,bader_charge,min_dist,bader_dist,bader_achg,path,bader_atom
-  PUBLIC :: bader,mindist
+  PUBLIC :: bader,mindist,output
 
   CONTAINS
 !-----------------------------------------------------------------------------------!
@@ -353,5 +353,107 @@ MODULE bader
   END SUBROUTINE mindist
 
 !-----------------------------------------------------------------------------------!
+
+!
+!------------------------------------------------------------------------------------!
+! output: Write out a summary of the bader analysis.
+!         AtomVolumes.dat: Stores the 'significant' Bader volumes associated with
+!                          each atom.
+!         ACF.dat        : Stores the main output to the screen.
+!         BCF.dat        : Stores 'significant' Bader volumes, their coordinates and
+!                          charge, atom associated and distance to it.
+!------------------------------------------------------------------------------------!
+
+  SUBROUTINE output()
+
+    REAL(q2) :: sum_achg
+    INTEGER :: i,bdimsig,mib,mab,cc,j,nmax
+    INTEGER,DIMENSION(bdim) :: rck
+
+    mab=MAXVAL(bader_atom)
+    mib=MINVAL(bader_atom)
+    OPEN(100,FILE='AtomVolumes.dat',STATUS='replace',ACTION='write')
+    WRITE(100,'(A)') '   Atom                     Volume(s)   '
+    WRITE(100,'(A,A)') '-----------------------------------------------------------',&
+  &                    '-------------'
+
+    DO i=mib,mab
+      cc=0
+      rck=0
+      nmax=0
+      DO j=1,bdim
+        IF (bader_charge(j,4) > bader_tol) THEN
+          nmax=nmax+1
+          IF(bader_atom(j) == i) THEN
+            cc=cc+1
+            rck(cc)=nmax
+          END IF
+        END IF
+      END DO
+      IF (cc == 0) CYCLE
+      WRITE(100,'(2X,1I4,2X,A,2X,10000I5)') i,' ... ',rck(1:cc)
+    END DO
+    CLOSE(100)
+
+    OPEN(100,FILE='ACF.dat',STATUS='replace',ACTION='write')
+    WRITE(*,555) '#','X','Y','Z','VORONOI','BADER','%','MIN DIST'
+    WRITE(100,555) '#','X','Y','Z','VORONOI','BADER','%','MIN DIST'
+    555 FORMAT(/,4X,1A,9X,1A1,2(11X,1A1),8X,1A7,5X,1A5,9X,1A1,6X,1A10)
+    WRITE(*,666) '----------------------------------------------------------------', &
+    WRITE(*,666) '----------------------------------------------------------------', &
+  &              '------------------------------'
+    WRITE(100,667) '---------------------------------------------------------------',&
+  &              '------------------------------'
+    666 FORMAT(1A66,1A26)
+    667 FORMAT(1A65,1A27)
+
+    sum_achg=SUM(bader_achg)
+    DO i=1,wdim
+      WRITE(*,'(1I5,7F12.4)') i,voronoi_charge(i,1:4),bader_achg(i),                 &
+  &                           100.*bader_achg(i)/sum_achg,min_dist(i,4)
+      WRITE(100,'(1I5,7F12.4)') i,voronoi_charge(i,1:4),bader_achg(i),               &
+  &                           100.*bader_achg(i)/sum_achg,min_dist(i,4)
+    END DO
+    CLOSE(100)
+
+    bdimsig=0
+    OPEN(200,FILE='BCF.dat',STATUS='replace',ACTION='write')
+
+    WRITE(200,556) '#','X','Y','Z','CHARGE','NEAREST ATOM','DISTANCE'
+    556 FORMAT(/,4X,1A1,13X,1A1,2(16X,1A1),13X,1A7,2X,1A14,2X,1A10)
+
+    WRITE(200,668) '---------------------------------------------------------------',&
+  &                '----------------------------------------'
+    668 FORMAT(1A65,1A37)
+
+    DO i=1,bdim
+        IF(bader_charge(i,4) > bader_tol) THEN
+           bdimsig=bdimsig+1
+           WRITE(200,777) bdimsig,bader_charge(i,:),bader_atom(i),bader_dist(i)
+           777 FORMAT(1I5,4(5X,F12.4),5X,1I5,5X,1F12.4)
+        END IF
+    END DO
+    CLOSE(200)
+
+    OPEN(300,FILE='dipole.dat',STATUS='replace',ACTION='write')
+    WRITE(300,557) '#','X','Y','Z','MAGNITUDE'
+    557 FORMAT(/,4X,1A1,10X,1A1,2(15X,1A1),10X,1A10)
+    WRITE(300,*) '--------------------------------------------------------------------'
+    DO i=1,ndim
+      WRITE(300,888) i,dipole(i,:)*4.803_q2,                                         &
+  &                  sqrt(DOT_PRODUCT(dipole(i,:),dipole(i,:)))*4.803_q2
+!      888 FORMAT(1I5,4ES16.5)
+      888 FORMAT(1I5,4F16.6)
+    END DO
+    CLOSE(300)
+
+    WRITE(*,'(/,2x,A,6X,1I8)')     'NUMBER OF BADER MAXIMA FOUND: ',bdim
+    WRITE(*,'(2x,A,6X,1I8)')       '    SIGNIFICANT MAXIMA FOUND: ',bdimsig
+    WRITE(*,'(2x,A,2X,1F12.5,/)')  '         NUMBER OF ELECTRONS: ',                 &
+  &                                          SUM(bader_charge(1:bdim,4))
+
+  RETURN
+  END SUBROUTINE output
+
 
 END MODULE bader
