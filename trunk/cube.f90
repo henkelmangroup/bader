@@ -11,16 +11,17 @@ MODULE cube
   IMPLICIT NONE
 
   PRIVATE
-  PUBLIC :: read_cube, write_one_bader_cube, write_all_bader_cube
+  PUBLIC :: read_charge_cube, write_bader_cube, write_all_bader_cube,
+  &  write_all_atom_cube,write_sel_bader_cube
 
   CONTAINS
 
 !-----------------------------------------------------------------------------------!
-! read_charge: Reads the charge density from a file in vasp or Gaussian cube format,
-!    by first reading the header, and then charges
+! read_charge_cube: Reads the charge density from a file in vasp or Gaussian cube 
+!   format, by first reading the header, and then charges
 !-----------------------------------------------------------------------------------!
 
-  SUBROUTINE read_cube()
+  SUBROUTINE read_charge_cube()
 
     REAL(q2),DIMENSION(3,3) :: B
     REAL(q2),DIMENSION(3) :: box,v
@@ -58,18 +59,18 @@ MODULE cube
       lattice=side*lattice
       CALL transpose_matrix(lattice,B,3,3)
       wdim=ndim
-!      ALLOCATE(Rcar(ndim,3),Rdir(ndim,3),voronoi_charge(wdim,4))
+!      ALLOCATE(r_car(ndim,3),r_dir(ndim,3),voronoi_charge(wdim,4))
 ! Do not allocate voronoi_charge here
-      ALLOCATE(Rcar(ndim,3),Rdir(ndim,3))
+      ALLOCATE(r_car(ndim,3),r_dir(ndim,3))
       DO i=1,ndim
-!   Shouldn't Rdir be multiplied by side?
-        READ(100,'(3(2X,1F8.6))') Rdir(i,:)
-        CALL matrix_vector(B,Rdir(i,:),v,3,3)
-        Rcar(i,:)=v
+!   Shouldn't r_dir be multiplied by side?
+        READ(100,'(3(2X,1F8.6))') r_dir(i,:)
+        CALL matrix_vector(B,r_dir(i,:),v,3,3)
+        r_car(i,:)=v
       END DO
       READ(100,*) 
-      READ(100,*) ngxf,ngyf,ngzf
-      ALLOCATE(max_rho(ngxf,ngyf,ngzf))
+      READ(100,*) nxf,nyf,nzf
+      ALLOCATE(max_rho(nxf,nyf,nzf))
     ELSE
 ! temp. readin
       WRITE(*,'(1A27)') 'GAUSSIAN-STYLE INPUT FILE'
@@ -79,17 +80,17 @@ MODULE cube
       READ(100,*) ndim,box
       corner=box
       wdim=ndim
-!      ALLOCATE(Rcar(ndim,3),Rdir(ndim,3),voronoi_charge(wdim,4),nel(ndim))
+!      ALLOCATE(r_car(ndim,3),r_dir(ndim,3),voronoi_charge(wdim,4),nel(ndim))
 ! Do not allocate voronoi_charge here
-      ALLOCATE(Rcar(ndim,3),Rdir(ndim,3),nel(ndim))
-      READ(100,*) ngxf,steps(1),t,t
-      READ(100,*) ngyf,t,steps(2),t
-      READ(100,*) ngzf,t,t,steps(3)
-      ALLOCATE(max_rho(ngxf,ngyf,ngzf))
-      IF(ngxf<0) ngxf=(-1)*ngxf  ! This should really indicate the units (Bohr/Ang)
-      box(1)=REAL((ngxf),q2)*steps(1)
-      box(2)=REAL((ngyf),q2)*steps(2)
-      box(3)=REAL((ngzf),q2)*steps(3)
+      ALLOCATE(r_car(ndim,3),r_dir(ndim,3),nel(ndim))
+      READ(100,*) nxf,steps(1),t,t
+      READ(100,*) nyf,t,steps(2),t
+      READ(100,*) nzf,t,t,steps(3)
+      ALLOCATE(max_rho(nxf,nyf,nzf))
+      IF(nxf<0) nxf=(-1)*nxf  ! This should really indicate the units (Bohr/Ang)
+      box(1)=REAL((nxf),q2)*steps(1)
+      box(2)=REAL((nyf),q2)*steps(2)
+      box(3)=REAL((nzf),q2)*steps(3)
       lattice=0.0_q2
       DO i=1,3
         lattice(i,i)=box(i)
@@ -100,29 +101,48 @@ MODULE cube
       END DO
       CALL transpose_matrix(lattice,B,3,3)
       DO i=1,ndim
-        READ(100,*) nel(i),t,Rdir(i,:)
-        Rdir(i,:)=(Rdir(i,:)-corner)/(box-steps)
-        CALL matrix_vector(B,Rdir(i,:),v,3,3)
-        Rcar(i,:)=v
+        READ(100,*) nel(i),t,r_dir(i,:)
+        r_dir(i,:)=(r_dir(i,:)-corner)/(box-steps)
+        CALL matrix_vector(B,r_dir(i,:),v,3,3)
+        r_car(i,:)=v
       END DO
     END IF
-    nrho=ngxf*ngyf*ngzf
-    ALLOCATE(rho(ngxf,ngyf,ngzf))
+    nrho=nxf*nyf*nzf
+    ALLOCATE(rho(nxf,nyf,nzf))
     IF (vasp) THEN
-      READ(100,*) (((rho(nx,ny,nz),nx=1,ngxf),ny=1,ngyf),nz=1,ngzf)
+      READ(100,*) (((rho(nx,ny,nz),nx=1,nxf),ny=1,nyf),nz=1,nzf)
     ELSE
-      READ(100,*) (((rho(nx,ny,nz),nz=1,ngzf),ny=1,ngyf),nx=1,ngxf)
+      READ(100,*) (((rho(nx,ny,nz),nz=1,nzf),ny=1,nyf),nx=1,nxf)
       rho=rho*vol 
     END IF
-    WRITE(*,'(1A12,1I5,1A2,1I4,1A2,1I4)') 'FFT-grid: ',ngxf,'x',ngyf,'x',ngzf
+    WRITE(*,'(1A12,1I5,1A2,1I4,1A2,1I4)') 'FFT-grid: ',nxf,'x',nyf,'x',nzf
     WRITE(*,'(2x,A,1A20)') 'CLOSE ... ', chargefile
     CLOSE(100)
     CALL system_clock(t2,cr,count_max)
     WRITE(*,'(1A12,1F6.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
 
   RETURN
-  END SUBROUTINE read_cube
+  END SUBROUTINE read_charge_cube
 
+!------------------------------------------------------------------------------------!
+! write_badernum_cube: Write out a CHGCAR type file with each entry containing an 
+!   integer indicating the associated Bader maximum.
+! GH: do we need this?
+!------------------------------------------------------------------------------------!
+! 
+  SUBROUTINE write_badernum_cube()
+!
+!    INTEGER nx,ny,nz
+!    
+!    OPEN(100,FILE='bader_rho.dat',STATUS='replace',ACTION='write')
+!    WRITE(*,'(2x,A)') 'WRITING BADER VOLUMES TO BADER_RHO.DAT'
+!    WRITE(100,'(5E18.11)')
+!  &              (((REAL(max_rho(nx,ny,nz),q2),nx=1,nxf),ny=1,nyf),nz=1,nzf)
+!    CLOSE(100)
+!    
+  RETURN
+  END SUBROUTINE write_badernum_cube
+!
 !------------------------------------------------------------------------------------!
 ! Gallvolume: Write out a Gaussian cube type file for each of the Bader volumes 
 !             found.
@@ -134,14 +154,14 @@ MODULE cube
     CHARACTER(15) :: AtomFileName,AtomNumText
     INTEGER,DIMENSION(3) :: nxyz
  
-    REAL(q1),dimension(ngxf,ngyf,ngzf) :: rho_tmp
+    REAL(q1),dimension(nxf,nyf,nzf) :: rho_tmp
     REAL(q2),DIMENSION(3) :: box
     REAL(q2) :: vol
 
 ! GH: I added this so that we could write the actual charge
-    box(1)=REAL((ngxf),q2)*steps(1)    
-    box(2)=REAL((ngyf),q2)*steps(2)
-    box(3)=REAL((ngzf),q2)*steps(3)
+    box(1)=REAL((nxf),q2)*steps(1)    
+    box(2)=REAL((nyf),q2)*steps(2)
+    box(3)=REAL((nzf),q2)*steps(3)
     lattice=0.0_q2
     DO i=1,3
       lattice(i,i)=box(i)
@@ -151,7 +171,7 @@ MODULE cube
     WRITE(*,'(/,2x,A)') 'WRITING BADER VOLUMES'
     WRITE(*,'(2x,A)')   '               0  10  25  50  75  100'
     WRITE(*,'(2x,A,$)') 'PERCENT DONE:  **'
-    nxyz=(/ngxf,ngyf,ngzf/)
+    nxyz=(/nxf,nyf,nzf/)
             AtomNum=0
     tenths_done=0
     DO BaderCur=1,bdim
@@ -179,17 +199,17 @@ MODULE cube
         WRITE(100,*) 'Gaussian cube file'
         WRITE(100,*) 'Bader volume of Atom',AtomNum
         WRITE(100,'(1I5,3(3X,1F9.6))') ndim,corner
-        WRITE(100,'(1I5,3(3X,1F9.6))') ngxf,steps(1),0.000000,0.000000
-        WRITE(100,'(1I5,3(3X,1F9.6))') ngyf,0.000000,steps(2),0.000000
-        WRITE(100,'(1I5,3(3X,1F9.6))') ngzf,0.000000,0.000000,steps(3)
+        WRITE(100,'(1I5,3(3X,1F9.6))') nxf,steps(1),0.000000,0.000000
+        WRITE(100,'(1I5,3(3X,1F9.6))') nyf,0.000000,steps(2),0.000000
+        WRITE(100,'(1I5,3(3X,1F9.6))') nzf,0.000000,0.000000,steps(3)
         DO i=1,ndim
           WRITE(100,'(1I5,3X,1F9.6,3(3X,1F9.6))')                                    & 
-  &                  nel(i),REAL(nel(i),q2),steps*REAL((nxyz-1),q2)*Rdir(i,:)+corner
+  &                  nel(i),REAL(nel(i),q2),steps*REAL((nxyz-1),q2)*r_dir(i,:)+corner
         END DO
         rho_tmp=0.0_q1
         WHERE(max_rho == BaderCur) rho_tmp=rho/vol
 ! Why do I need to interchange nz and nx in the loops?
-        WRITE(100,'(6E13.5)') (((rho_tmp(nx,ny,nz),nz=1,ngzf),ny=1,ngyf),nx=1,ngxf)
+        WRITE(100,'(6E13.5)') (((rho_tmp(nx,ny,nz),nz=1,nzf),ny=1,nyf),nx=1,nxf)
         CLOSE(100)
       END IF
     END DO
@@ -213,12 +233,12 @@ MODULE cube
     INTEGER,DIMENSION(bdim) :: rck    
     REAL(q2),DIMENSION(3) :: box
     REAL(q2) :: vol
-    REAL(q1),dimension(ngxf,ngyf,ngzf) :: rho_tmp
+    REAL(q1),dimension(nxf,nyf,nzf) :: rho_tmp
         
 ! GH: I added this so that we could write the actual charge
-    box(1)=REAL((ngxf),q2)*steps(1)
-    box(2)=REAL((ngyf),q2)*steps(2)
-    box(3)=REAL((ngzf),q2)*steps(3)
+    box(1)=REAL((nxf),q2)*steps(1)
+    box(2)=REAL((nyf),q2)*steps(2)
+    box(3)=REAL((nzf),q2)*steps(3)
     lattice=0.0_q2
     DO i=1,3   
       lattice(i,i)=box(i)
@@ -228,7 +248,7 @@ MODULE cube
     WRITE(*,'(/,2x,A)') 'WRITING BADER VOLUMES '
     WRITE(*,'(2x,A)')   '               0  10  25  50  75  100'
     WRITE(*,'(2x,A,$)') 'PERCENT DONE:  **'        
-    nxyz=(/ngxf,ngyf,ngzf/)        
+    nxyz=(/nxf,nyf,nzf/)        
     tenths_done=0
     mab=MAXVAL(bader_atom)
     mib=MINVAL(bader_atom)
@@ -263,19 +283,19 @@ MODULE cube
       WRITE(100,*) 'Gaussian cube file'
       WRITE(100,*) 'Bader volume number',ik
       WRITE(100,'(1I5,3(3X,1F9.6))') ndim,corner
-      WRITE(100,'(1I5,3(3X,1F9.6))') ngxf,steps(1),0.000000,0.000000
-      WRITE(100,'(1I5,3(3X,1F9.6))') ngyf,0.000000,steps(2),0.000000
-      WRITE(100,'(1I5,3(3X,1F9.6))') ngzf,0.000000,0.000000,steps(3)
+      WRITE(100,'(1I5,3(3X,1F9.6))') nxf,steps(1),0.000000,0.000000
+      WRITE(100,'(1I5,3(3X,1F9.6))') nyf,0.000000,steps(2),0.000000
+      WRITE(100,'(1I5,3(3X,1F9.6))') nzf,0.000000,0.000000,steps(3)
       DO i=1,ndim
         WRITE(100,'(1I5,3X,1F9.6,3(3X,1F9.6))')                                    &
-&             nel(i),REAL(nel(i),q2),steps*REAL((nxyz-1),q2)*Rdir(i,:)+corner
+&             nel(i),REAL(nel(i),q2),steps*REAL((nxyz-1),q2)*r_dir(i,:)+corner
       END DO  
       rho_tmp=0.0_q1
       DO b=1,cc
         WHERE(max_rho == rck(b)) rho_tmp=rho/vol  
       END DO
 ! Why do I need to interchange nz and nx in the loops?
-      WRITE(100,'(6E13.5)') (((rho_tmp(nx,ny,nz),nz=1,ngzf),ny=1,ngyf),nx=1,ngxf)
+      WRITE(100,'(6E13.5)') (((rho_tmp(nx,ny,nz),nz=1,nzf),ny=1,nyf),nx=1,nxf)
       CLOSE(100)
     END DO
     CALL system_clock(t2,cr,count_max)
@@ -299,7 +319,7 @@ MODULE cube
     REAL(q2) :: vol
     INTEGER,DIMENSION(bdim,2) :: volsig
     INTEGER,DIMENSION(na) :: vols
-    REAL(q1),DIMENSION(ngxf,ngyf,ngzf) :: rho_tmp
+    REAL(q1),DIMENSION(nxf,nyf,nzf) :: rho_tmp
 
     CALL system_clock(t1,cr,count_max)
 ! Correlate the number for each 'significant' bader volumeto its real number 
@@ -315,35 +335,35 @@ MODULE cube
     vols=volsig(addup,2)
 
 ! GH: I added this so that we could write the actual charge
-    box(1)=REAL((ngxf),q2)*steps(1)    
-    box(2)=REAL((ngyf),q2)*steps(2)
-    box(3)=REAL((ngzf),q2)*steps(3)
+    box(1)=REAL((nxf),q2)*steps(1)    
+    box(2)=REAL((nyf),q2)*steps(2)
+    box(3)=REAL((nzf),q2)*steps(3)
     lattice=0.0_q2
     DO i=1,3
       lattice(i,i)=box(i)
     END DO
     vol=volume(lattice)
     WRITE(*,'(/,2x,A)') 'WRITING SPECIFIED BADER VOLUMES '
-    nxyz=(/ngxf,ngyf,ngzf/)
+    nxyz=(/nxf,nyf,nzf/)
 !    tenths_done=0
     volfilename='Bvsm.dat'
     OPEN(100,FILE=volfilename)
     WRITE(100,*) 'Gaussian cube file'
     WRITE(100,*) 'Bader volume number',1
     WRITE(100,'(1I5,3(3X,1F9.6))') ndim,corner
-    WRITE(100,'(1I5,3(3X,1F9.6))') ngxf,steps(1),0.000000,0.000000
-    WRITE(100,'(1I5,3(3X,1F9.6))') ngyf,0.000000,steps(2),0.000000
-    WRITE(100,'(1I5,3(3X,1F9.6))') ngzf,0.000000,0.000000,steps(3)
+    WRITE(100,'(1I5,3(3X,1F9.6))') nxf,steps(1),0.000000,0.000000
+    WRITE(100,'(1I5,3(3X,1F9.6))') nyf,0.000000,steps(2),0.000000
+    WRITE(100,'(1I5,3(3X,1F9.6))') nzf,0.000000,0.000000,steps(3)
     DO i=1,ndim
         WRITE(100,'(1I5,3X,1F9.6,3(3X,1F9.6))')                                    &
-&             nel(i),REAL(nel(i),q2),steps*REAL((nxyz-1),q2)*Rdir(i,:)+corner
+&             nel(i),REAL(nel(i),q2),steps*REAL((nxyz-1),q2)*r_dir(i,:)+corner
     END DO
     rho_tmp=0.0_q2
     DO b=1,na
       WHERE(max_rho == vols(b)) rho_tmp=rho/vol
     END DO
 ! Why do I need to interchange nz and nx in the loops?
-    WRITE(100,'(6E13.5)') (((rho_tmp(nx,ny,nz),nz=1,ngzf),ny=1,ngyf),nx=1,ngxf)
+    WRITE(100,'(6E13.5)') (((rho_tmp(nx,ny,nz),nz=1,nzf),ny=1,nyf),nx=1,nxf)
     CLOSE(100)
     CALL system_clock(t2,cr,count_max)
     WRITE(*,'(1A12,1F6.2,1A8,/)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
