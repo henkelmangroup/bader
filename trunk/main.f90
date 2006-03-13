@@ -40,6 +40,10 @@
 ! Call the read routines  .... from io.f90
      CALL read_charge(ions,chg,opts,opts%chargefile)
 
+! Choose bader if no other calculation method specified
+     IF (.NOT.(opts%llist%lc_bader.OR.opts%llist%lc_voronoi)) THEN
+       opts%llist%lc_bader=.TRUE.
+     ENDIF
 ! Calculate
      IF (opts%llist%lc_bader) CALL bader(bdr,ions,chg)
 !     IF (opts%llist%lc_dipole) CALL multipole()

@@ -78,6 +78,7 @@ MODULE bader_mod
     bdr%volnum=0
     bdr%nvols=0  ! True number of Bader volumes
     tenths_done=0
+    write(*,*) 'Before loop'
     DO nx=1,nxf
       IF ((nx*10/nxf) > tenths_done) THEN
         tenths_done=(nx*10/nxf)
@@ -89,6 +90,7 @@ MODULE bader_mod
           py=ny
           pz=nz
           IF(bdr%volnum(px,py,pz) == 0) THEN
+            write(*,*) 'Before maximize'
             CALL maximize(bdr,chg,px,py,pz,pdim,pnum)
 !            CALL pbc(px,py,pz,nxf,nyf,nzf)  ! shouldn't need this
             known_max=bdr%volnum(px,py,pz)
