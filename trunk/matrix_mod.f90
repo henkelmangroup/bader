@@ -6,15 +6,11 @@
 ! Last modified by GH on Feb 14 2003
 !-----------------------------------------------------------------------------------!
 MODULE matrix_mod
-  USE vars_mod , ONLY : q2
+  USE kind_mod , ONLY : q2
   IMPLICIT NONE
 
   PRIVATE
   PUBLIC :: matrix_multip,matrix_vector,transpose_matrix,volume
-!  PUBLIC :: q1,q2,pi,matrix_multip,matrix_vector,transpose_matrix
-!  INTEGER,PARAMETER :: q1=SELECTED_REAL_KIND(6,30)         ! single precision
-!  INTEGER,PARAMETER :: q2=SELECTED_REAL_KIND(15,305)       ! double precision
-!  REAL(q2),PARAMETER :: pi=3.141592653589793238462643_q2
 
   CONTAINS
 !-----------------------------------------------------------------------------------!
@@ -27,11 +23,6 @@ MODULE matrix_mod
     REAL(q2),INTENT(OUT),DIMENSION(l,n) :: B
 
     INTEGER :: j,k
-
-!    WRITE(*,*) A
-!    WRITE(*,*) C
-!    WRITE(*,*) B
-!    pause
 
     DO j=1,n
       B(:,j)=0.0_q2

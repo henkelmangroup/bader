@@ -8,9 +8,9 @@
 
 MODULE chgcar_mod
   USE kind_mod , ONLY : q1,q2
+  USE matrix_mod , ONLY : transpose_matrix,matrix_vector
   USE ions_mod 
   USE charge_mod 
-  USE matrix_mod , ONLY : transpose_matrix,matrix_vector
   IMPLICIT NONE
 
   PRIVATE
@@ -25,19 +25,16 @@ MODULE chgcar_mod
 
     TYPE(ions_obj) :: ions
     TYPE(charge_obj) :: chg
-    CHARACTER(64) :: chargefile
+    CHARACTER(LEN=64) :: chargefile
 
     REAL(q2),DIMENSION(3,3) :: B
-    REAL(q2),DIMENSION(3) :: box,v
-    REAL(q2) :: side,vol,t
-    INTEGER :: i
-    INTEGER,DIMENSION(110) :: nionlist
-    CHARACTER(LEN=7) :: text
-    INTEGER :: nx,ny,nz
+    REAL(q2),DIMENSION(3) :: v
+    REAL(q2) :: side,t
+    INTEGER :: i,nx,ny,nz
+    INTEGER,DIMENSION(110) :: nionlist=0
 
     OPEN(100,FILE=chargefile,STATUS='old',ACTION='read',BLANK='null',PAD='yes')
     WRITE(*,'(/,1A11,1A20)') 'OPEN ... ',chargefile
-    elements=0
     WRITE(*,'(2x,A)') 'VASP-STYLE INPUT FILE'
     READ(100,'(/,1F20.16)') side
     READ(100,'(3F13.6)') (ions%lattice(i,1:3) , i=1,3)
@@ -46,15 +43,15 @@ MODULE chgcar_mod
     DO i=1,110
      if(nionlist(i).eq.0) exit
     ENDDO
-    ions%natypes=i-1
-    ALLOCATE(ions%num_ions(ions%niontypes))
+    ions%niontypes=i-1
+    ALLOCATE(ions%num_ion(ions%niontypes))
     DO i=1,ions%niontypes
-      ions%num_ions(i)=nionlist(i)
+      ions%num_ion(i)=nionlist(i)
     END DO
     ions%nions=SUM(nionlist)
     ions%lattice=side*ions%lattice
     CALL transpose_matrix(ions%lattice,B,3,3)
-    wdim=ions%nions
+    ions%corner=(/0.0,0.0,0.0/)
     ALLOCATE(ions%r_car(ions%nions,3),ions%r_dir(ions%nions,3))
     DO i=1,ions%nions
 !   Shouldn't r_dir be multiplied by side?
@@ -64,6 +61,10 @@ MODULE chgcar_mod
     END DO
     READ(100,*) 
     READ(100,*) chg%nxf,chg%nyf,chg%nzf
+    chg%nrho=chg%nxf*chg%nyf*chg%nzf
+    ALLOCATE(chg%rho(chg%nxf,chg%nyf,chg%nzf))
+    READ(100,*) (((chg%rho(nx,ny,nz),nx=1,chg%nxf),ny=1,chg%nyf),nz=1,chg%nzf)
+    chg%halfstep=.FALSE.
     WRITE(*,'(1A12,1I5,1A2,1I4,1A2,1I4)') 'FFT-grid: ',chg%nxf,'x',chg%nyf,'x',chg%nzf
     WRITE(*,'(2x,A,1A20)') 'CLOSE ... ', chargefile
     CLOSE(100)
@@ -79,18 +80,20 @@ MODULE chgcar_mod
     
     TYPE(ions_obj) :: ions
     TYPE(charge_obj) :: chg
-    CHARACTER(64) :: chargefile
+    CHARACTER(120) :: chargefile
 
-    OPEN(100,FILE=chargefile)
+    INTEGER :: i,nx,ny,nz
+
+    OPEN(100,FILE=chargefile(1:LEN_TRIM(ADJUSTL(chargefile))),STATUS='replace')
     WRITE(100,*)'Bader charge density file'
     WRITE(100,*)'1.00'
     WRITE(100,'(3F13.6)') (ions%lattice(i,1:3) , i=1,3)
-    WRITE(100,'(110I4)') ions%num_ions
+    WRITE(100,'(110I4)') ions%num_ion
     WRITE(100,*)'DIRECT'
     WRITE(100,'(3(2X,1F8.6))') (ions%r_dir(i,:) , i=1,ions%nions)
     WRITE(100,*)
     WRITE(100,*) chg%nxf,chg%nyf,chg%nzf
-    rho_tmp=0.0_q1
+!    rho_tmp=0.0_q1
 !    WHERE(bader_num == BaderCur) rho_tmp=rho
     WRITE(100,'(5E18.11)') (((chg%rho(nx,ny,nz),nx=1,chg%nxf),ny=1,chg%nyf),nz=1,chg%nzf)
     CLOSE(100)

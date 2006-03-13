@@ -7,9 +7,10 @@
 !-----------------------------------------------------------------------------------!
 
 MODULE io_mod
-  USE vars_mod , ONLY : q1,q2
-  USE options_mod 
+  USE kind_mod , ONLY : q1,q2
   USE matrix_mod , ONLY : transpose_matrix,matrix_vector
+  USE options_mod 
+  USE ions_mod
   USE charge_mod
   USE chgcar_mod
   USE cube_mod
@@ -25,21 +26,16 @@ MODULE io_mod
 !    by first reading the header, and then charges
 !-----------------------------------------------------------------------------------!
 
-  SUBROUTINE read_charge(ions,chg,chargefile)
+  SUBROUTINE read_charge(ions,chg,opts,chargefile)
 
-    type(ions_obj) :: ions
-    type(charge_obj) :: chg
-    CHARACTER(15) :: chargefile
+    TYPE(ions_obj) :: ions
+    TYPE(charge_obj) :: chg
+    TYPE(options_obj) :: opts
+    CHARACTER(120) :: chargefile
 
-    REAL(q2),DIMENSION(3,3) :: B
-    REAL(q2),DIMENSION(3) :: box,v
-    REAL(q2) :: side,vol,t
-    INTEGER :: i
-    INTEGER,DIMENSION(110) :: elements
-    CHARACTER(LEN=7) :: text
-    INTEGER :: cr,count_max,t1,t2,nx,ny,nz
+!    INTEGER :: cr,count_max,t1,t2,nx,ny,nz
          
-    CALL system_clock(t1,cr,count_max)
+!    CALL system_clock(t1,cr,count_max)
         
 !    vasp=.false.
         
@@ -49,8 +45,8 @@ MODULE io_mod
 !    READ(100,'(6/,1A7)') text 
 !    REWIND(100)
        
-    IF (opts%li_chgcar) CALL read_charge_chgcar(ions,chg,chargefile)
-    IF (opts%li_cube) CALL read_charge_cube(ions,chg,chargefile)
+    IF (opts%llist%li_chgcar) CALL read_charge_chgcar(ions,chg,chargefile)
+    IF (opts%llist%li_cube) CALL read_charge_cube(ions,chg,chargefile)
     
   RETURN
   END SUBROUTINE read_charge
@@ -60,21 +56,17 @@ MODULE io_mod
 !    by first reading the header, and then charges
 !-----------------------------------------------------------------------------------!
 
-  SUBROUTINE write_charge(ions,chg,chargefile)
+  SUBROUTINE write_charge(ions,chg,opts,chargefile)
 
     type(ions_obj) :: ions
     type(charge_obj) :: chg
-    CHARACTER(15) :: chargefile
+    TYPE(options_obj) :: opts
+    CHARACTER(120) :: chargefile
 
-    REAL(q2),DIMENSION(3,3) :: B
-    REAL(q2),DIMENSION(3) :: box,v
-    REAL(q2) :: side,vol,t
-    INTEGER :: i
-    INTEGER,DIMENSION(110) :: elements
-    CHARACTER(LEN=7) :: text
-    INTEGER :: cr,count_max,t1,t2,nx,ny,nz
+!    INTEGER :: i
+!    INTEGER :: cr,count_max,t1,t2,nx,ny,nz
          
-    CALL system_clock(t1,cr,count_max)
+!    CALL system_clock(t1,cr,count_max)
         
 !    vasp=.false.
         
@@ -84,8 +76,8 @@ MODULE io_mod
 !    READ(100,'(6/,1A7)') text 
 !    REWIND(100)
        
-    IF (opts%li_chgcar) CALL read_charge_chgcar(ions,chg,chargefile)
-    IF (opts%li_cube) CALL read_charge_cube(ions,chg,chargefile)
+    IF (opts%llist%li_chgcar) CALL write_charge_chgcar(ions,chg,chargefile)
+    IF (opts%llist%li_cube) CALL write_charge_cube(ions,chg,chargefile)
     
   RETURN
   END SUBROUTINE write_charge

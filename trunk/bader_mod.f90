@@ -6,14 +6,13 @@
 ! Last modified by 
 !-----------------------------------------------------------------------------------!
 MODULE bader_mod
-  USE vars_mod , ONLY : q2
+  USE kind_mod , ONLY : q2
   USE matrix_mod
   USE charge_mod
   USE io_mod
   IMPLICIT NONE
 
 ! Public parameters
-  TYPE 
   REAL(q2),PARAMETER :: bader_tol=1.0e-4_q2
 
 ! Public, allocatable variables

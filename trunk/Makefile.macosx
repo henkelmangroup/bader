@@ -1,4 +1,4 @@
-OBJS = vars_mod.o         \
+OBJS = kind_mod.o         \
        matrix_mod.o       \
        ions_mod.o         \
        options_mod.o      \
@@ -28,4 +28,4 @@ FFLAGS = -O2 -qsuffix=f=f90
 LINK = 
 
 clean:
-	rm -f *.o *.mod *.lst bader
+	rm -f *.o *.mod bader

@@ -6,7 +6,7 @@
 ! Last modified by
 !-----------------------------------------------------------------------------------!
 MODULE charge_mod
-  USE vars_mod , ONLY : q2
+  USE kind_mod , ONLY : q2
   USE matrix_mod
   USE ions_mod , ONLY : ions_obj
   IMPLICIT NONE
@@ -15,18 +15,15 @@ MODULE charge_mod
 
 TYPE :: charge_obj
   REAL(q2),ALLOCATABLE,DIMENSION(:,:,:) :: rho
+  REAL(q2),DIMENSION(3,3) :: lattice
   REAL(q2),DIMENSION(3) :: corner,steps
   INTEGER :: nxf,nyf,nzf,nrho
   LOGICAL :: halfstep
 end type
 
-!! Public, static variables
-!  INTEGER :: rho,nxf,nyf,nzf,nrho,halfstep
-
   PRIVATE
   PUBLIC :: charge_obj
   PUBLIC :: rho_val,pbc,dpbc_dir,dpbc,pbcq2,verticies
-!  PUBLIC :: rho,nxf,nyf,nzf,nrho,halfstep
   CONTAINS
 
 !-----------------------------------------------------------------------------------!
