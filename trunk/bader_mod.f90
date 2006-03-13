@@ -1,6 +1,6 @@
 !-----------------------------------------------------------------------------------!
 ! Bader charge density analysis program
-!  Module for analyzing the charge
+!  Module for analyzing the charge with the Bader atom in molecules approach
 !
 ! By Andri Arnaldsson and Graeme Henkelman
 ! Last modified by 
@@ -10,36 +10,55 @@ MODULE bader_mod
   USE matrix_mod
   USE charge_mod
   USE io_mod
+  USE ions_mod
   IMPLICIT NONE
 
 ! Public parameters
-  REAL(q2),PARAMETER :: bader_tol=1.0e-4_q2
+
+! indx: index of the bader volume for each grid point
+! volpos: position of maximum in each Bader volume
+! colchg: integrated charge of each Bader volume
+! ionchg: integrated charge over all Bader volumes associated with each ion
+! iondist: distance from each Bader maximum to the nearest ion
+! nnion: index of the nearst ion used to calculate iondist
+! path: array of points along the current charge density maximization
+! minsurfdist: minimum distance from the Bader surface to the included ion
 
 ! Public, allocatable variables
-  INTEGER,ALLOCATABLE,DIMENSION(:,:,:) :: bader_num
-  REAL(q2),ALLOCATABLE,DIMENSION(:,:) :: bader_charge,min_dist
-  REAL(q2),ALLOCATABLE,DIMENSION(:) :: bader_dist,bader_achg
-  INTEGER,ALLOCATABLE,DIMENSION(:,:) :: path
-  INTEGER,ALLOCATABLE,DIMENSION(:) :: bader_atom
-!  INTEGER,ALLOCATABLE,DIMENSION(:) :: num_atom,nel,addup
+  TYPE bader_obj
+    REAL(q2),PARAMETER :: tol=1.0e-4_q2
+    INTEGER,ALLOCATABLE,DIMENSION(:,:,:) :: volindx
+    REAL(q2),ALLOCATABLE,DIMENSION(:,:) :: volpos
+    REAL(q2),ALLOCATABLE,DIMENSION(:) :: volchg,iondist,ionchg,minsurfdist
+    INTEGER,ALLOCATABLE,DIMENSION(:) :: nnion
+!    INTEGER,ALLOCATABLE,DIMENSION(:) :: num_atom,addup
+    INTEGER nvols
+  END TYPE
 
-  INTEGER :: ndim,bdim,nrho,wdim
+  INTEGER,ALLOCATABLE,DIMENSION(:,:) :: path
+!  INTEGER :: ndim,bdim,nrho,wdim
 
   PRIVATE
-  PUBLIC :: bader_num,bader_charge,min_dist,bader_dist,bader_achg,path,bader_atom
-  PUBLIC :: bader,mindist
+  PUBLIC :: bader_obj
+  PUBLIC :: bader,mindist,findminsurfdist,output
 
   CONTAINS
 !-----------------------------------------------------------------------------------!
 ! bader: Calculate the Bader volumes and integrate to give the total charge in each
 !   volume.
 !-----------------------------------------------------------------------------------!
-  SUBROUTINE bader(chg)
+  SUBROUTINE bader(chg,bdr,ions)
+
     TYPE(charge_obj) :: chg
-    REAL(q2),ALLOCATABLE,DIMENSION(:,:) :: tmp
+    TYPE(bader_obj) :: bdr
+    TYPE(ions_obj) :: ions
+
+    REAL(q2),ALLOCATABLE,DIMENSION(:,:) :: tmpvolpos
+    REAL(q2),ALLOCATABLE,DIMENSION(:) :: tmpvolchg
     REAL(q2),DIMENSION(3,3) :: B
     REAL(q2),DIMENSION(3) :: v,rnf
-    INTEGER :: nx,ny,nz,px,py,pz,i,pdim,pnum,known_max,bnum,p,tenths_done
+    INTEGER :: nx,ny,nz,px,py,pz,i,known_max,p,tenths_done
+    INTEGER :: pdim,pnum,bdim,bnum
     INTEGER :: cr,count_max,t1,t2
 
     CALL system_clock(t1,cr,count_max)
@@ -50,13 +69,14 @@ MODULE bader_mod
     nxf=chg%nxf
     nyf=chg%nyf
     nzf=chg%nzf
-    bdim=64
-    pdim=64
-    ALLOCATE(bader_charge(bdim,4))
+    bdim=64  ! temporary number of bader volumes, will be expanded as needed
+    pdim=64  ! temporary path length, also expanded as needed
+    ALLOCATE(bdr%volpos(bdim,3))
+    ALLOCATE(bdr%volchg(bdim))
     ALLOCATE(path(pdim,3))
-    bader_charge=0.0_q2
-    bader_num=0
-    bnum=0
+    bdr%volchg=0.0_q2
+    bdr%volindx=0
+    bdr%nvols=0  ! True number of Bader volumes
     tenths_done=0
     DO nx=1,nxf
       IF ((nx*10/nxf) > tenths_done) THEN
@@ -68,29 +88,30 @@ MODULE bader_mod
           px=nx
           py=ny
           pz=nz
-          IF(bader_num(px,py,pz) == 0) THEN
+          IF(volindx(px,py,pz) == 0) THEN
             CALL maximize(px,py,pz,pdim,pnum)
-            CALL pbc(px,py,pz,chg%nxf,chg%nyf,chg%nzf)
-            known_max=bader_num(px,py,pz)
+!            CALL pbc(px,py,pz,nxf,nyf,nzf)  ! shouldn't need this
+            known_max=volindx(px,py,pz)
             IF (known_max == 0) THEN
               bnum=bnum+1
               known_max=bnum
               IF (bnum > bdim) THEN
-                ALLOCATE(tmp(bdim,4))
-                tmp=bader_charge
-                DEALLOCATE(bader_charge)
+                ALLOCATE(tmpvolpos(bdim,3),tmpvolchg(bdim))
+                tmpvolpos=bdr%volpos
+                tmpvolchg=bdr%volchg
+                DEALLOCATE(bdr%volpos,bdr%volchg)
                 bdim=2*bdim
-                ALLOCATE(bader_charge(bdim,4))
-                bader_charge=0.0_q2
-                bader_charge(1:bnum-1,1:4)=tmp
-                DEALLOCATE(tmp)
+                ALLOCATE(bdr%volpos(bdim,3),bdr%volchg(bdim))
+!                bdr%volchg=0.0_q2
+!                bdr%volpos=0.0_q2
+                bdr%volchg(1:bnum-1)=tmpvolchg
+                bdr%volpos(1:bnum-1,:)=tmpvolpos
+                DEALLOCATE(tmpvolpos,tmpvolchg)
               END IF
-              bader_charge(bnum,1)=REAL(px,q2)
-              bader_charge(bnum,2)=REAL(py,q2)
-              bader_charge(bnum,3)=REAL(pz,q2)
+              bdr%volpos(bnum,:)=(/REAL(px,q2),REAL(py,q2),REAL(pz,q2)/)
             END IF
             DO p=1,pnum
-              bader_num(path(p,1),path(p,2),path(p,3))=known_max
+              bdr%volindx(path(p,1),path(p,2),path(p,3))=known_max
             END DO
           END IF
         END DO
@@ -98,39 +119,43 @@ MODULE bader_mod
     END DO
     WRITE(*,*)
 
+! Sum up the charge included in each volume
     DO nx=1,nxf
       DO ny=1,nyf
         DO nz=1,nzf
-          bader_charge(bader_num(nx,ny,nz),4)=bader_charge(bader_num(nx,ny,nz),4)+      &
-  &                    rho(nx,ny,nz)
+          bdr%volchg(bdr%volindx(nx,ny,nz))=bdr%volchg(bdr%volindx(nx,ny,nz))+chg%rho(nx,ny,nz)
         END DO
       END DO
     END DO
 
-    ALLOCATE(tmp(bdim,4))
-    tmp=bader_charge
-    DEALLOCATE(bader_charge)
-    ALLOCATE(bader_charge(bnum,4))
-    bader_charge=tmp(1:bnum,:)
+    bdr%nvols=bnum
+    ALLOCATE(tmpvolpos(bdim,3),tmpvolchg(bdim))
+    tmpvolpos=bdr%volpos
+    tmpvolchg=bdr%volchg
+    DEALLOCATE(bdr%volpos,bdr%volchg)
+    ALLOCATE(bdr%volpos(bdr%nvols,3),bdr%volchg(bdr%nvols))
+    bdr%volchg(1:bdr%nvols)=tmpvolchg
+    bdr%volpos(1:bdr%nvols,:)=tmpvolpos
+    DEALLOCATE(tmpvolpos,tmpvolchg)
     bdim=bnum
-    ALLOCATE(bader_atom(bdim),bader_dist(bdim),bader_achg(ndim))
+    ALLOCATE(bdr%nnion(bdr%nvols),bdr%iondist(bdr%nvols),bdr%ionchg(bdr%nvols))
 
 ! Don't have this normalization in MONDO
-    bader_charge(:,4)=bader_charge(:,4)/REAL(nrho,q2)
+    bdr%volchg=bdr%volchg/REAL(nrho,q2)
 
     rnf(1)=REAL(nxf,q2)
     rnf(2)=REAL(nyf,q2)
     rnf(3)=REAL(nzf,q2)
-    DO i=1,bdim
-      bader_charge(i,1:3)=(bader_charge(i,1:3)-1.0_q2)/rnf
+    DO i=1,bdr%nvols
+      bdr%volpos(i,:)=(bdr%volpos(i,:)-1.0_q2)/rnf
     END DO
 
     CALL charge2atom()
 
-    CALL transpose_matrix(lattice,B,3,3)
-    DO i=1,bdim
-      CALL matrix_vector(B,bader_charge(i,1:3),v,3,3)
-      bader_charge(i,1:3)=v
+    CALL transpose_matrix(ions%lattice,B,3,3)
+    DO i=1,bdr%nvols
+      CALL matrix_vector(B,bdr%volpos(i,:),v,3,3)
+      bdr%volpos(i,:)=v
     END DO
 
     CALL system_clock(t2,cr,count_max)
@@ -141,19 +166,25 @@ MODULE bader_mod
 
 !-----------------------------------------------------------------------------------!
 ! maximize:  From the point (px,py,pz) do a maximization on the charge density grid
-!   and assign the maximum found to the bader_num array.
+!   and assign the maximum found to the volindx array.
 !-----------------------------------------------------------------------------------!
   SUBROUTINE maximize(chg,px,py,pz,pdim,pnum)
+
     TYPE(charge_obj) :: chg
     INTEGER,INTENT(INOUT) :: px,py,pz,pdim,pnum
 
     INTEGER,ALLOCATABLE,DIMENSION(:,:) :: tmp
+    INTEGER :: nxf,nyf,nzf
+
+    nxf=chg%nxf
+    nyf=chg%nyf
+    nzf=chg%nzf
 
     pnum=1
     path(pnum,1:3)=(/px,py,pz/)
 
     DO
-      IF(max_neighbour(px,py,pz,chg%nxf,chg%nyf,chg%nzf)) THEN
+      IF(max_neighbour(px,py,pz,nxf,nyf,nzf)) THEN
         pnum=pnum+1
         IF (pnum > pdim) THEN
           ALLOCATE(tmp(pdim,3))
@@ -165,9 +196,9 @@ MODULE bader_mod
           path(1:pnum-1,:)=tmp
           DEALLOCATE(tmp)
         END IF
-        CALL pbc(px,py,pz,chg%nxf,chg%nyf,chg%nzf)
+        CALL pbc(px,py,pz,nxf,nyf,nzf)
         path(pnum,1:3)=(/px,py,pz/)
-        IF(bader_num(px,py,pz) /= 0) EXIT
+        IF(bdr%volindx(px,py,pz) /= 0) EXIT
       ELSE
         EXIT
       END IF
@@ -239,23 +270,27 @@ MODULE bader_mod
 ! charge2atom: Assign an element of charge to a Bader atom.
 !-----------------------------------------------------------------------------------!
 
-  SUBROUTINE charge2atom()
+  SUBROUTINE charge2atom(bdr,chg,ions)
+
+    TYPE(bader_obj) :: bdr
+    TYPE(charge_obj) :: chg
+    TYPE(ions_obj) :: ions
 
     REAL(q2),DIMENSION(3,3) :: B
     REAL(q2),DIMENSION(3) :: dv,v
     REAL(q2) :: dsq,dminsq
     INTEGER :: i,j,dindex
 
-    bader_achg=0.0_q2
-    CALL transpose_matrix(lattice,B,3,3)
-    DO i=1,bdim
-      dv=bader_charge(i,1:3)-r_dir(1,:)
+    bdr%ionchg=0.0_q2
+    CALL transpose_matrix(ions%lattice,B,3,3)
+    DO i=1,bdr%nvols
+      dv=bdr%volpos(i,:)-ions%r_dir(1,:)
       CALL dpbc_dir(dv)
       CALL matrix_vector(B,dv,v,3,3)
       dminsq=DOT_PRODUCT(v,v)
       dindex=1
       DO j=2,ndim
-        dv=bader_charge(i,1:3)-r_dir(j,:)
+        dv=bdr%volpos(i,:)-ions%r_dir(j,:)
         CALL dpbc_dir(dv)
         CALL matrix_vector(B,dv,v,3,3)
         dsq=DOT_PRODUCT(v,v)
@@ -264,9 +299,9 @@ MODULE bader_mod
           dindex=j
         END IF
       END DO
-      bader_dist(i)=SQRT(dminsq)
-      bader_atom(i)=dindex
-      bader_achg(dindex)=bader_achg(dindex)+bader_charge(i,4)
+      bdr%iondist(i)=SQRT(dminsq)
+      bdr%nnion(i)=dindex
+      bdr%ionchg(dindex)=bdr%ionchg(dindex)+bdr%volchg(i)
     END DO
     
   RETURN
@@ -276,17 +311,23 @@ MODULE bader_mod
 ! mindist: Find the minimum distance from the surface of each volume to an atom
 !-----------------------------------------------------------------------------------!
 
-  SUBROUTINE mindist(chg)
+  SUBROUTINE mindist(bdr,chg,ions)
 
+    TYPE(bader_obj) :: bdr
     TYPE(charge_obj) :: chg
+    TYPE(ions_obj) :: ions
 
     REAL(q2),DIMENSION(3,3) :: B
     REAL(q2),DIMENSION(3) :: dv,v,ringf,shift
     REAL :: dist
     INTEGER :: i,atom,atom_tmp,nx,ny,nz,tenths_done
-    INTEGER :: cr,count_max,t1,t2
+    INTEGER :: cr,count_max,t1,t2,nxf,nyf,nzf
     INTEGER :: dx,dy,dz,nxt,nyt,nzt
-    LOGICAL :: bader_edge
+    LOGICAL :: surfflag
+
+    nxf=chg%nxf
+    nyf=chg%nyf
+    nzf=chg%nzf
  
     CALL system_clock(t1,cr,count_max)
 
@@ -295,10 +336,14 @@ MODULE bader_mod
     WRITE(*,'(2x,A,$)') 'PERCENT DONE:  **'
 
 !   Store the minimum distance and the vector
-    ALLOCATE(min_dist(ndim,4))
-    min_dist=0.0_q2
-    shift=0.5_q2
-    IF (vasp) shift=1.0_q2
+    ALLOCATE(minsurfdist(ions%nions))
+    minsurfdist=0.0_q2
+    IF (halfstep) THEN
+      shift=0.5_q2               ! Gaussian style
+    ELSE
+      shift=1.0_q2               ! VASP style 
+    END IF
+
     ringf(1)=1.0_q2/REAL(nxf,q2)
     ringf(2)=1.0_q2/REAL(nyf,q2)
     ringf(3)=1.0_q2/REAL(nzf,q2)
@@ -312,7 +357,7 @@ MODULE bader_mod
         DO nz=1,nzf
 
 !         Check to see if this is at the edge of an atomic volume
-          atom=bader_atom(bader_num(nx,ny,nz))
+          atom=nnion(volindx(nx,ny,nz))
           bader_edge=.false.
           neighbourloop: DO dx=-1,1
             nxt=nx+dx
@@ -321,7 +366,7 @@ MODULE bader_mod
               DO dz=-1,1
                 nzt=nz+dz
                 CALL pbc(nxt,nyt,nzt,chg%nxf,chg%nyf,chg%nzf)
-                atom_tmp=bader_atom(bader_num(nxt,nyt,nzt))
+                atom_tmp=nnion(volindx(nxt,nyt,nzt))
                 IF (atom_tmp /= atom ) THEN
                   bader_edge=.true.
                   EXIT neighbourloop
@@ -336,9 +381,9 @@ MODULE bader_mod
             dv=(v-shift)*ringf-r_dir(atom,:)
             CALL dpbc_dir(dv)
             dist=DOT_PRODUCT(dv,dv)
-            IF ((min_dist(atom,4)==0.0_q2) .OR. (dist < min_dist(atom,4))) THEN
-              min_dist(atom,4)=dist
-              min_dist(atom,1:3)=dv
+            IF ((minsurfdist(atom,4)==0.0_q2) .OR. (dist < minsurfdist(atom,4))) THEN
+              minsurfdist(atom,4)=dist
+              minsurfdist(atom,1:3)=dv
             END IF
           END IF
 
@@ -348,10 +393,10 @@ MODULE bader_mod
 
     CALL transpose_matrix(lattice,B,3,3)
     DO i=1,ndim 
-      CALL matrix_vector(B,min_dist(i,1:3),v,3,3)
-      min_dist(i,1:3)=v
-      min_dist(i,4)=sqrt(DOT_PRODUCT(v,v))
-!      write(*,*) min_dist(i,4)
+      CALL matrix_vector(B,minsurfdist(i,1:3),v,3,3)
+      minsurfdist(i,1:3)=v
+      minsurfdist(i,4)=sqrt(DOT_PRODUCT(v,v))
+!      write(*,*) minsurfdist(i,4)
     END DO
     WRITE(*,*)
     
@@ -376,8 +421,8 @@ MODULE bader_mod
     INTEGER :: i,bdimsig,mib,mab,cc,j,nmax
     INTEGER,DIMENSION(bdim) :: rck
 
-    mab=MAXVAL(bader_atom)
-    mib=MINVAL(bader_atom)
+    mab=MAXVAL(nnion)
+    mib=MINVAL(nnion)
     OPEN(100,FILE='AtomVolumes.dat',STATUS='replace',ACTION='write')
     WRITE(100,'(A)') '   Atom                     Volume(s)   '
     WRITE(100,'(A,A)') '-----------------------------------------------------------',&
@@ -390,7 +435,7 @@ MODULE bader_mod
       DO j=1,bdim
         IF (bader_charge(j,4) > bader_tol) THEN
           nmax=nmax+1
-          IF(bader_atom(j) == i) THEN
+          IF(nnion(j) == i) THEN
             cc=cc+1
             rck(cc)=nmax
           END IF
@@ -413,12 +458,12 @@ MODULE bader_mod
     667 FORMAT(1A65,1A27)
 
     
-    sum_achg=SUM(bader_achg)
+    sum_achg=SUM(ionchg)
     DO i=1,wdim
-      WRITE(*,'(1I5,7F12.4)') i,voronoi_charge(i,1:4),bader_achg(i),                 &
-  &                           100.*bader_achg(i)/sum_achg,min_dist(i,4)              
-      WRITE(100,'(1I5,7F12.4)') i,voronoi_charge(i,1:4),bader_achg(i),               &
-  &                           100.*bader_achg(i)/sum_achg,min_dist(i,4)
+      WRITE(*,'(1I5,7F12.4)') i,voronoi_charge(i,1:4),ionchg(i),                 &
+  &                           100.*ionchg(i)/sum_achg,minsurfdist(i,4)              
+      WRITE(100,'(1I5,7F12.4)') i,voronoi_charge(i,1:4),ionchg(i),               &
+  &                           100.*ionchg(i)/sum_achg,minsurfdist(i,4)
     END DO
     CLOSE(100)
 
@@ -435,7 +480,7 @@ MODULE bader_mod
     DO i=1,bdim
         IF(bader_charge(i,4) > bader_tol) THEN
            bdimsig=bdimsig+1
-           WRITE(200,777) bdimsig,bader_charge(i,:),bader_atom(i),bader_dist(i)
+           WRITE(200,777) bdimsig,bader_charge(i,:),nnion(i),iondist(i)
            777 FORMAT(1I5,4(5X,F12.4),5X,1I5,5X,1F12.4)
         END IF
     END DO
@@ -474,7 +519,7 @@ MODULE bader_mod
 !    OPEN(100,FILE='bader_rho.dat',STATUS='replace',ACTION='write')        
 !    WRITE(*,'(2x,A)') 'WRITING BADER VOLUMES TO BADER_RHO.DAT'
 !    WRITE(100,'(5E18.11)')
-!  &              (((REAL(bader_num(nx,ny,nz),q2),nx=1,nxf),ny=1,nyf),nz=1,nzf)
+!  &              (((REAL(volindx(nx,ny,nz),q2),nx=1,nxf),ny=1,nyf),nz=1,nzf)
 !    CLOSE(100)
 
   RETURN
@@ -523,7 +568,7 @@ MODULE bader_mod
         WRITE(100,*)
         WRITE(100,*) nxf,nyf,nzf
         rho_tmp=0.0_q1
-        WHERE(bader_num == BaderCur) rho_tmp=rho
+        WHERE(volindx == BaderCur) rho_tmp=rho
         WRITE(100,'(5E18.11)') (((rho_tmp(nx,ny,nz),nx=1,nxf),ny=1,nyf),nz=1,nzf)
         CLOSE(100)
       END IF
@@ -552,15 +597,15 @@ MODULE bader_mod
     WRITE(*,'(2x,A)')   '               0  10  25  50  75  100'
     WRITE(*,'(2x,A,$)') 'PERCENT DONE:  **'
     tenths_done=0
-    mab=MAXVAL(bader_atom)
-    mib=MINVAL(bader_atom)
+    mab=MAXVAL(nnion)
+    mib=MINVAL(nnion)
     sc=0
     DO ik=mib,mab
       cc=0
       rck=0
       DO j=1,bdim
         IF (bader_charge(j,4) < bader_tol) CYCLE
-        IF (bader_atom(j) == ik) THEN
+        IF (nnion(j) == ik) THEN
           cc=cc+1
           rck(cc)=j
         END IF
@@ -592,7 +637,7 @@ MODULE bader_mod
       WRITE(100,*) nxf,nyf,nzf
       rho_tmp=0.0_q1
       DO b=1,cc
-        WHERE(bader_num == rck(b)) rho_tmp=rho
+        WHERE(volindx == rck(b)) rho_tmp=rho
       END DO
       WRITE(100,'(5E18.11)') (((rho_tmp(nx,ny,nz),nx=1,nxf),ny=1,nyf),nz=1,nzf)
       CLOSE(100)
@@ -640,7 +685,7 @@ MODULE bader_mod
     WRITE(100,*) nxf,nyf,nzf
     rho_tmp=0.0_q2
     DO b=1,na
-      WHERE(bader_num == vols(b)) rho_tmp=rho
+      WHERE(volindx == vols(b)) rho_tmp=rho
     END DO
     WRITE(100,'(5E18.11)') (((rho_tmp(nx,ny,nz),nx=1,nxf),ny=1,nyf),nz=1,nzf)
     CLOSE(100)

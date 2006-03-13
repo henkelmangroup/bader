@@ -13,13 +13,13 @@ MODULE charge_mod
 
 ! Public, allocatable variables
 
-TYPE :: charge_obj
-  REAL(q2),ALLOCATABLE,DIMENSION(:,:,:) :: rho
-  REAL(q2),DIMENSION(3,3) :: lattice
-  REAL(q2),DIMENSION(3) :: corner,steps
-  INTEGER :: nxf,nyf,nzf,nrho
-  LOGICAL :: halfstep
-end type
+  TYPE :: charge_obj
+    REAL(q2),ALLOCATABLE,DIMENSION(:,:,:) :: rho
+    REAL(q2),DIMENSION(3,3) :: lattice
+    REAL(q2),DIMENSION(3) :: corner,steps
+    INTEGER :: nxf,nyf,nzf,nrho
+    LOGICAL :: halfstep
+  END TYPE
 
   PRIVATE
   PUBLIC :: charge_obj
