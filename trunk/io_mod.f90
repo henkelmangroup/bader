@@ -2,7 +2,7 @@
 ! Bader charge density analysis program
 !    Module for reading and writing charge density data
 !
-! By Andri Arnaldson and Graeme Henkelman
+! By Andri Arnaldsson and Graeme Henkelman
 ! Last modified by AA on Aug. 02 2005
 !-----------------------------------------------------------------------------------!
 
@@ -31,7 +31,7 @@ MODULE io_mod
     TYPE(ions_obj) :: ions
     TYPE(charge_obj) :: chg
     TYPE(options_obj) :: opts
-    CHARACTER(120) :: chargefile
+    CHARACTER(LEN=120) :: chargefile
 
 !    INTEGER :: cr,count_max,t1,t2,nx,ny,nz
          
@@ -58,10 +58,10 @@ MODULE io_mod
 
   SUBROUTINE write_charge(ions,chg,opts,chargefile)
 
-    type(ions_obj) :: ions
-    type(charge_obj) :: chg
+    TYPE(ions_obj) :: ions
+    TYPE(charge_obj) :: chg
     TYPE(options_obj) :: opts
-    CHARACTER(120) :: chargefile
+    CHARACTER(LEN=120) :: chargefile
 
 !    INTEGER :: i
 !    INTEGER :: cr,count_max,t1,t2,nx,ny,nz

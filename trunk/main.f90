@@ -13,6 +13,7 @@
      USE bader_mod 
      USE multipole_mod
      USE voronoi_mod
+     USE results_mod , ONLY : output     
 
      IMPLICIT NONE
 

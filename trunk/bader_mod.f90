@@ -11,6 +11,7 @@ MODULE bader_mod
   USE charge_mod
   USE io_mod
   USE ions_mod
+  USE options_mod
   IMPLICIT NONE
 
 ! Public parameters
@@ -26,7 +27,7 @@ MODULE bader_mod
 
 ! Public, allocatable variables
   TYPE bader_obj
-    REAL(q2),PARAMETER :: tol=1.0e-4_q2
+    REAL(q2) :: tol=1.0e-4_q2
     INTEGER,ALLOCATABLE,DIMENSION(:,:,:) :: volindx
     REAL(q2),ALLOCATABLE,DIMENSION(:,:) :: volpos
     REAL(q2),ALLOCATABLE,DIMENSION(:) :: volchg,iondist,ionchg,minsurfdist
@@ -36,11 +37,10 @@ MODULE bader_mod
   END TYPE
 
   INTEGER,ALLOCATABLE,DIMENSION(:,:) :: path
-!  INTEGER :: ndim,bdim,nrho,wdim
 
   PRIVATE
   PUBLIC :: bader_obj
-  PUBLIC :: bader,mindist,findminsurfdist,output
+  PUBLIC :: bader,mindist
 
   CONTAINS
 !-----------------------------------------------------------------------------------!
@@ -58,7 +58,7 @@ MODULE bader_mod
     REAL(q2),DIMENSION(3,3) :: B
     REAL(q2),DIMENSION(3) :: v,rnf
     INTEGER :: nx,ny,nz,px,py,pz,i,known_max,p,tenths_done
-    INTEGER :: pdim,pnum,bdim,bnum
+    INTEGER :: pdim,pnum,bdim,bnum,nxf,nyf,nzf
     INTEGER :: cr,count_max,t1,t2
 
     CALL system_clock(t1,cr,count_max)
@@ -88,10 +88,10 @@ MODULE bader_mod
           px=nx
           py=ny
           pz=nz
-          IF(volindx(px,py,pz) == 0) THEN
-            CALL maximize(px,py,pz,pdim,pnum)
+          IF(bdr%volindx(px,py,pz) == 0) THEN
+            CALL maximize(bdr,chg,px,py,pz,pdim,pnum)
 !            CALL pbc(px,py,pz,nxf,nyf,nzf)  ! shouldn't need this
-            known_max=volindx(px,py,pz)
+            known_max=bdr%volindx(px,py,pz)
             IF (known_max == 0) THEN
               bnum=bnum+1
               known_max=bnum
@@ -141,7 +141,7 @@ MODULE bader_mod
     ALLOCATE(bdr%nnion(bdr%nvols),bdr%iondist(bdr%nvols),bdr%ionchg(bdr%nvols))
 
 ! Don't have this normalization in MONDO
-    bdr%volchg=bdr%volchg/REAL(nrho,q2)
+    bdr%volchg=bdr%volchg/REAL(chg%nrho,q2)
 
     rnf(1)=REAL(nxf,q2)
     rnf(2)=REAL(nyf,q2)
@@ -150,7 +150,7 @@ MODULE bader_mod
       bdr%volpos(i,:)=(bdr%volpos(i,:)-1.0_q2)/rnf
     END DO
 
-    CALL charge2atom()
+    CALL charge2atom(bdr,chg,ions)
 
     CALL transpose_matrix(ions%lattice,B,3,3)
     DO i=1,bdr%nvols
@@ -168,8 +168,9 @@ MODULE bader_mod
 ! maximize:  From the point (px,py,pz) do a maximization on the charge density grid
 !   and assign the maximum found to the volindx array.
 !-----------------------------------------------------------------------------------!
-  SUBROUTINE maximize(chg,px,py,pz,pdim,pnum)
+  SUBROUTINE maximize(bdr,chg,px,py,pz,pdim,pnum)
 
+    TYPE(bader_obj) :: bdr
     TYPE(charge_obj) :: chg
     INTEGER,INTENT(INOUT) :: px,py,pz,pdim,pnum
 
@@ -184,7 +185,7 @@ MODULE bader_mod
     path(pnum,1:3)=(/px,py,pz/)
 
     DO
-      IF(max_neighbour(px,py,pz,nxf,nyf,nzf)) THEN
+      IF(max_neighbour(chg,px,py,pz)) THEN
         pnum=pnum+1
         IF (pnum > pdim) THEN
           ALLOCATE(tmp(pdim,3))
@@ -289,7 +290,7 @@ MODULE bader_mod
       CALL matrix_vector(B,dv,v,3,3)
       dminsq=DOT_PRODUCT(v,v)
       dindex=1
-      DO j=2,ndim
+      DO j=2,ions%nions
         dv=bdr%volpos(i,:)-ions%r_dir(j,:)
         CALL dpbc_dir(dv)
         CALL matrix_vector(B,dv,v,3,3)
@@ -308,7 +309,7 @@ MODULE bader_mod
   END SUBROUTINE charge2atom
 
 !-----------------------------------------------------------------------------------!
-! mindist: Find the minimum distance from the surface of each volume to an atom
+! mindist: Find the minimum distance from the surface of each volume to 
 !-----------------------------------------------------------------------------------!
 
   SUBROUTINE mindist(bdr,chg,ions)
@@ -336,9 +337,9 @@ MODULE bader_mod
     WRITE(*,'(2x,A,$)') 'PERCENT DONE:  **'
 
 !   Store the minimum distance and the vector
-    ALLOCATE(minsurfdist(ions%nions))
-    minsurfdist=0.0_q2
-    IF (halfstep) THEN
+    ALLOCATE(bdr%minsurfdist(ions%nions))
+    bdr%minsurfdist=0.0_q2
+    IF (chg%halfstep) THEN
       shift=0.5_q2               ! Gaussian style
     ELSE
       shift=1.0_q2               ! VASP style 
@@ -357,18 +358,18 @@ MODULE bader_mod
         DO nz=1,nzf
 
 !         Check to see if this is at the edge of an atomic volume
-          atom=nnion(volindx(nx,ny,nz))
-          bader_edge=.false.
+          atom=bdr%nnion(bdr%volindx(nx,ny,nz))
+          surfflag=.FALSE.
           neighbourloop: DO dx=-1,1
             nxt=nx+dx
             DO dy=-1,1
               nyt=ny+dy
               DO dz=-1,1
                 nzt=nz+dz
-                CALL pbc(nxt,nyt,nzt,chg%nxf,chg%nyf,chg%nzf)
-                atom_tmp=nnion(volindx(nxt,nyt,nzt))
+                CALL pbc(nxt,nyt,nzt,nxf,nyf,nzf)
+                atom_tmp=bdr%nnion(bdr%volindx(nxt,nyt,nzt))
                 IF (atom_tmp /= atom ) THEN
-                  bader_edge=.true.
+                  surfflag=.TRUE.
                   EXIT neighbourloop
                 END IF
               END DO
@@ -376,14 +377,13 @@ MODULE bader_mod
           END DO neighbourloop
 
 !         If this is an edge cell, check if it is the closest to the atom so far
-          IF (bader_edge) THEN
+          IF (surfflag) THEN
             v(1:3)=(/nx,ny,nz/)
-            dv=(v-shift)*ringf-r_dir(atom,:)
+            dv=(v-shift)*ringf-ions%r_dir(atom,:)
             CALL dpbc_dir(dv)
             dist=DOT_PRODUCT(dv,dv)
-            IF ((minsurfdist(atom,4)==0.0_q2) .OR. (dist < minsurfdist(atom,4))) THEN
-              minsurfdist(atom,4)=dist
-              minsurfdist(atom,1:3)=dv
+            IF ((bdr%minsurfdist(atom) == 0.0_q2) .OR. (dist < bdr%minsurfdist(atom))) THEN
+              bdr%minsurfdist(atom)=dist
             END IF
           END IF
 
@@ -391,15 +391,15 @@ MODULE bader_mod
       END DO
     END DO
 
-    CALL transpose_matrix(lattice,B,3,3)
-    DO i=1,ndim 
-      CALL matrix_vector(B,minsurfdist(i,1:3),v,3,3)
-      minsurfdist(i,1:3)=v
-      minsurfdist(i,4)=sqrt(DOT_PRODUCT(v,v))
-!      write(*,*) minsurfdist(i,4)
-    END DO
+!    CALL transpose_matrix(ions%lattice,B,3,3)
+!    DO i=1,ions%nions 
+!      CALL matrix_vector(B,bdr%minsurfdist(i,1:3),v,3,3)
+!      minsurfdist(i,1:3)=v
+!      minsurfdist(i,4)=sqrt(DOT_PRODUCT(v,v))
+!!      write(*,*) minsurfdist(i,4)
+!    END DO
+
     WRITE(*,*)
-    
     CALL system_clock(t2,cr,count_max)
     WRITE(*,'(1A12,1F6.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
   
@@ -407,172 +407,91 @@ MODULE bader_mod
   END SUBROUTINE mindist
 
 !------------------------------------------------------------------------------------!
-! output: Write out a summary of the bader analysis.
-!         AtomVolumes.dat: Stores the 'significant' Bader volumes associated with
-!                          each atom.
-!         ACF.dat        : Stores the main output to the screen.
-!         BCF.dat        : Stores 'significant' Bader volumes, their coordinates and
-!                          charge, atom associated and distance to it. 
-!------------------------------------------------------------------------------------!
-
-  SUBROUTINE output()
-
-    REAL(q2) :: sum_achg
-    INTEGER :: i,bdimsig,mib,mab,cc,j,nmax
-    INTEGER,DIMENSION(bdim) :: rck
-
-    mab=MAXVAL(nnion)
-    mib=MINVAL(nnion)
-    OPEN(100,FILE='AtomVolumes.dat',STATUS='replace',ACTION='write')
-    WRITE(100,'(A)') '   Atom                     Volume(s)   '
-    WRITE(100,'(A,A)') '-----------------------------------------------------------',&
-  &                    '-------------'
-
-    DO i=mib,mab
-      cc=0
-      rck=0
-      nmax=0
-      DO j=1,bdim
-        IF (bader_charge(j,4) > bader_tol) THEN
-          nmax=nmax+1
-          IF(nnion(j) == i) THEN
-            cc=cc+1
-            rck(cc)=nmax
-          END IF
-        END IF
-      END DO
-      IF (cc == 0) CYCLE
-      WRITE(100,'(2X,1I4,2X,A,2X,10000I5)') i,' ... ',rck(1:cc)
-    END DO
-    CLOSE(100)
-
-    OPEN(100,FILE='ACF.dat',STATUS='replace',ACTION='write')
-    WRITE(*,555) '#','X','Y','Z','VORONOI','BADER','%','MIN DIST'
-    WRITE(100,555) '#','X','Y','Z','VORONOI','BADER','%','MIN DIST'
-    555 FORMAT(/,4X,1A,9X,1A1,2(11X,1A1),8X,1A7,5X,1A5,9X,1A1,6X,1A10)
-    WRITE(*,666) '----------------------------------------------------------------', &
-  &              '------------------------------'
-    WRITE(100,667) '---------------------------------------------------------------',&
-  &              '------------------------------'
-    666 FORMAT(1A66,1A26)
-    667 FORMAT(1A65,1A27)
-
-    
-    sum_achg=SUM(ionchg)
-    DO i=1,wdim
-      WRITE(*,'(1I5,7F12.4)') i,voronoi_charge(i,1:4),ionchg(i),                 &
-  &                           100.*ionchg(i)/sum_achg,minsurfdist(i,4)              
-      WRITE(100,'(1I5,7F12.4)') i,voronoi_charge(i,1:4),ionchg(i),               &
-  &                           100.*ionchg(i)/sum_achg,minsurfdist(i,4)
-    END DO
-    CLOSE(100)
-
-    bdimsig=0
-    OPEN(200,FILE='BCF.dat',STATUS='replace',ACTION='write')
-
-    WRITE(200,556) '#','X','Y','Z','CHARGE','NEAREST ATOM','DISTANCE'
-    556 FORMAT(/,4X,1A1,13X,1A1,2(16X,1A1),13X,1A7,2X,1A14,2X,1A10)
-
-    WRITE(200,668) '---------------------------------------------------------------',&
-  &                '----------------------------------------'
-    668 FORMAT(1A65,1A37)
-
-    DO i=1,bdim
-        IF(bader_charge(i,4) > bader_tol) THEN
-           bdimsig=bdimsig+1
-           WRITE(200,777) bdimsig,bader_charge(i,:),nnion(i),iondist(i)
-           777 FORMAT(1I5,4(5X,F12.4),5X,1I5,5X,1F12.4)
-        END IF
-    END DO
-    CLOSE(200)
-
-    OPEN(300,FILE='dipole.dat',STATUS='replace',ACTION='write')
-    WRITE(300,557) '#','X','Y','Z','MAGNITUDE'
-    557 FORMAT(/,4X,1A1,10X,1A1,2(15X,1A1),10X,1A10)
-    WRITE(300,*) '--------------------------------------------------------------------'
-    DO i=1,ndim
-      WRITE(300,888) i,dipole(i,:)*4.803_q2,                                         &
-  &                  sqrt(DOT_PRODUCT(dipole(i,:),dipole(i,:)))*4.803_q2
-!      888 FORMAT(1I5,4ES16.5)
-      888 FORMAT(1I5,4F16.6)
-    END DO
-    CLOSE(300)
-
-    WRITE(*,'(/,2x,A,6X,1I8)')     'NUMBER OF BADER MAXIMA FOUND: ',bdim
-    WRITE(*,'(2x,A,6X,1I8)')       '    SIGNIFICANT MAXIMA FOUND: ',bdimsig
-    WRITE(*,'(2x,A,2X,1F12.5,/)')  '         NUMBER OF ELECTRONS: ',                 &
-  &                                          SUM(bader_charge(1:bdim,4))
-
-  RETURN
-  END SUBROUTINE output
-
-!------------------------------------------------------------------------------------!
-! write_badernum: Write out a CHGCAR type file with each entry containing an integer
+! write_volindx: Write out a CHGCAR type file with each entry containing an integer
 !    indicating the associated Bader maximum.
 ! GH: change this to write the appropriate type of file
 !------------------------------------------------------------------------------------!
 
-  SUBROUTINE write_badernum()
+  SUBROUTINE write_volindx(bdr,chg,ions,opts)
 
-!    INTEGER nx,ny,nz
-!
-!    OPEN(100,FILE='bader_rho.dat',STATUS='replace',ACTION='write')        
-!    WRITE(*,'(2x,A)') 'WRITING BADER VOLUMES TO BADER_RHO.DAT'
-!    WRITE(100,'(5E18.11)')
-!  &              (((REAL(volindx(nx,ny,nz),q2),nx=1,nxf),ny=1,nyf),nz=1,nzf)
-!    CLOSE(100)
+     TYPE(bader_obj) :: bdr
+     TYPE(ions_obj) :: ions
+     TYPE(charge_obj) :: chg
+     TYPE(options_obj) :: opts
+
+     TYPE(charge_obj) ::tmp
+     INTEGER :: nx,ny,nz
+     CHARACTER(LEN=120) :: filename
+
+! May set an interface for this in charge, overload the assigment operator 
+!     tmp%lattice=chg%lattice
+!     tmp%corner=chg%corner
+!     tmp%steps=chg%steps
+!     tmp%nxf=chg%nxf
+!     tmp%nyf=chg%nyf
+!     tmp%nzf=chg%nzf
+!     tmp%nrho=chg%nrho
+!     tmp%halfstep=chg%halfstep
+!     ALLOCATE(tmp%rho(tmp%nxf,tmp%nyf,tmp%nzf))
+     tmp=chg
+     tmp%rho=bdr%volindx
+     
+     filename='VOLUME_INDEX'
+     CALL write_charge(ions,chg,opts,filename)
 
   RETURN
-  END SUBROUTINE write_badernum
+  END SUBROUTINE write_volindx
 
 !------------------------------------------------------------------------------------!
 ! write_all_bader: Write out a CHGCAR type file for each of the Bader volumes found.
 !------------------------------------------------------------------------------------!
 
-  SUBROUTINE write_all_bader()
+  SUBROUTINE write_all_bader(bdr,ions,chg,opts)
 
-    INTEGER :: nx,ny,nz,i,AtomNum,BaderCur,tenths_done,t1,t2,cr,count_max
-    CHARACTER(15) :: AtomFileName,AtomNumText
-    REAL(q1),dimension(nxf,nyf,nzf) :: rho_tmp
+    TYPE(bader_obj) :: bdr
+    TYPE(ions_obj) :: ions
+    TYPE(charge_obj) :: chg
+    TYPE(options_obj) :: opts
+
+    TYPE(charge_obj) :: tmp
+    INTEGER :: nx,ny,nz,i,atomnum,badercur,tenths_done,t1,t2,cr,count_max
+    CHARACTER(LEN=120) :: atomfilename,atomnumtext
     
+    tmp=chg
+
     WRITE(*,'(/,2x,A)') 'WRITING BADER VOLUMES'
     WRITE(*,'(2x,A)')   '               0  10  25  50  75  100'
     WRITE(*,'(2x,A,$)') 'PERCENT DONE:  **'
     CALL system_clock(t1,cr,count_max)
-    AtomNum=0
+    atomnum=0
     tenths_done=0
-    DO BaderCur=1,bdim  
-      DO WHILE ((BaderCur*10/bdim) > tenths_done)
+    DO badercur=1,bdr%nvols
+      DO WHILE ((badercur*10/bdr%nvols) > tenths_done)
         tenths_done=tenths_done+1
         WRITE(*,'(A,$)') '**'
       ENDDO
-      IF(Bader_charge(BaderCur,4)>bader_tol) THEN
-        AtomNum=AtomNum+1
-        IF(AtomNum<10) THEN
-          WRITE(AtomNumText,'(1A3,I1)') '000',AtomNum
-        ELSE IF(AtomNum<100) THEN
-          WRITE(AtomNumText,'(1A2,I2)') '00',AtomNum
-        ELSE IF(AtomNum<1000) THEN
-          WRITE(AtomNumText,'(1A1,I3)') '0',AtomNum
+      IF(bdr%volchg(badercur) > bdr%tol) THEN
+        atomnum=atomnum+1
+        IF(atomnum<10) THEN
+          WRITE(atomnumtext,'(1A3,I1)') '000',atomnum
+        ELSE IF(atomnum<100) THEN
+          WRITE(atomnumtext,'(1A2,I2)') '00',atomnum
+        ELSE IF(atomnum<1000) THEN
+          WRITE(atomnumtext,'(1A1,I3)') '0',atomnum
         ELSE
-          WRITE(AtomNumText,'(I4)') AtomNum
+          WRITE(atomnumtext,'(I4)') atomnum
         END IF
-        AtomFileName = "Bvol"//Trim(AtomNumText(1:))//".dat"
-        OPEN(100,FILE=AtomFileName) 
-        WRITE(100,*)'Bader volume of Atom',AtomNum
-        WRITE(100,*)'1.00'
-        WRITE(100,'(3F13.6)') (lattice(i,1:3) , i=1,3)
-        WRITE(100,'(110I4)') num_atom
-        WRITE(100,*)'DIRECT'
-        WRITE(100,'(3(2X,1F8.6))') (r_dir(i,:) , i=1,ndim)
-        WRITE(100,*)
-        WRITE(100,*) nxf,nyf,nzf
-        rho_tmp=0.0_q1
-        WHERE(volindx == BaderCur) rho_tmp=rho
-        WRITE(100,'(5E18.11)') (((rho_tmp(nx,ny,nz),nx=1,nxf),ny=1,nyf),nz=1,nzf)
-        CLOSE(100)
+        atomfilename = "Bvol"//Trim(atomnumtext(1:))//".dat"
+
+        tmp%rho=0.0_q2
+        WHERE(bdr%volindx == badercur) tmp%rho=chg%rho
+        CALL write_charge(ions,chg,opts,atomfilename)
+
       END IF
     END DO
+
+    DEALLOCATE(tmp%rho)
+
     CALL system_clock(t2,cr,count_max)
     WRITE(*,'(/,1A12,1F6.2,1A8,/)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
 
@@ -585,27 +504,36 @@ MODULE bader_mod
 !              atoms has any 'significant' bader volumes associated with it.
 !------------------------------------------------------------------------------------!
 
-  SUBROUTINE write_all_bader()
+  SUBROUTINE write_all_atom(bdr,ions,chg,opts)
+
+    TYPE(bader_obj) :: bdr
+    TYPE(ions_obj) :: ions
+    TYPE(charge_obj) :: chg
+    TYPE(options_obj) :: opts
+
+    TYPE(charge_obj) :: tmp
 
     INTEGER :: nx,ny,nz,i,j,b,mab,mib,ik,sc,cc,tenths_done,t1,t2,cr,count_max
-    INTEGER,DIMENSION(bdim) :: rck
-    CHARACTER(15) :: AtomFileName,AtomNumText
-    REAL(q1),dimension(nxf,nyf,nzf) :: rho_tmp
+    INTEGER,DIMENSION(bdr%nvols) :: rck
+    CHARACTER(LEN=120) :: atomfilename,atomnumtext
 
     CALL system_clock(t1,cr,count_max)
+
+    tmp=chg
+
     WRITE(*,'(/,2x,A)') 'WRITING BADER VOLUMES '
     WRITE(*,'(2x,A)')   '               0  10  25  50  75  100'
     WRITE(*,'(2x,A,$)') 'PERCENT DONE:  **'
     tenths_done=0
-    mab=MAXVAL(nnion)
-    mib=MINVAL(nnion)
+    mab=MAXVAL(bdr%nnion)
+    mib=MINVAL(bdr%nnion)
     sc=0
     DO ik=mib,mab
       cc=0
       rck=0
-      DO j=1,bdim
-        IF (bader_charge(j,4) < bader_tol) CYCLE
-        IF (nnion(j) == ik) THEN
+      DO j=1,bdr%nvols
+        IF (bdr%volchg(j) < bdr%tol) CYCLE
+        IF (bdr%nnion(j) == ik) THEN
           cc=cc+1
           rck(cc)=j
         END IF
@@ -614,88 +542,85 @@ MODULE bader_mod
       DO WHILE ((ik*10/(mab-mib+1)) > tenths_done)
         tenths_done=tenths_done+1
         WRITE(*,'(A,$)') '**'
-      ENDDO
+      END DO
       IF(cc == 0) CYCLE
       IF(ik < 10) THEN
-        WRITE(AtomNumText,'(1A3,I1)') '000',ik
+        WRITE(atomnumtext,'(1A3,I1)') '000',ik
       ELSE IF(ik<100) THEN
-        WRITE(AtomNumText,'(1A2,I2)') '00',ik
+        WRITE(atomnumtext,'(1A2,I2)') '00',ik
       ELSE IF(ik<1000) THEN
-        WRITE(AtomNumText,'(1A1,I3)') '0',ik
+        WRITE(atomnumtext,'(1A1,I3)') '0',ik
       ELSE
-        WRITE(AtomNumText,'(I4)') ik
+        WRITE(atomnumtext,'(I4)') ik
       END IF
-      AtomFileName = "BvAt"//Trim(AtomNumText(1:))//".dat"
-      OPEN(100,FILE=AtomFileName)
-      WRITE(100,*)'Sum of Bader Volumes'
-      WRITE(100,*)'1.00'
-      WRITE(100,'(3F13.6)') (lattice(i,1:3) , i=1,3)
-      WRITE(100,'(110I4)') num_atom
-      WRITE(100,*)'DIRECT'
-      WRITE(100,'(3(2X,1F8.6))') (r_dir(i,:) , i=1,ndim)
-      WRITE(100,*)
-      WRITE(100,*) nxf,nyf,nzf
-      rho_tmp=0.0_q1
+      atomfilename = "BvAt"//Trim(atomnumtext(1:))//".dat"
+
+      tmp%rho=0.0_q2
       DO b=1,cc
-        WHERE(volindx == rck(b)) rho_tmp=rho
-      END DO
-      WRITE(100,'(5E18.11)') (((rho_tmp(nx,ny,nz),nx=1,nxf),ny=1,nyf),nz=1,nzf)
-      CLOSE(100)
+        WHERE(bdr%volindx == rck(b)) tmp%rho=chg%rho
+      END DO 
+      CALL write_charge(ions,chg,opts,atomfilename)
+
     END DO
+    DEALLOCATE(tmp%rho)
+
     CALL system_clock(t2,cr,count_max)
     WRITE(*,'(/,1A12,1F6.2,1A8,/)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
 
   RETURN
-  END SUBROUTINE write_all_bader
+  END SUBROUTINE write_all_atom
 
 !------------------------------------------------------------------------------------!
 ! write_sel_bader: Write out a CHGCAR type file for specified Bader volumes by the user.
 !              Volumes associated with a atom can be read from AtomVolumes.dat
 !------------------------------------------------------------------------------------!
 
-  SUBROUTINE write_sel_bader()
+  SUBROUTINE write_sel_bader(bdr,ions,chg,opts)
 
-    CHARACTER(15) :: AtomFileName
-    INTEGER,DIMENSION(bdim,2) :: volsig
-    INTEGER,DIMENSION(na) :: vols
-    REAL(q1),dimension(nxf,nyf,nzf) :: rho_tmp
+    TYPE(bader_obj) :: bdr
+    TYPE(ions_obj) :: ions
+    TYPE(charge_obj) :: chg
+    TYPE(options_obj) :: opts
+
+    TYPE(charge_obj) :: tmp
+    CHARACTER(LEN=120) :: atomfilename
+    INTEGER,DIMENSION(bdr%nvols,2) :: volsig
+!    INTEGER,DIMENSION(na) :: vols
+    INTEGER :: cr,count_max,t1,t2,i,bdimsig
 
     CALL system_clock(t1,cr,count_max)
+
+    tmp=chg
+
 ! Correlate the number for each 'significant' bader volume to its real number
     bdimsig=0
     volsig=0
-    DO i=1,bdim
-      IF (bader_charge(i,4) > bader_tol) THEN
+    DO i=1,bdr%nvols
+      IF (bdr%volchg(i) > bdr%tol) THEN
         bdimsig=bdimsig+1
         volsig(bdimsig,1)=bdimsig
         volsig(bdimsig,2)=i
       END IF
     END DO
-    vols=volsig(addup,2)
+!    vols=volsig(addup,2)
     WRITE(*,'(/,2x,A)') 'WRITING SPECIFIED BADER VOLUMES '
-    AtomFileName = "Bvsm.dat"
-    OPEN(100,FILE=AtomFileName)
-    WRITE(100,*)'Sum of Bader Volumes'
-    WRITE(100,*)'1.00'
-    WRITE(100,'(3F13.6)') (lattice(i,1:3) , i=1,3)
-    WRITE(100,'(110I4)') num_atom
-    WRITE(100,*)'DIRECT'
-    WRITE(100,'(3(2X,1F8.6))') (r_dir(i,:) , i=1,ndim)
-    WRITE(100,*)
-    WRITE(100,*) nxf,nyf,nzf
-    rho_tmp=0.0_q2
-    DO b=1,na
-      WHERE(volindx == vols(b)) rho_tmp=rho
-    END DO
-    WRITE(100,'(5E18.11)') (((rho_tmp(nx,ny,nz),nx=1,nxf),ny=1,nyf),nz=1,nzf)
-    CLOSE(100)
+    atomfilename = "Bvsm.dat"
+
+    tmp%rho=0.0_q2
+! fix this when we get na input through options
+!    DO b=1,na
+!      WHERE(bdr%volindx == vols(b)) tmp%rho=chg%rho
+!    END DO
+    CALL write_charge(ions,chg,opts,atomfilename)
+
+    DEALLOCATE(tmp%rho)
+
     CALL system_clock(t2,cr,count_max)
     WRITE(*,'(1A12,1F6.2,1A8,/)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
 
   RETURN
   END SUBROUTINE write_sel_bader
 
-
 !-----------------------------------------------------------------------------------!
 
-END MODULE bader
+END MODULE bader_mod

@@ -24,7 +24,33 @@ MODULE charge_mod
   PRIVATE
   PUBLIC :: charge_obj
   PUBLIC :: rho_val,pbc,dpbc_dir,dpbc,pbcq2,verticies
+
+  INTERFACE ASSIGNMENT(=)
+    MODULE PROCEDURE assign_charge
+  END INTERFACE
+
   CONTAINS
+
+!-----------------------------------------------------------------------------------!
+!  assign: copy one charge object to another
+!-----------------------------------------------------------------------------------!
+
+  SUBROUTINE assign_charge(chg1,chg2)
+    TYPE(charge_obj), INTENT(INOUT) :: chg1
+    TYPE(charge_obj), INTENT(IN) :: chg2
+    
+    chg1%lattice=chg2%lattice
+    chg1%corner=chg2%corner
+    chg1%steps=chg2%steps
+    chg1%nxf=chg2%nxf
+    chg1%nyf=chg2%nyf
+    chg1%nzf=chg2%nzf
+    chg1%nrho=chg2%nrho
+    chg1%halfstep=chg2%halfstep
+    ALLOCATE(chg1%rho(chg1%nxf,chg1%nyf,chg1%nzf))
+    chg1%rho=chg2%rho
+
+    END SUBROUTINE
 
 !-----------------------------------------------------------------------------------!
 !  rho_val:  Return the density at the point (px,py,pz) taking into account the

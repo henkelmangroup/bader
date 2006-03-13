@@ -9,6 +9,7 @@ OBJS = kind_mod.o         \
        bader_mod.o        \
        voronoi_mod.o      \
        multipole_mod.o    \
+       results_mod.o      \
        main.o
 
 bader: $(OBJS)
