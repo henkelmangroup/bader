@@ -6,21 +6,24 @@
 ! Last modified by GH on June 14 2004
 !-----------------------------------------------------------------------------------!
   PROGRAM Charge
-     USE options_mod , ONLY : get_opt,l_list,options
-     USE charge_mod
+     USE options_mod , ONLY : get_options,options_obj
      USE ions_mod
+     USE charge_mod
      USE io_mod
      USE bader_mod 
-     USE multipole_mod
      USE voronoi_mod
+!     USE multipole_mod
      USE results_mod , ONLY : output     
 
      IMPLICIT NONE
 
 ! variables
+     TYPE(options_obj) :: opts
      TYPE(ions_obj) :: ions
      TYPE(charge_obj) :: chg
-     TYPE(options_obj) :: opts
+     TYPE(bader_obj) :: bdr
+     TYPE(voronoi_obj) :: vor
+     INTEGER :: i
      LOGICAL :: ertil
 
 ! Get the control variables
@@ -35,21 +38,17 @@
      END IF
 
 ! Call the read routines  .... from io.f90
-     CALL read_charge(ions,chg,opts%chargefile)
+     CALL read_charge(ions,chg,opts,opts%chargefile)
 
 ! Calculate
-     IF (options%llist%lc_bader) CALL bader(ions,chg)
-     IF (options%llist%lc_dipole) CALL multipole()
+     IF (opts%llist%lc_bader) CALL bader(bdr,ions,chg)
+!     IF (opts%llist%lc_dipole) CALL multipole()
 ! call mindist()
-     IF (options%lc_voronoi) CALL voronoi()  
+     IF (opts%llist%lc_voronoi) CALL voronoi(vor,ions,chg)
 
+! Write out the volumes !!!!
 
-! Write out the volumes !!!!     
-
-     CALL output()
-
-
-
+     CALL output(bdr,vor,ions,chg)
 
 !    USE varsM , ONLY : q2,addup,chargefile,vasp,na
 !    USE ChargeM, ONLY : bader,multipole,voronoi,mindist

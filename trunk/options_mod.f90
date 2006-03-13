@@ -11,8 +11,6 @@
       CHARACTER(LEN=120) :: chargefile
     END TYPE options_obj
 
-!    TYPE(l_list) :: options
-
     PRIVATE
     PUBLIC :: get_options,l_list_obj,options_obj
 

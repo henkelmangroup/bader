@@ -8,10 +8,10 @@
 MODULE bader_mod
   USE kind_mod , ONLY : q2
   USE matrix_mod
+  USE options_mod
+  USE ions_mod
   USE charge_mod
   USE io_mod
-  USE ions_mod
-  USE options_mod
   IMPLICIT NONE
 
 ! Public parameters
@@ -47,11 +47,11 @@ MODULE bader_mod
 ! bader: Calculate the Bader volumes and integrate to give the total charge in each
 !   volume.
 !-----------------------------------------------------------------------------------!
-  SUBROUTINE bader(chg,bdr,ions)
+  SUBROUTINE bader(bdr,ions,chg)
 
-    TYPE(charge_obj) :: chg
     TYPE(bader_obj) :: bdr
     TYPE(ions_obj) :: ions
+    TYPE(charge_obj) :: chg
 
     REAL(q2),ALLOCATABLE,DIMENSION(:,:) :: tmpvolpos
     REAL(q2),ALLOCATABLE,DIMENSION(:) :: tmpvolchg
@@ -150,7 +150,7 @@ MODULE bader_mod
       bdr%volpos(i,:)=(bdr%volpos(i,:)-1.0_q2)/rnf
     END DO
 
-    CALL charge2atom(bdr,chg,ions)
+    CALL charge2atom(bdr,ions,chg)
 
     CALL transpose_matrix(ions%lattice,B,3,3)
     DO i=1,bdr%nvols
@@ -271,11 +271,11 @@ MODULE bader_mod
 ! charge2atom: Assign an element of charge to a Bader atom.
 !-----------------------------------------------------------------------------------!
 
-  SUBROUTINE charge2atom(bdr,chg,ions)
+  SUBROUTINE charge2atom(bdr,ions,chg)
 
     TYPE(bader_obj) :: bdr
-    TYPE(charge_obj) :: chg
     TYPE(ions_obj) :: ions
+    TYPE(charge_obj) :: chg
 
     REAL(q2),DIMENSION(3,3) :: B
     REAL(q2),DIMENSION(3) :: dv,v
@@ -312,11 +312,11 @@ MODULE bader_mod
 ! mindist: Find the minimum distance from the surface of each volume to 
 !-----------------------------------------------------------------------------------!
 
-  SUBROUTINE mindist(bdr,chg,ions)
+  SUBROUTINE mindist(bdr,ions,chg)
 
     TYPE(bader_obj) :: bdr
-    TYPE(charge_obj) :: chg
     TYPE(ions_obj) :: ions
+    TYPE(charge_obj) :: chg
 
     REAL(q2),DIMENSION(3,3) :: B
     REAL(q2),DIMENSION(3) :: dv,v,ringf,shift
@@ -412,12 +412,12 @@ MODULE bader_mod
 ! GH: change this to write the appropriate type of file
 !------------------------------------------------------------------------------------!
 
-  SUBROUTINE write_volindx(bdr,chg,ions,opts)
+  SUBROUTINE write_volindx(bdr,opts,ions,chg)
 
      TYPE(bader_obj) :: bdr
+     TYPE(options_obj) :: opts
      TYPE(ions_obj) :: ions
      TYPE(charge_obj) :: chg
-     TYPE(options_obj) :: opts
 
      TYPE(charge_obj) ::tmp
      INTEGER :: nx,ny,nz
@@ -446,12 +446,12 @@ MODULE bader_mod
 ! write_all_bader: Write out a CHGCAR type file for each of the Bader volumes found.
 !------------------------------------------------------------------------------------!
 
-  SUBROUTINE write_all_bader(bdr,ions,chg,opts)
+  SUBROUTINE write_all_bader(bdr,opts,ions,chg)
 
     TYPE(bader_obj) :: bdr
+    TYPE(options_obj) :: opts
     TYPE(ions_obj) :: ions
     TYPE(charge_obj) :: chg
-    TYPE(options_obj) :: opts
 
     TYPE(charge_obj) :: tmp
     INTEGER :: nx,ny,nz,i,atomnum,badercur,tenths_done,t1,t2,cr,count_max
@@ -504,12 +504,12 @@ MODULE bader_mod
 !              atoms has any 'significant' bader volumes associated with it.
 !------------------------------------------------------------------------------------!
 
-  SUBROUTINE write_all_atom(bdr,ions,chg,opts)
+  SUBROUTINE write_all_atom(bdr,opts,ions,chg)
 
     TYPE(bader_obj) :: bdr
+    TYPE(options_obj) :: opts
     TYPE(ions_obj) :: ions
     TYPE(charge_obj) :: chg
-    TYPE(options_obj) :: opts
 
     TYPE(charge_obj) :: tmp
 
@@ -575,12 +575,12 @@ MODULE bader_mod
 !              Volumes associated with a atom can be read from AtomVolumes.dat
 !------------------------------------------------------------------------------------!
 
-  SUBROUTINE write_sel_bader(bdr,ions,chg,opts)
+  SUBROUTINE write_sel_bader(bdr,opts,ions,chg)
 
     TYPE(bader_obj) :: bdr
+    TYPE(options_obj) :: opts
     TYPE(ions_obj) :: ions
     TYPE(charge_obj) :: chg
-    TYPE(options_obj) :: opts
 
     TYPE(charge_obj) :: tmp
     CHARACTER(LEN=120) :: atomfilename
