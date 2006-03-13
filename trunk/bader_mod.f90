@@ -16,7 +16,7 @@ MODULE bader_mod
 
 ! Public parameters
 
-! indx: index of the bader volume for each grid point
+! volnum: Bader volume number for each grid point
 ! volpos: position of maximum in each Bader volume
 ! colchg: integrated charge of each Bader volume
 ! ionchg: integrated charge over all Bader volumes associated with each ion
@@ -28,7 +28,7 @@ MODULE bader_mod
 ! Public, allocatable variables
   TYPE bader_obj
     REAL(q2) :: tol=1.0e-4_q2
-    INTEGER,ALLOCATABLE,DIMENSION(:,:,:) :: volindx
+    INTEGER,ALLOCATABLE,DIMENSION(:,:,:) :: volnum
     REAL(q2),ALLOCATABLE,DIMENSION(:,:) :: volpos
     REAL(q2),ALLOCATABLE,DIMENSION(:) :: volchg,iondist,ionchg,minsurfdist
     INTEGER,ALLOCATABLE,DIMENSION(:) :: nnion
@@ -75,7 +75,7 @@ MODULE bader_mod
     ALLOCATE(bdr%volchg(bdim))
     ALLOCATE(path(pdim,3))
     bdr%volchg=0.0_q2
-    bdr%volindx=0
+    bdr%volnum=0
     bdr%nvols=0  ! True number of Bader volumes
     tenths_done=0
     DO nx=1,nxf
@@ -88,10 +88,10 @@ MODULE bader_mod
           px=nx
           py=ny
           pz=nz
-          IF(bdr%volindx(px,py,pz) == 0) THEN
+          IF(bdr%volnum(px,py,pz) == 0) THEN
             CALL maximize(bdr,chg,px,py,pz,pdim,pnum)
 !            CALL pbc(px,py,pz,nxf,nyf,nzf)  ! shouldn't need this
-            known_max=bdr%volindx(px,py,pz)
+            known_max=bdr%volnum(px,py,pz)
             IF (known_max == 0) THEN
               bnum=bnum+1
               known_max=bnum
@@ -111,7 +111,7 @@ MODULE bader_mod
               bdr%volpos(bnum,:)=(/REAL(px,q2),REAL(py,q2),REAL(pz,q2)/)
             END IF
             DO p=1,pnum
-              bdr%volindx(path(p,1),path(p,2),path(p,3))=known_max
+              bdr%volnum(path(p,1),path(p,2),path(p,3))=known_max
             END DO
           END IF
         END DO
@@ -123,7 +123,7 @@ MODULE bader_mod
     DO nx=1,nxf
       DO ny=1,nyf
         DO nz=1,nzf
-          bdr%volchg(bdr%volindx(nx,ny,nz))=bdr%volchg(bdr%volindx(nx,ny,nz))+chg%rho(nx,ny,nz)
+          bdr%volchg(bdr%volnum(nx,ny,nz))=bdr%volchg(bdr%volnum(nx,ny,nz))+chg%rho(nx,ny,nz)
         END DO
       END DO
     END DO
@@ -166,7 +166,7 @@ MODULE bader_mod
 
 !-----------------------------------------------------------------------------------!
 ! maximize:  From the point (px,py,pz) do a maximization on the charge density grid
-!   and assign the maximum found to the volindx array.
+!   and assign the maximum found to the volnum array.
 !-----------------------------------------------------------------------------------!
   SUBROUTINE maximize(bdr,chg,px,py,pz,pdim,pnum)
 
@@ -199,7 +199,7 @@ MODULE bader_mod
         END IF
         CALL pbc(px,py,pz,nxf,nyf,nzf)
         path(pnum,1:3)=(/px,py,pz/)
-        IF(bdr%volindx(px,py,pz) /= 0) EXIT
+        IF(bdr%volnum(px,py,pz) /= 0) EXIT
       ELSE
         EXIT
       END IF
@@ -358,7 +358,7 @@ MODULE bader_mod
         DO nz=1,nzf
 
 !         Check to see if this is at the edge of an atomic volume
-          atom=bdr%nnion(bdr%volindx(nx,ny,nz))
+          atom=bdr%nnion(bdr%volnum(nx,ny,nz))
           surfflag=.FALSE.
           neighbourloop: DO dx=-1,1
             nxt=nx+dx
@@ -367,7 +367,7 @@ MODULE bader_mod
               DO dz=-1,1
                 nzt=nz+dz
                 CALL pbc(nxt,nyt,nzt,nxf,nyf,nzf)
-                atom_tmp=bdr%nnion(bdr%volindx(nxt,nyt,nzt))
+                atom_tmp=bdr%nnion(bdr%volnum(nxt,nyt,nzt))
                 IF (atom_tmp /= atom ) THEN
                   surfflag=.TRUE.
                   EXIT neighbourloop
@@ -407,12 +407,12 @@ MODULE bader_mod
   END SUBROUTINE mindist
 
 !------------------------------------------------------------------------------------!
-! write_volindx: Write out a CHGCAR type file with each entry containing an integer
+! write_volnum: Write out a CHGCAR type file with each entry containing an integer
 !    indicating the associated Bader maximum.
 ! GH: change this to write the appropriate type of file
 !------------------------------------------------------------------------------------!
 
-  SUBROUTINE write_volindx(bdr,opts,ions,chg)
+  SUBROUTINE write_volnum(bdr,opts,ions,chg)
 
      TYPE(bader_obj) :: bdr
      TYPE(options_obj) :: opts
@@ -434,13 +434,13 @@ MODULE bader_mod
 !     tmp%halfstep=chg%halfstep
 !     ALLOCATE(tmp%rho(tmp%nxf,tmp%nyf,tmp%nzf))
      tmp=chg
-     tmp%rho=bdr%volindx
+     tmp%rho=bdr%volnum
      
      filename='VOLUME_INDEX'
      CALL write_charge(ions,chg,opts,filename)
 
   RETURN
-  END SUBROUTINE write_volindx
+  END SUBROUTINE write_volnum
 
 !------------------------------------------------------------------------------------!
 ! write_all_bader: Write out a CHGCAR type file for each of the Bader volumes found.
@@ -484,7 +484,7 @@ MODULE bader_mod
         atomfilename = "Bvol"//Trim(atomnumtext(1:))//".dat"
 
         tmp%rho=0.0_q2
-        WHERE(bdr%volindx == badercur) tmp%rho=chg%rho
+        WHERE(bdr%volnum == badercur) tmp%rho=chg%rho
         CALL write_charge(ions,chg,opts,atomfilename)
 
       END IF
@@ -557,7 +557,7 @@ MODULE bader_mod
 
       tmp%rho=0.0_q2
       DO b=1,cc
-        WHERE(bdr%volindx == rck(b)) tmp%rho=chg%rho
+        WHERE(bdr%volnum == rck(b)) tmp%rho=chg%rho
       END DO 
       CALL write_charge(ions,chg,opts,atomfilename)
 
@@ -609,7 +609,7 @@ MODULE bader_mod
     tmp%rho=0.0_q2
 ! fix this when we get na input through options
 !    DO b=1,na
-!      WHERE(bdr%volindx == vols(b)) tmp%rho=chg%rho
+!      WHERE(bdr%volnum == vols(b)) tmp%rho=chg%rho
 !    END DO
     CALL write_charge(ions,chg,opts,atomfilename)
 

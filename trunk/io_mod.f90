@@ -33,21 +33,32 @@ MODULE io_mod
     TYPE(options_obj) :: opts
     CHARACTER(LEN=120) :: chargefile
 
-!    INTEGER :: cr,count_max,t1,t2,nx,ny,nz
-         
-!    CALL system_clock(t1,cr,count_max)
-        
-!    vasp=.false.
-        
-!    OPEN(100,FILE=filename,STATUS='old',ACTION='read',BLANK='null',PAD='yes')
-        
-!    WRITE(*,'(/,1A11,1A20)') 'OPEN ... ',chargefile
-!    READ(100,'(6/,1A7)') text 
-!    REWIND(100)
-       
-    IF (opts%llist%li_chgcar) CALL read_charge_chgcar(ions,chg,chargefile)
-    IF (opts%llist%li_cube) CALL read_charge_cube(ions,chg,chargefile)
-    
+    CHARACTER(LEN=7) :: text
+    INTEGER :: cr,count_max,t1,t2
+
+    CALL system_clock(t1,cr,count_max)
+
+    IF (.NOT. (opts%llist%li_chgcar .OR. opts%llist%li_cube)) THEN
+      ! Try to guess the file type
+      OPEN(100,FILE=chargefile,STATUS='old',ACTION='read',BLANK='null',PAD='yes')
+      READ(100,'(6/,1A7)') text
+      CLOSE(100)
+      IF (text == 'Direct') THEN
+        opts%llist%li_chgcar=.TRUE.
+      ELSE 
+        opts%llist%li_chgcar=.TRUE.
+      ENDIF
+    ENDIF
+
+    IF (opts%llist%li_chgcar) THEN
+      CALL read_charge_chgcar(ions,chg,chargefile)
+    ELSEIF(opts%llist%li_cube) THEN
+      CALL read_charge_cube(ions,chg,chargefile)
+    ENDIF
+
+    CALL system_clock(t2,cr,count_max)
+    WRITE(*,'(1A12,1F6.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
+   
   RETURN
   END SUBROUTINE read_charge
 

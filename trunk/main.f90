@@ -35,7 +35,7 @@
      IF (.NOT. ertil) THEN
        WRITE(*,'(2X,A,A)') opts%chargefile(1:i),' DOES NOT EXIST IN THIS DIRECTORY'
        STOP
-     END IF
+     ENDIF
 
 ! Call the read routines  .... from io.f90
      CALL read_charge(ions,chg,opts,opts%chargefile)
