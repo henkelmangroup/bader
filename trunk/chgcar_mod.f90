@@ -69,6 +69,10 @@ MODULE chgcar_mod
     WRITE(*,'(2x,A,1A20)') 'CLOSE ... ', chargefile
     CLOSE(100)
 
+    write(*,*) sum(chg%rho)/chg%nrho
+    pause
+
+
   RETURN
   END SUBROUTINE read_charge_chgcar
 

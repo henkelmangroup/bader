@@ -53,7 +53,7 @@
 ! Calculate
      IF (opts%llist%lc_bader) CALL bader(bdr,ions,chg)
 !     IF (opts%llist%lc_dipole) CALL multipole()
-! call mindist()
+ call mindist(bdr,ions,chg)
      IF (opts%llist%lc_voronoi) CALL voronoi(vor,ions,chg)
 
 ! Write out the volumes !!!!

@@ -27,7 +27,6 @@ MODULE bader_mod
 
 ! Public, allocatable variables
   TYPE bader_obj
-!    REAL(q2),PARAMETER :: tol=1.0e-4_q2
     REAL(q2) :: tol
     INTEGER,ALLOCATABLE,DIMENSION(:,:,:) :: volnum
     REAL(q2),ALLOCATABLE,DIMENSION(:,:) :: volpos
@@ -55,7 +54,6 @@ MODULE bader_mod
     TYPE(charge_obj) :: chg
 
     REAL(q2),ALLOCATABLE,DIMENSION(:,:) :: tmpvolpos
-    REAL(q2),ALLOCATABLE,DIMENSION(:) :: tmpvolchg
     REAL(q2),DIMENSION(3,3) :: B
     REAL(q2),DIMENSION(3) :: v,rnf
     INTEGER :: nx,ny,nz,px,py,pz,i,known_max,p,tenths_done
@@ -67,14 +65,12 @@ MODULE bader_mod
     WRITE(*,'(/,2x,A)')   'CALCULATING BADER CHARGE DISTRIBUTION'
     WRITE(*,'(2x,A)')   '               0  10  25  50  75  100'
     WRITE(*,'(2x,A,$)') 'PERCENT DONE:  **'
-
     nxf=chg%nxf
     nyf=chg%nyf
     nzf=chg%nzf
     bdim=64  ! temporary number of bader volumes, will be expanded as needed
     pdim=64  ! temporary path length, also expanded as needed
     ALLOCATE(bdr%volpos(bdim,3))
-    ALLOCATE(bdr%volchg(bdim))
     ALLOCATE(path(pdim,3))
     ALLOCATE(bdr%volnum(nxf,nyf,nzf))
     bdr%volchg=0.0_q2
@@ -83,9 +79,6 @@ MODULE bader_mod
     bdr%nvols=0  ! True number of Bader volumes
     tenths_done=0
     DO nx=1,nxf
-
-      write(*,*) nx
-
       IF ((nx*10/nxf) > tenths_done) THEN
         tenths_done=(nx*10/nxf)
         WRITE(*,'(A,$)') '**'
@@ -97,23 +90,20 @@ MODULE bader_mod
           pz=nz
           IF(bdr%volnum(px,py,pz) == 0) THEN
             CALL maximize(bdr,chg,px,py,pz,pdim,pnum)
-!            CALL pbc(px,py,pz,nxf,nyf,nzf)  ! shouldn't need this
+            CALL pbc(px,py,pz,nxf,nyf,nzf)  ! shouldn't need this
             known_max=bdr%volnum(px,py,pz)
             IF (known_max == 0) THEN
               bnum=bnum+1
               known_max=bnum
               IF (bnum > bdim) THEN
-                ALLOCATE(tmpvolpos(bdim,3),tmpvolchg(bdim))
+                ALLOCATE(tmpvolpos(bdim,3))
                 tmpvolpos=bdr%volpos
-                tmpvolchg=bdr%volchg
-                DEALLOCATE(bdr%volpos,bdr%volchg)
+                DEALLOCATE(bdr%volpos)
                 bdim=2*bdim
-                ALLOCATE(bdr%volpos(bdim,3),bdr%volchg(bdim))
-!                bdr%volchg=0.0_q2
+                ALLOCATE(bdr%volpos(bdim,3))
 !                bdr%volpos=0.0_q2
-                bdr%volchg(1:bnum-1)=tmpvolchg
                 bdr%volpos(1:bnum-1,:)=tmpvolpos
-                DEALLOCATE(tmpvolpos,tmpvolchg)
+                DEALLOCATE(tmpvolpos)
               END IF
               bdr%volpos(bnum,:)=(/REAL(px,q2),REAL(py,q2),REAL(pz,q2)/)
             END IF
@@ -126,7 +116,13 @@ MODULE bader_mod
     END DO
     WRITE(*,*)
 
+!    write(*,*) sum(bdr%volchg)/chg%nrho
+!    pause
+
 ! Sum up the charge included in each volume
+    bdr%nvols=bnum
+    ALLOCATE(bdr%volchg(bdr%nvols))
+    bdr%volchg=0.0_q2
     DO nx=1,nxf
       DO ny=1,nyf
         DO nz=1,nzf
@@ -135,17 +131,21 @@ MODULE bader_mod
       END DO
     END DO
 
-    bdr%nvols=bnum
-    ALLOCATE(tmpvolpos(bdim,3),tmpvolchg(bdim))
+    write(*,*) sum(bdr%volchg)/chg%nrho
+    write(*,*) sum(bdr%volchg)
+    pause
+
+    ALLOCATE(tmpvolpos(bdim,3))
     tmpvolpos=bdr%volpos
-    tmpvolchg=bdr%volchg
-    DEALLOCATE(bdr%volpos,bdr%volchg)
-    ALLOCATE(bdr%volpos(bdr%nvols,3),bdr%volchg(bdr%nvols))
-    bdr%volchg=tmpvolchg(1:bdr%nvols)
+    DEALLOCATE(bdr%volpos)
+    ALLOCATE(bdr%volpos(bdr%nvols,3))
     bdr%volpos=tmpvolpos(1:bdr%nvols,:)
-    DEALLOCATE(tmpvolpos,tmpvolchg)
-    bdim=bnum
-    ALLOCATE(bdr%nnion(bdr%nvols),bdr%iondist(bdr%nvols),bdr%ionchg(bdr%nvols))
+    DEALLOCATE(tmpvolpos)
+!    bdim=bnum
+
+    write(*,*) 'nvols ',bdr%nvols
+
+    ALLOCATE(bdr%nnion(bdr%nvols),bdr%iondist(bdr%nvols),bdr%ionchg(ions%nions))
 
 ! Don't have this normalization in MONDO
     bdr%volchg=bdr%volchg/REAL(chg%nrho,q2)
@@ -291,6 +291,9 @@ MODULE bader_mod
     bdr%ionchg=0.0_q2
     CALL transpose_matrix(ions%lattice,B,3,3)
     DO i=1,bdr%nvols
+
+      write(*,*) i,bdr%volchg(i)
+
       dv=bdr%volpos(i,:)-ions%r_dir(1,:)
       CALL dpbc_dir(dv)
       CALL matrix_vector(B,dv,v,3,3)
@@ -310,7 +313,13 @@ MODULE bader_mod
       bdr%nnion(i)=dindex
       bdr%ionchg(dindex)=bdr%ionchg(dindex)+bdr%volchg(i)
     END DO
-    
+ 
+    write(*,*) sum(bdr%volchg)
+    pause
+ 
+    write(*,*) bdr%ionchg
+    pause
+  
   RETURN
   END SUBROUTINE charge2atom
 

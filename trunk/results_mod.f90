@@ -83,14 +83,14 @@ MODULE results_mod
 
 
     sum_ionchg=SUM(bdr%ionchg)
-		write(*,*) sum_ionchg
+!    write(*,*) sum_ionchg
     DO i=1,ions%nions
 
-     write(*,*) i
-		 write(*,*) ions%r_car(i,:)
-		 write(*,*) bdr%ionchg(i)
-		 write(*,*) 100.0_q2*bdr%ionchg(i)/sum_ionchg
-		 write(*,*) bdr%minsurfdist(i)
+!     write(*,*) i
+!     write(*,*) ions%r_car(i,:)
+!     write(*,*) bdr%ionchg(i)
+!     write(*,*) 100.0_q2*bdr%ionchg(i)/sum_ionchg
+!     write(*,*) bdr%minsurfdist(i)
 
 
       WRITE(*,'(1I5,7F12.4)') i,ions%r_car(i,:),vor%vorchg(i),bdr%ionchg(i),         &
