@@ -50,6 +50,8 @@ MODULE results_mod
     WRITE(100,'(A,A)') '-----------------------------------------------------------',&
   &                    '-------------'
 
+    bdr%tol=1.0e-4_q2
+
     DO i=mib,mab
       cc=0
       rck=0
@@ -81,7 +83,16 @@ MODULE results_mod
 
 
     sum_ionchg=SUM(bdr%ionchg)
+		write(*,*) sum_ionchg
     DO i=1,ions%nions
+
+     write(*,*) i
+		 write(*,*) ions%r_car(i,:)
+		 write(*,*) bdr%ionchg(i)
+		 write(*,*) 100.0_q2*bdr%ionchg(i)/sum_ionchg
+		 write(*,*) bdr%minsurfdist(i)
+
+
       WRITE(*,'(1I5,7F12.4)') i,ions%r_car(i,:),vor%vorchg(i),bdr%ionchg(i),         &
   &                           100.*bdr%ionchg(i)/sum_ionchg,bdr%minsurfdist(i)
       WRITE(100,'(1I5,7F12.4)') i,ions%r_car(i,:),vor%vorchg(i),bdr%ionchg(i),       &
@@ -98,6 +109,8 @@ MODULE results_mod
     WRITE(200,668) '---------------------------------------------------------------',&
   &                '----------------------------------------'
     668 FORMAT(1A65,1A37)
+
+    bdr%tol=1.0e-4_q2
 
     DO i=1,bdr%nvols
         IF(bdr%volchg(i) > bdr%tol) THEN

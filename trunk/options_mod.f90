@@ -21,7 +21,7 @@
 
       TYPE(options_obj) :: opts
       LOGICAL :: ertil
-      INTEGER :: n,iargc,i,ip,m,it,l
+      INTEGER :: n,iargc,i,ip,m,it
       CHARACTER(LEN=120) :: p
       CHARACTER(LEN=30) :: in
 
@@ -61,44 +61,48 @@
           IF (p(1:ip) == '-v') THEN                                   ! Verbose
           ELSEIF (p(1:ip) == '-p') THEN                               ! Print options
             IF (in(1:it) == 'ALL' .OR. in(1:it) == 'all') THEN
-              opts%llist%lp_all=.true.
+              opts%llist%lp_all=.TRUE.
             ELSEIF (in(1:it) == 'ATOM' .OR. in(1:it) == 'atom') THEN
-              opts%llist%lp_atom=.true.
+              opts%llist%lp_atom=.TRUE.
             ELSEIF (in(1:it) == 'NONE' .OR. in(1:it) == 'none') THEN
-              opts%llist%lp_none=.true.
+              opts%llist%lp_none=.TRUE.
             ELSE
               WRITE(*,'(A,A,A)') ' Unknown option "',in(1:it),'"'
               STOP
             END IF
           ELSEIF (p(1:ip) == '-o') THEN                               ! Output file type
             IF (in(1:it) == 'CUBE' .OR. in(1:it) == 'cube') THEN
-              opts%llist%lo_cube=.true.
+              opts%llist%lo_cube=.TRUE.
             ELSEIF (in(1:it) == 'CHGCAR' .OR. in(1:it) == 'chgcar') THEN
-              opts%llist%lo_chgcar=.true.
+              opts%llist%lo_chgcar=.TRUE.
             ELSE
               WRITE(*,'(A,A,A)') ' Unknown option "',in(1:it),'"'
               STOP
             END IF  
           ELSEIF (p(1:ip) == '-c') THEN                               ! Calculate
             IF (in(1:it) == 'ALL' .OR. in(1:it) == 'all') THEN
-              opts%llist%lc_all=.true.
+              opts%llist%lc_all=.TRUE.
+              opts%llist%lc_bader=.TRUE.
+              opts%llist%lc_voronoi=.TRUE.
+              opts%llist%lc_dipole=.TRUE.
+              opts%llist%lc_ldos=.TRUE.
             ELSEIF (in(1:it) == 'BADER' .OR. in(1:it) == 'bader') THEN
-              opts%llist%lc_bader=.true.
+              opts%llist%lc_bader=.TRUE.
             ELSEIF (in(1:it) == 'VORONOI' .OR. in(1:it) == 'voronoi') THEN
-              opts%llist%lc_voronoi=.true.
+              opts%llist%lc_voronoi=.TRUE.
             ELSEIF (in(1:it) == 'DIPOLE' .OR. in(1:it) == 'dipole') THEN
-              opts%llist%lc_dipole=.true.
+              opts%llist%lc_dipole=.TRUE.
             ELSEIF (in(1:it) == 'LDOS' .OR. in(1:it) == 'lDOs') THEN
-              opts%llist%lc_ldos=.true.
+              opts%llist%lc_ldos=.TRUE.
             ELSE
               WRITE(*,'(A,A,A)') ' Unknown option "',in(1:it),'"'
               STOP
             END IF
           ELSEIF (p(1:ip) == '-i') THEN                               ! Output file type
             IF (in(1:it) == 'CUBE' .OR. in(1:it) == 'cube') THEN
-              opts%llist%li_cube=.true.
+              opts%llist%li_cube=.TRUE.
             ELSEIF (in(1:it) == 'CHGCAR' .OR. in(1:it) == 'chgcar') THEN
-              opts%llist%li_chgcar=.true.
+              opts%llist%li_chgcar=.TRUE.
             ELSE
               WRITE(*,'(A,A,A)') ' Unknown option "',in(1:it),'"'
               STOP

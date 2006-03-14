@@ -29,7 +29,7 @@ MODULE chgcar_mod
 
     REAL(q2),DIMENSION(3,3) :: B
     REAL(q2),DIMENSION(3) :: v
-    REAL(q2) :: side,t
+    REAL(q2) :: side
     INTEGER :: i,nx,ny,nz
     INTEGER,DIMENSION(110) :: nionlist=0
 

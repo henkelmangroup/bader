@@ -12,7 +12,9 @@ MODULE ions_mod
 
 TYPE :: ions_obj
   REAL(q2),ALLOCATABLE,DIMENSION(:,:) :: r_car,r_dir
-  INTEGER,ALLOCATABLE,DIMENSION(:) :: ion_chg
+! AA changed this to REAL(q2) from INTEGER 
+  REAL(q2),ALLOCATABLE,DIMENSION(:) :: ion_chg
+!
   REAL(q2),DIMENSION(3,3) :: lattice
   REAL(q2),DIMENSION(3) :: corner
   INTEGER,ALLOCATABLE,DIMENSION(:) :: num_ion

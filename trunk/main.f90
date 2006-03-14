@@ -17,7 +17,7 @@
 
      IMPLICIT NONE
 
-! variables
+! Variables
      TYPE(options_obj) :: opts
      TYPE(ions_obj) :: ions
      TYPE(charge_obj) :: chg
@@ -37,11 +37,17 @@
        STOP
      ENDIF
 
+     write(*,*) opts
+
 ! Call the read routines  .... from io.f90
      CALL read_charge(ions,chg,opts,opts%chargefile)
 
+     write(*,*) ' in main again '
+     write(*,*) ' if bader   ',opts%llist%lc_bader
+     write(*,*) ' if voronoi ',opts%llist%lc_voronoi
+
 ! Choose bader if no other calculation method specified
-     IF (.NOT.(opts%llist%lc_bader.OR.opts%llist%lc_voronoi)) THEN
+     IF (.NOT.(opts%llist%lc_bader .OR. opts%llist%lc_voronoi)) THEN
        opts%llist%lc_bader=.TRUE.
      ENDIF
 ! Calculate

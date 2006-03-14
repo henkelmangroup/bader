@@ -27,7 +27,8 @@ MODULE bader_mod
 
 ! Public, allocatable variables
   TYPE bader_obj
-    REAL(q2) :: tol=1.0e-4_q2
+!    REAL(q2),PARAMETER :: tol=1.0e-4_q2
+    REAL(q2) :: tol
     INTEGER,ALLOCATABLE,DIMENSION(:,:,:) :: volnum
     REAL(q2),ALLOCATABLE,DIMENSION(:,:) :: volpos
     REAL(q2),ALLOCATABLE,DIMENSION(:) :: volchg,iondist,ionchg,minsurfdist
@@ -66,6 +67,7 @@ MODULE bader_mod
     WRITE(*,'(/,2x,A)')   'CALCULATING BADER CHARGE DISTRIBUTION'
     WRITE(*,'(2x,A)')   '               0  10  25  50  75  100'
     WRITE(*,'(2x,A,$)') 'PERCENT DONE:  **'
+
     nxf=chg%nxf
     nyf=chg%nyf
     nzf=chg%nzf
@@ -74,12 +76,16 @@ MODULE bader_mod
     ALLOCATE(bdr%volpos(bdim,3))
     ALLOCATE(bdr%volchg(bdim))
     ALLOCATE(path(pdim,3))
+    ALLOCATE(bdr%volnum(nxf,nyf,nzf))
     bdr%volchg=0.0_q2
     bdr%volnum=0
+    bnum=0
     bdr%nvols=0  ! True number of Bader volumes
     tenths_done=0
-    write(*,*) 'Before loop'
     DO nx=1,nxf
+
+      write(*,*) nx
+
       IF ((nx*10/nxf) > tenths_done) THEN
         tenths_done=(nx*10/nxf)
         WRITE(*,'(A,$)') '**'
@@ -90,7 +96,6 @@ MODULE bader_mod
           py=ny
           pz=nz
           IF(bdr%volnum(px,py,pz) == 0) THEN
-            write(*,*) 'Before maximize'
             CALL maximize(bdr,chg,px,py,pz,pdim,pnum)
 !            CALL pbc(px,py,pz,nxf,nyf,nzf)  ! shouldn't need this
             known_max=bdr%volnum(px,py,pz)
@@ -136,8 +141,8 @@ MODULE bader_mod
     tmpvolchg=bdr%volchg
     DEALLOCATE(bdr%volpos,bdr%volchg)
     ALLOCATE(bdr%volpos(bdr%nvols,3),bdr%volchg(bdr%nvols))
-    bdr%volchg(1:bdr%nvols)=tmpvolchg
-    bdr%volpos(1:bdr%nvols,:)=tmpvolpos
+    bdr%volchg=tmpvolchg(1:bdr%nvols)
+    bdr%volpos=tmpvolpos(1:bdr%nvols,:)
     DEALLOCATE(tmpvolpos,tmpvolchg)
     bdim=bnum
     ALLOCATE(bdr%nnion(bdr%nvols),bdr%iondist(bdr%nvols),bdr%ionchg(bdr%nvols))
@@ -185,7 +190,6 @@ MODULE bader_mod
 
     pnum=1
     path(pnum,1:3)=(/px,py,pz/)
-
     DO
       IF(max_neighbour(chg,px,py,pz)) THEN
         pnum=pnum+1
@@ -467,6 +471,9 @@ MODULE bader_mod
     CALL system_clock(t1,cr,count_max)
     atomnum=0
     tenths_done=0
+
+    bdr%tol=1.0e-4_q2
+		
     DO badercur=1,bdr%nvols
       DO WHILE ((badercur*10/bdr%nvols) > tenths_done)
         tenths_done=tenths_done+1
@@ -530,6 +537,9 @@ MODULE bader_mod
     mab=MAXVAL(bdr%nnion)
     mib=MINVAL(bdr%nnion)
     sc=0
+
+    bdr%tol=1.0e-4_q2
+		
     DO ik=mib,mab
       cc=0
       rck=0
@@ -597,6 +607,9 @@ MODULE bader_mod
 ! Correlate the number for each 'significant' bader volume to its real number
     bdimsig=0
     volsig=0
+		
+		bdr%tol=1.0e-4_q2
+		
     DO i=1,bdr%nvols
       IF (bdr%volchg(i) > bdr%tol) THEN
         bdimsig=bdimsig+1

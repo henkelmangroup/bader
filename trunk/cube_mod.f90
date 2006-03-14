@@ -30,17 +30,15 @@ MODULE cube_mod
 
     REAL(q2),DIMENSION(3,3) :: B
     REAL(q2),DIMENSION(3) :: box,v,steps
-    REAL(q2) :: side,vol,tmp
+    REAL(q2) :: vol,tmp
     INTEGER :: i
-    INTEGER,DIMENSION(110) :: nionlist=0
-    CHARACTER(LEN=7) :: text
     INTEGER :: nx,ny,nz
 
     OPEN(100,FILE=chargefile(1:LEN_TRIM(ADJUSTL(chargefile))),STATUS='old',ACTION='read')
     WRITE(*,'(/,1A11,1A20)') 'OPEN ... ',chargefile
     WRITE(*,'(1A27)') 'GAUSSIAN-STYLE INPUT FILE'
 ! Skip the first two lines
-    READ(100,'(2/)') 
+    READ(100,'(/)') 
     READ(100,*) ions%nions,ions%corner
     chg%corner=ions%corner
     ! GH: do we need this?
@@ -73,6 +71,11 @@ MODULE cube_mod
     ALLOCATE(chg%rho(chg%nxf,chg%nyf,chg%nzf))
     READ(100,*) (((chg%rho(nx,ny,nz),nx=1,chg%nxf),ny=1,chg%nyf),nz=1,chg%nzf)
     chg%rho=chg%rho*vol 
+
+    write(*,*) sum(chg%rho)
+    write(*,*) sum(chg%rho)/chg%nrho
+    pause
+
     chg%halfstep=.TRUE.
     WRITE(*,'(1A12,1I5,1A2,1I4,1A2,1I4)') 'FFT-grid: ',chg%nxf,'x',chg%nyf,'x',chg%nzf
     WRITE(*,'(2x,A,1A20)') 'CLOSE ... ', chargefile
@@ -91,16 +94,16 @@ MODULE cube_mod
     TYPE(charge_obj) :: chg
     CHARACTER(LEN=120) :: chargefile
     
-    REAL(q2),DIMENSION(3) :: box
+!    REAL(q2),DIMENSION(3) :: box
     INTEGER :: i,nx,ny,nz
 
     INTEGER,DIMENSION(3) :: nxyz
-    REAL(q2) :: vol
+!    REAL(q2) :: vol
      
-    DO i=1,3
-      box(i)=ions%lattice(i,i)
-    END DO
-    vol=volume(ions%lattice)
+!    DO i=1,3
+!      box(i)=ions%lattice(i,i)
+!    END DO
+!    vol=volume(ions%lattice)
 
     nxyz=(/chg%nxf,chg%nyf,chg%nzf/)
 
