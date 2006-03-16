@@ -40,18 +40,19 @@ MODULE bader_mod
 
   PRIVATE
   PUBLIC :: bader_obj
-  PUBLIC :: bader,mindist
+  PUBLIC :: bader_calc,bader_mindist,bader_output
 
   CONTAINS
 !-----------------------------------------------------------------------------------!
-! bader: Calculate the Bader volumes and integrate to give the total charge in each
-!   volume.
+! bader_calc: Calculate the Bader volumes and integrate to give the total charge
+!   in each volume.
 !-----------------------------------------------------------------------------------!
-  SUBROUTINE bader(bdr,ions,chg)
+  SUBROUTINE bader_calc(bdr,ions,chg,tol)
 
     TYPE(bader_obj) :: bdr
     TYPE(ions_obj) :: ions
     TYPE(charge_obj) :: chg
+    REAL(q2) :: tol
 
     REAL(q2),ALLOCATABLE,DIMENSION(:,:) :: tmpvolpos
     REAL(q2),DIMENSION(3,3) :: B
@@ -73,6 +74,7 @@ MODULE bader_mod
     ALLOCATE(bdr%volpos(bdim,3))
     ALLOCATE(path(pdim,3))
     ALLOCATE(bdr%volnum(nxf,nyf,nzf))
+    bdr%tol=tol
     bdr%volchg=0.0_q2
     bdr%volnum=0
     bnum=0
@@ -131,9 +133,8 @@ MODULE bader_mod
       END DO
     END DO
 
-    write(*,*) sum(bdr%volchg)/chg%nrho
-    write(*,*) sum(bdr%volchg)
-    pause
+!    write(*,*) sum(bdr%volchg)/chg%nrho
+!    pause
 
     ALLOCATE(tmpvolpos(bdim,3))
     tmpvolpos=bdr%volpos
@@ -143,7 +144,7 @@ MODULE bader_mod
     DEALLOCATE(tmpvolpos)
 !    bdim=bnum
 
-    write(*,*) 'nvols ',bdr%nvols
+!    write(*,*) 'nvols ',bdr%nvols
 
     ALLOCATE(bdr%nnion(bdr%nvols),bdr%iondist(bdr%nvols),bdr%ionchg(ions%nions))
 
@@ -169,7 +170,7 @@ MODULE bader_mod
     WRITE(*,'(1A12,1F6.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
 
   RETURN
-  END SUBROUTINE bader
+  END SUBROUTINE bader_calc
 
 !-----------------------------------------------------------------------------------!
 ! maximize:  From the point (px,py,pz) do a maximization on the charge density grid
@@ -292,7 +293,7 @@ MODULE bader_mod
     CALL transpose_matrix(ions%lattice,B,3,3)
     DO i=1,bdr%nvols
 
-      write(*,*) i,bdr%volchg(i)
+!      write(*,*) i,bdr%volchg(i)
 
       dv=bdr%volpos(i,:)-ions%r_dir(1,:)
       CALL dpbc_dir(dv)
@@ -314,20 +315,20 @@ MODULE bader_mod
       bdr%ionchg(dindex)=bdr%ionchg(dindex)+bdr%volchg(i)
     END DO
  
-    write(*,*) sum(bdr%volchg)
-    pause
+!    write(*,*) sum(bdr%volchg)
+!    pause
  
-    write(*,*) bdr%ionchg
-    pause
+!    write(*,*) bdr%ionchg
+!    pause
   
   RETURN
   END SUBROUTINE charge2atom
 
 !-----------------------------------------------------------------------------------!
-! mindist: Find the minimum distance from the surface of each volume to 
+! bader_mindist: Find the minimum distance from the surface of each volume to 
 !-----------------------------------------------------------------------------------!
 
-  SUBROUTINE mindist(bdr,ions,chg)
+  SUBROUTINE bader_mindist(bdr,ions,chg)
 
     TYPE(bader_obj) :: bdr
     TYPE(ions_obj) :: ions
@@ -419,12 +420,11 @@ MODULE bader_mod
     WRITE(*,'(1A12,1F6.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
   
   RETURN
-  END SUBROUTINE mindist
+  END SUBROUTINE bader_mindist
 
 !------------------------------------------------------------------------------------!
 ! write_volnum: Write out a CHGCAR type file with each entry containing an integer
 !    indicating the associated Bader maximum.
-! GH: change this to write the appropriate type of file
 !------------------------------------------------------------------------------------!
 
   SUBROUTINE write_volnum(bdr,opts,ions,chg)
@@ -434,20 +434,10 @@ MODULE bader_mod
      TYPE(ions_obj) :: ions
      TYPE(charge_obj) :: chg
 
-     TYPE(charge_obj) ::tmp
+     TYPE(charge_obj) :: tmp
      INTEGER :: nx,ny,nz
      CHARACTER(LEN=120) :: filename
 
-! May set an interface for this in charge, overload the assigment operator 
-!     tmp%lattice=chg%lattice
-!     tmp%corner=chg%corner
-!     tmp%steps=chg%steps
-!     tmp%nxf=chg%nxf
-!     tmp%nyf=chg%nyf
-!     tmp%nzf=chg%nzf
-!     tmp%nrho=chg%nrho
-!     tmp%halfstep=chg%halfstep
-!     ALLOCATE(tmp%rho(tmp%nxf,tmp%nyf,tmp%nzf))
      tmp=chg
      tmp%rho=bdr%volnum
      
@@ -481,8 +471,7 @@ MODULE bader_mod
     atomnum=0
     tenths_done=0
 
-    bdr%tol=1.0e-4_q2
-		
+!    bdr%tol=1.0e-4_q2
     DO badercur=1,bdr%nvols
       DO WHILE ((badercur*10/bdr%nvols) > tenths_done)
         tenths_done=tenths_done+1
@@ -547,8 +536,7 @@ MODULE bader_mod
     mib=MINVAL(bdr%nnion)
     sc=0
 
-    bdr%tol=1.0e-4_q2
-		
+!    bdr%tol=1.0e-4_q2
     DO ik=mib,mab
       cc=0
       rck=0
@@ -616,9 +604,8 @@ MODULE bader_mod
 ! Correlate the number for each 'significant' bader volume to its real number
     bdimsig=0
     volsig=0
-		
-		bdr%tol=1.0e-4_q2
-		
+
+!    bdr%tol=1.0e-4_q2
     DO i=1,bdr%nvols
       IF (bdr%volchg(i) > bdr%tol) THEN
         bdimsig=bdimsig+1
@@ -644,6 +631,119 @@ MODULE bader_mod
 
   RETURN
   END SUBROUTINE write_sel_bader
+
+!------------------------------------------------------------------------------------!
+! bader_output: Write out a summary of the bader analysis.
+!         AtomVolumes.dat: Stores the 'significant' Bader volumes associated with
+!                          each atom.
+!         ACF.dat        : Stores the main output to the screen.
+!         BCF.dat        : Stores 'significant' Bader volumes, their coordinates and
+!                          charge, atom associated and distance to it. 
+!------------------------------------------------------------------------------------!
+
+  SUBROUTINE bader_output(bdr,ions,chg)
+
+    TYPE(bader_obj) :: bdr
+    TYPE(ions_obj) :: ions
+    TYPE(charge_obj) :: chg
+
+  
+    REAL(q2) :: sum_ionchg
+    INTEGER :: i,bdimsig,mib,mab,cc,j,nmax
+    INTEGER,DIMENSION(bdr%nvols) :: rck
+  
+    mab=MAXVAL(bdr%nnion)
+    mib=MINVAL(bdr%nnion)
+    OPEN(100,FILE='AVF.dat',STATUS='replace',ACTION='write')
+    WRITE(100,'(A)') '   Atom                     Volume(s)   '
+    WRITE(100,'(A,A)') '-----------------------------------------------------------',&
+  &                    '-------------'
+
+!    bdr%tol=1.0e-4_q2
+    DO i=mib,mab
+      cc=0
+      rck=0
+      nmax=0
+      DO j=1,bdr%nvols
+        IF (bdr%volchg(j) > bdr%tol) THEN
+          nmax=nmax+1
+          IF(bdr%nnion(j) == i) THEN
+            cc=cc+1
+            rck(cc)=nmax
+          END IF
+        END IF
+      END DO 
+      IF (cc == 0) CYCLE
+      WRITE(100,'(2X,1I4,2X,A,2X,10000I5)') i,' ... ',rck(1:cc)
+    END DO
+    CLOSE(100)
+    
+    WRITE(*,'(/,A41)') 'WRITING BADER ATOMIC CHARGES TO ACF.dat'
+    WRITE(*,'(A41,/)') 'WRITING BADER VOLUME CHARGES TO BCF.dat'
+
+    OPEN(100,FILE='ACF.dat',STATUS='replace',ACTION='write')
+!old    WRITE(*,555) '#','X','Y','Z','VORONOI','BADER','%','MIN DIST'
+!old    WRITE(100,555) '#','X','Y','Z','VORONOI','BADER','%','MIN DIST'
+!    WRITE(*,555) '#','X','Y','Z','BADER','MIN DIST'
+    WRITE(100,555) '#','X','Y','Z','BADER','MIN DIST'
+!old    555 FORMAT(/,4X,1A,9X,1A1,2(11X,1A1),8X,1A7,5X,1A5,9X,1A1,6X,1A10)
+    555 FORMAT(4X,1A,9X,1A1,2(11X,1A1),8X,1A5,6X,1A8)
+!    WRITE(*,666)   '----------------------------------------------------------------'
+    WRITE(100,666) '----------------------------------------------------------------'
+    666 FORMAT(1A66)
+    
+    sum_ionchg=SUM(bdr%ionchg)
+    DO i=1,ions%nions
+
+
+!old      WRITE(*,'(1I5,7F12.4)') i,ions%r_car(i,:),vor%vorchg(i),bdr%ionchg(i),         &
+!  &                           100.*bdr%ionchg(i)/sum_ionchg,bdr%minsurfdist(i)
+!old      WRITE(100,'(1I5,7F12.4)') i,ions%r_car(i,:),vor%vorchg(i),bdr%ionchg(i),       &
+!  &                           100.*bdr%ionchg(i)/sum_ionchg,bdr%minsurfdist(i)
+!      WRITE(*,'(1I5,6F12.4)') i,ions%r_car(i,:),bdr%ionchg(i),bdr%minsurfdist(i)
+      WRITE(100,'(1I5,6F12.4)') i,ions%r_car(i,:),bdr%ionchg(i),bdr%minsurfdist(i)
+    END DO
+    CLOSE(100)
+
+    bdimsig=0
+    OPEN(200,FILE='BCF.dat',STATUS='replace',ACTION='write')
+
+    WRITE(200,556) '#','X','Y','Z','CHARGE','ATOM','DISTANCE'
+    556 FORMAT(4X,1A1,9X,1A1,2(11X,1A1),8X,1A6,5X,1A4,4X,1A8)
+    
+    WRITE(200,668) '---------------------------------------------------------------',&
+  &                '----------'
+    668 FORMAT(1A65,1A10)
+   
+    write(*,*) bdr%tol 
+    DO i=1,bdr%nvols
+        IF(bdr%volchg(i) > bdr%tol) THEN
+           bdimsig=bdimsig+1
+           WRITE(200,777) bdimsig,bdr%volpos(i,:),bdr%volchg(i),bdr%nnion(i),bdr%iondist(i)
+           777 FORMAT(1I5,4F12.4,3X,1I5,1F12.4)
+        END IF
+    END DO
+    CLOSE(200)
+
+!    OPEN(300,FILE='dipole.dat',STATUS='replace',ACTION='write')
+!    WRITE(300,557) '#','X','Y','Z','MAGNITUDE'
+!    557 FORMAT(/,4X,1A1,10X,1A1,2(15X,1A1),10X,1A10)
+!    WRITE(300,*) '--------------------------------------------------------------------'
+!    DO i=1,ndim
+!      WRITE(300,888) i,dipole(i,:)*4.803_q2,                                         &
+!  &                  sqrt(DOT_PRODUCT(dipole(i,:),dipole(i,:)))*4.803_q2
+!!      888 FORMAT(1I5,4ES16.5)
+!      888 FORMAT(1I5,4F16.6)
+!    END DO
+!    CLOSE(300)
+
+    WRITE(*,'(/,2x,A,6X,1I8)')     'NUMBER OF BADER MAXIMA FOUND: ',bdr%nvols
+    WRITE(*,'(2x,A,6X,1I8)')       '    SIGNIFICANT MAXIMA FOUND: ',bdimsig
+    WRITE(*,'(2x,A,2X,1F12.5,/)')  '         NUMBER OF ELECTRONS: ',                 &
+  &                                          SUM(bdr%volchg(1:bdr%nvols))
+
+  RETURN
+  END SUBROUTINE bader_output
 
 !-----------------------------------------------------------------------------------!
 

@@ -1,25 +1,22 @@
-OBJS = kind_mod.o         \
-       matrix_mod.o       \
-       ions_mod.o         \
-       options_mod.o      \
-       charge_mod.o       \
-       chgcar_mod.o       \
-       cube_mod.o         \
-       io_mod.o           \
-       bader_mod.o        \
-       voronoi_mod.o      \
-       results_mod.o      \
-       main.o
+.SUFFIXES: .f90
 
-#       multipole_mod.o    \
+OBJS = kind_mod.o       \
+       matrix_mod.o     \
+       ions_mod.o       \
+       options_mod.o    \
+       charge_mod.o     \
+       chgcar_mod.o     \
+       cube_mod.o       \
+       io_mod.o         \
+       bader_mod.o      \
+       voronoi_mod.o
 
-bader: $(OBJS)
-	$(FC) $(LINK) -o $@ $(OBJS) 
-       
-.SUFFIXES: .f90 .o
+%.o %.mod : %.f90
+	$(FC) $(FFLAGS) -c $*.f90
 
-.f90.o:
-	$(FC) $(LINK) $(FFLAGS) -c $*.f90
+bader: $(OBJS) main.o
+	rm -f bader
+	$(FC) $(LINK) main.o -o $@ $(OBJS) 
 
 FC = xlf90
 

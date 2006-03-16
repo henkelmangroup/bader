@@ -50,8 +50,8 @@ MODULE io_mod
       ENDIF
     ENDIF
 
-    write(*,*) ' chgcar ??? ',opts%llist%li_chgcar
-    write(*,*) ' cube   ??? ',opts%llist%li_cube
+!    write(*,*) ' chgcar ??? ',opts%llist%li_chgcar
+!    write(*,*) ' cube   ??? ',opts%llist%li_cube
 
     IF (opts%llist%li_chgcar) THEN
       CALL read_charge_chgcar(ions,chg,chargefile)

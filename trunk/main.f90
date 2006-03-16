@@ -13,7 +13,7 @@
      USE bader_mod 
      USE voronoi_mod
 !     USE multipole_mod
-     USE results_mod , ONLY : output     
+!     USE results_mod , ONLY : output     
 
      IMPLICIT NONE
 
@@ -37,34 +37,30 @@
        STOP
      ENDIF
 
-     write(*,*) opts
+!     write(*,*) opts
 
 ! Call the read routines  .... from io.f90
      CALL read_charge(ions,chg,opts,opts%chargefile)
 
-     write(*,*) ' in main again '
-     write(*,*) ' if bader   ',opts%llist%lc_bader
-     write(*,*) ' if voronoi ',opts%llist%lc_voronoi
+!     write(*,*) ' in main again '
+!     write(*,*) ' if bader   ',opts%llist%lc_bader
+!     write(*,*) ' if voronoi ',opts%llist%lc_voronoi
 
 ! Choose bader if no other calculation method specified
      IF (.NOT.(opts%llist%lc_bader .OR. opts%llist%lc_voronoi)) THEN
        opts%llist%lc_bader=.TRUE.
      ENDIF
 ! Calculate
-     IF (opts%llist%lc_bader) CALL bader(bdr,ions,chg)
+     IF (opts%llist%lc_bader) THEN
+       CALL bader_calc(bdr,ions,chg,opts%badertol)
+       CALL bader_mindist(bdr,ions,chg)
+       CALL bader_output(bdr,ions,chg)
+     ENDIF
 !     IF (opts%llist%lc_dipole) CALL multipole()
- call mindist(bdr,ions,chg)
      IF (opts%llist%lc_voronoi) CALL voronoi(vor,ions,chg)
 
 ! Write out the volumes !!!!
 
-     CALL output(bdr,vor,ions,chg)
-
-!    USE varsM , ONLY : q2,addup,chargefile,vasp,na
-!    USE ChargeM, ONLY : bader,multipole,voronoi,mindist
-!    USE ChargeIOM 
-!    IMPLICIT NONE
-!
 !    INTEGER :: i,n,iargc,choose
 !    LOGICAL :: ertil
 !    CHARACTER(LEN=20) :: cc
