@@ -71,22 +71,28 @@ MODULE bader_mod
     nzf=chg%nzf
     bdim=64  ! temporary number of bader volumes, will be expanded as needed
     pdim=64  ! temporary path length, also expanded as needed
+    write(*,*) nxf,nyf,nzf
     ALLOCATE(bdr%volpos(bdim,3))
     ALLOCATE(path(pdim,3))
     ALLOCATE(bdr%volnum(nxf,nyf,nzf))
+    write (*,*) 'before zeroing'
+    write (*,*) 'tol',tol
     bdr%tol=tol
     bdr%volchg=0.0_q2
     bdr%volnum=0
     bnum=0
     bdr%nvols=0  ! True number of Bader volumes
     tenths_done=0
+    write(*,*) 'here'
     DO nx=1,nxf
+      write (*,*) nx
       IF ((nx*10/nxf) > tenths_done) THEN
         tenths_done=(nx*10/nxf)
         WRITE(*,'(A,$)') '**'
       END IF
       DO ny=1,nyf
         DO nz=1,nzf
+          write(*,*) nx,ny,nz
           px=nx
           py=ny
           pz=nz
@@ -430,7 +436,7 @@ MODULE bader_mod
   SUBROUTINE write_volnum(bdr,opts,ions,chg)
 
      TYPE(bader_obj) :: bdr
-     TYPE(options_obj) :: opts
+     TYPE(opts_obj) :: opts
      TYPE(ions_obj) :: ions
      TYPE(charge_obj) :: chg
 
@@ -454,7 +460,7 @@ MODULE bader_mod
   SUBROUTINE write_all_bader(bdr,opts,ions,chg)
 
     TYPE(bader_obj) :: bdr
-    TYPE(options_obj) :: opts
+    TYPE(opts_obj) :: opts
     TYPE(ions_obj) :: ions
     TYPE(charge_obj) :: chg
 
@@ -514,7 +520,7 @@ MODULE bader_mod
   SUBROUTINE write_all_atom(bdr,opts,ions,chg)
 
     TYPE(bader_obj) :: bdr
-    TYPE(options_obj) :: opts
+    TYPE(opts_obj) :: opts
     TYPE(ions_obj) :: ions
     TYPE(charge_obj) :: chg
 
@@ -580,14 +586,14 @@ MODULE bader_mod
   END SUBROUTINE write_all_atom
 
 !------------------------------------------------------------------------------------!
-! write_sel_bader: Write out a CHGCAR type file for specified Bader volumes by the user.
+! write_sel_bader: Write out a CHGCAR type file for the user specified Bader volumes.
 !              Volumes associated with a atom can be read from AtomVolumes.dat
 !------------------------------------------------------------------------------------!
 
   SUBROUTINE write_sel_bader(bdr,opts,ions,chg)
 
     TYPE(bader_obj) :: bdr
-    TYPE(options_obj) :: opts
+    TYPE(opts_obj) :: opts
     TYPE(ions_obj) :: ions
     TYPE(charge_obj) :: chg
 

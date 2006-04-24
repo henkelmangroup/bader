@@ -3,7 +3,7 @@
 !    Module for reading and writing charge density data
 !
 ! By Andri Arnaldsson and Graeme Henkelman
-! Last modified by AA on Aug. 02 2005
+! Last modified by GH on Apr. 23 2006
 !-----------------------------------------------------------------------------------!
 
 MODULE io_mod
@@ -30,7 +30,7 @@ MODULE io_mod
 
     TYPE(ions_obj) :: ions
     TYPE(charge_obj) :: chg
-    TYPE(options_obj) :: opts
+    TYPE(opts_obj) :: opts
     CHARACTER(LEN=120) :: chargefile
 
     CHARACTER(LEN=7) :: text
@@ -38,24 +38,21 @@ MODULE io_mod
 
     CALL system_clock(t1,cr,count_max)
 
-    IF (.NOT. (opts%llist%li_chgcar .OR. opts%llist%li_cube)) THEN
+    IF ( opts%in_opt == 0 ) THEN
       ! Try to guess the file type
       OPEN(100,FILE=chargefile,STATUS='old',ACTION='read',BLANK='null',PAD='yes')
       READ(100,'(6/,1A7)') text
       CLOSE(100)
       IF (text == 'Direct') THEN
-        opts%llist%li_chgcar=.TRUE.
+        opts%in_opt=opts%in_chgcar
       ELSE 
-        opts%llist%li_chgcar=.TRUE.
+        opts%in_opt=opts%in_cube
       ENDIF
     ENDIF
 
-!    write(*,*) ' chgcar ??? ',opts%llist%li_chgcar
-!    write(*,*) ' cube   ??? ',opts%llist%li_cube
-
-    IF (opts%llist%li_chgcar) THEN
+    IF (opts%in_opt == opts%in_chgcar) THEN
       CALL read_charge_chgcar(ions,chg,chargefile)
-    ELSEIF(opts%llist%li_cube) THEN
+    ELSEIF (opts%in_opt == opts%in_cube) THEN
       CALL read_charge_cube(ions,chg,chargefile)
     ENDIF
 
@@ -74,24 +71,15 @@ MODULE io_mod
 
     TYPE(ions_obj) :: ions
     TYPE(charge_obj) :: chg
-    TYPE(options_obj) :: opts
+    TYPE(opts_obj) :: opts
     CHARACTER(LEN=120) :: chargefile
 
-!    INTEGER :: i
-!    INTEGER :: cr,count_max,t1,t2,nx,ny,nz
-         
-!    CALL system_clock(t1,cr,count_max)
-        
-!    vasp=.false.
-        
-!    OPEN(100,FILE=filename,STATUS='old',ACTION='read',BLANK='null',PAD='yes')
-        
-!    WRITE(*,'(/,1A11,1A20)') 'OPEN ... ',chargefile
-!    READ(100,'(6/,1A7)') text 
-!    REWIND(100)
-       
-    IF (opts%llist%li_chgcar) CALL write_charge_chgcar(ions,chg,chargefile)
-    IF (opts%llist%li_cube) CALL write_charge_cube(ions,chg,chargefile)
+    IF (opts%out_opt == opts%out_chgcar) THEN
+      CALL write_charge_chgcar(ions,chg,chargefile)
+    ENDIF
+    IF (opts%out_opt == opts%out_cube) THEN 
+      CALL write_charge_cube(ions,chg,chargefile)
+    ENDIF
     
   RETURN
   END SUBROUTINE write_charge

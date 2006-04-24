@@ -3,7 +3,7 @@
 !    Module for reading and writing VASP CHGCAR files
 !
 ! By Andri Arnaldson and Graeme Henkelman
-! Last modified by 
+! Last modified by GH on Apr 23 2006
 !-----------------------------------------------------------------------------------!
 
 MODULE chgcar_mod
@@ -25,7 +25,7 @@ MODULE chgcar_mod
 
     TYPE(ions_obj) :: ions
     TYPE(charge_obj) :: chg
-    CHARACTER(LEN=64) :: chargefile
+    CHARACTER(LEN=120) :: chargefile
 
     REAL(q2),DIMENSION(3,3) :: B
     REAL(q2),DIMENSION(3) :: v
@@ -72,7 +72,6 @@ MODULE chgcar_mod
 !    write(*,*) sum(chg%rho)/chg%nrho
 !    pause
 
-
   RETURN
   END SUBROUTINE read_charge_chgcar
 
@@ -97,8 +96,6 @@ MODULE chgcar_mod
     WRITE(100,'(3(2X,1F8.6))') (ions%r_dir(i,:) , i=1,ions%nions)
     WRITE(100,*)
     WRITE(100,*) chg%nxf,chg%nyf,chg%nzf
-!    rho_tmp=0.0_q1
-!    WHERE(bader_num == BaderCur) rho_tmp=rho
     WRITE(100,'(5E18.11)') (((chg%rho(nx,ny,nz),nx=1,chg%nxf),ny=1,chg%nyf),nz=1,chg%nzf)
     CLOSE(100)
 

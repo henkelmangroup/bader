@@ -6,7 +6,7 @@
 ! Last modified by GH on June 14 2004
 !-----------------------------------------------------------------------------------!
   PROGRAM Charge
-     USE options_mod , ONLY : get_options,options_obj
+     USE options_mod
      USE ions_mod
      USE charge_mod
      USE io_mod
@@ -18,46 +18,28 @@
      IMPLICIT NONE
 
 ! Variables
-     TYPE(options_obj) :: opts
+     TYPE(opts_obj) :: opts
      TYPE(ions_obj) :: ions
      TYPE(charge_obj) :: chg
      TYPE(bader_obj) :: bdr
      TYPE(voronoi_obj) :: vor
-     INTEGER :: i
-     LOGICAL :: ertil
 
 ! Get the control variables
-     CALL get_options(opts)
-
-! Make sure that that charge density file exists here
-     i=LEN_TRIM(ADJUSTL(opts%chargefile))
-     INQUIRE(FILE=opts%chargefile(1:i),EXIST=ertil)
-     IF (.NOT. ertil) THEN
-       WRITE(*,'(2X,A,A)') opts%chargefile(1:i),' DOES NOT EXIST IN THIS DIRECTORY'
-       STOP
-     ENDIF
+     CALL get_opts(opts)
 
 !     write(*,*) opts
 
-! Call the read routines  .... from io.f90
+! Call the read routines from io_mod
      CALL read_charge(ions,chg,opts,opts%chargefile)
 
-!     write(*,*) ' in main again '
-!     write(*,*) ' if bader   ',opts%llist%lc_bader
-!     write(*,*) ' if voronoi ',opts%llist%lc_voronoi
-
-! Choose bader if no other calculation method specified
-     IF (.NOT.(opts%llist%lc_bader .OR. opts%llist%lc_voronoi)) THEN
-       opts%llist%lc_bader=.TRUE.
-     ENDIF
 ! Calculate
-     IF (opts%llist%lc_bader) THEN
+     IF (opts%bader_flag) THEN
        CALL bader_calc(bdr,ions,chg,opts%badertol)
        CALL bader_mindist(bdr,ions,chg)
        CALL bader_output(bdr,ions,chg)
      ENDIF
-!     IF (opts%llist%lc_dipole) CALL multipole()
-     IF (opts%llist%lc_voronoi) CALL voronoi(vor,ions,chg)
+!     IF (opts%dipole_flag) CALL multipole()
+     IF (opts%voronoi_flag) CALL voronoi(vor,ions,chg)
 
 ! Write out the volumes !!!!
 
