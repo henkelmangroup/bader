@@ -1,6 +1,6 @@
 !-----------------------------------------------------------------------------------!
 ! Bader charge density analysis program
-! Version 0.09c mindist
+! Version 0.1 mindist
 !
 ! By Andri Arnaldsson and Graeme Henkelman
 ! Last modified by GH on June 14 2004
@@ -18,23 +18,21 @@
      IMPLICIT NONE
 
 ! Variables
-     TYPE(opts_obj) :: opts
+     TYPE(options_obj) :: opts
      TYPE(ions_obj) :: ions
      TYPE(charge_obj) :: chg
      TYPE(bader_obj) :: bdr
      TYPE(voronoi_obj) :: vor
 
 ! Get the control variables
-     CALL get_opts(opts)
-
-!     write(*,*) opts
+     CALL get_options(opts)
 
 ! Call the read routines from io_mod
-     CALL read_charge(ions,chg,opts,opts%chargefile)
+     CALL read_charge(ions,chg,opts)
 
 ! Calculate
      IF (opts%bader_flag) THEN
-       CALL bader_calc(bdr,ions,chg,opts%badertol)
+       CALL bader_calc(bdr,ions,chg,opts)
        CALL bader_mindist(bdr,ions,chg)
        CALL bader_output(bdr,ions,chg)
      ENDIF

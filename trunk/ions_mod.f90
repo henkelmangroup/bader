@@ -3,7 +3,7 @@
 !    Module with ionic information
 !
 ! By Andri Arnaldson and Graeme Henkelman
-! Last modified
+! Last modified by GH on May 4, 2006
 !-----------------------------------------------------------------------------------!
 
 MODULE ions_mod
@@ -11,12 +11,9 @@ MODULE ions_mod
   IMPLICIT NONE
 
 TYPE :: ions_obj
-  REAL(q2),ALLOCATABLE,DIMENSION(:,:) :: r_car,r_dir
-! AA changed this to REAL(q2) from INTEGER 
+  REAL(q2),ALLOCATABLE,DIMENSION(:,:) :: r_car,r_dir,r_lat
   REAL(q2),ALLOCATABLE,DIMENSION(:) :: ion_chg
-!
-  REAL(q2),DIMENSION(3,3) :: lattice
-  REAL(q2),DIMENSION(3) :: corner
+  REAL(q2),DIMENSION(3,3) :: lattice,dir2car,car2dir
   INTEGER,ALLOCATABLE,DIMENSION(:) :: num_ion
   INTEGER :: niontypes,nions
 END TYPE

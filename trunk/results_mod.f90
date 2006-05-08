@@ -8,7 +8,7 @@
 
 MODULE results_mod
   USE kind_mod , ONLY : q1,q2
-  USE matrix_mod , ONLY : transpose_matrix,matrix_vector
+  USE matrix_mod
   USE options_mod 
   USE ions_mod
   USE charge_mod

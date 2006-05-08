@@ -24,7 +24,7 @@ MODULE voronoi_mod
   CONTAINS
 
 !-----------------------------------------------------------------------------------!
-!  vornoi:  Calculate the charge density populations based upon Vornoi polyhedia.
+!  voronoi:  Calculate the charge density populations based upon Voronoi polyhedra.
 !    In this scheme each element of charge density is associated with the atom that
 !    it is closest to.
 !-----------------------------------------------------------------------------------!
@@ -48,9 +48,9 @@ MODULE voronoi_mod
 
     ALLOCATE(vor%vorchg(ions%nions))
 
-    nxf=chg%nxf
-    nyf=chg%nyf
-    nzf=chg%nzf
+    nxf=chg%npts(1)
+    nyf=chg%npts(2)
+    nzf=chg%npts(3)
 
     ngf(1)=REAL(nxf,q2)
     ngf(2)=REAL(nyf,q2)

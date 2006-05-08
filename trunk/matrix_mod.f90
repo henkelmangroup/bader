@@ -3,65 +3,106 @@
 !  Module containing matrix functions
 !
 ! By Andri Arnaldsson and Graeme Henkelman
-! Last modified by GH on Feb 14 2003
+! Last modified by GH on May 4 2003
 !-----------------------------------------------------------------------------------!
 MODULE matrix_mod
-  USE kind_mod , ONLY : q2
+  USE kind_mod
   IMPLICIT NONE
 
   PRIVATE
-  PUBLIC :: matrix_multip,matrix_vector,transpose_matrix,volume
+  PUBLIC :: matrix_mult,matrix_vector,vector_matrix
+  PUBLIC :: matrix_transpose,matrix_volume
+  PUBLIC :: matrix_3x3_inverse
 
   CONTAINS
 !-----------------------------------------------------------------------------------!
-! matrix_multip:  Multiply the matricies A and B and return the product C
+! matrix_mult:  Multiply the matricies A and B and return the product C
 !-----------------------------------------------------------------------------------!
-  SUBROUTINE matrix_multip(A,C,B,l,m,n)
-    INTEGER,INTENT(IN) :: l,m,n
-    REAL(q2),INTENT(IN),DIMENSION(l,m) :: A
-    REAL(q2),INTENT(IN),DIMENSION(m,n) :: C
-    REAL(q2),INTENT(OUT),DIMENSION(l,n) :: B
+  SUBROUTINE matrix_mult(A,B,C)
+    REAL(q2),INTENT(IN),DIMENSION(:,:) :: A,B
+    REAL(q2),INTENT(OUT),DIMENSION(:,:) :: C
+    INTEGER :: m,n,j,k
 
-    INTEGER :: j,k
+    m=SIZE(A,2)
+    n=SIZE(B,2)
+
+! comment this check to optimize
+!    IF(m .ne. SIZE(B,1)) THEN
+!      WRITE(*,*) 'ERROR: matrix multiplication dimensions do not match'
+!      STOP
+!    END IF
 
     DO j=1,n
-      B(:,j)=0.0_q2
+      C(:,j)=0.0_q2
       DO k=1,m
-        B(:,j)=B(:,j)+c(k,j)*A(:,k)
+        C(:,j)=C(:,j)+B(k,j)*A(:,k)
       END DO
     END DO
 
   RETURN
-  END SUBROUTINE matrix_multip
+  END SUBROUTINE matrix_mult
 
 !-----------------------------------------------------------------------------------!
-! matrix_vector:  Multiply the matrix A with the vector c and return the product b
+! matrix_vector:  Multiply the matrix M with the vector V and return the product Vp
 !-----------------------------------------------------------------------------------!
-  SUBROUTINE matrix_vector(A,v,b,n,m)
-    INTEGER,INTENT(IN) :: n,m
-    REAL(q2),INTENT(IN),DIMENSION(n,m) :: A
-    REAL(q2),INTENT(IN),DIMENSION(m) :: v
-    REAL(q2),INTENT(OUT),DIMENSION(n) :: b
+  SUBROUTINE matrix_vector(M,V,Vp)
+    REAL(q2),INTENT(IN),DIMENSION(:,:) :: M
+    REAL(q2),INTENT(IN),DIMENSION(:) :: V
+    REAL(q2),INTENT(OUT),DIMENSION(:) :: Vp
 
-    INTEGER :: i
+    INTEGER :: i,n
 
-    b=0.0_q2
-    DO i=1,m
-      b=b+v(i)*A(:,i)
+    n=SIZE(V)
+
+!    IF(n .ne. SIZE(M,2)) THEN
+!      WRITE(*,*) 'ERROR: matrix-vector multiplication dimensions do not match'
+!      STOP
+!    END IF
+
+    Vp=0.0_q2
+    DO i=1,n
+      Vp=Vp+V(i)*M(:,i)
     END DO
 
   RETURN
   END SUBROUTINE matrix_vector
 
 !-----------------------------------------------------------------------------------!
-! transpose_matrix:  Set matrix B to be the transpose of A
+! vector_matrix:  Multiply the vector V with the matrix M and return the product Vp
 !-----------------------------------------------------------------------------------!
-  SUBROUTINE transpose_matrix(A,B,n,m)
-    INTEGER,INTENT(IN) :: n,m
-    REAL(q2),INTENT(IN),DIMENSION(n,m) :: A
-    REAL(q2),INTENT(INOUT),DIMENSION(m,n) :: B
+  SUBROUTINE vector_matrix(V,M,Vp)
+    REAL(q2),INTENT(IN),DIMENSION(:) :: V
+    REAL(q2),INTENT(IN),DIMENSION(:,:) :: M
+    REAL(q2),INTENT(OUT),DIMENSION(:) :: Vp
 
-    INTEGER :: i,j
+    INTEGER :: i,n
+
+    n=SIZE(V)
+
+!    IF(n .ne. SIZE(M,1)) THEN
+!      WRITE(*,*) 'ERROR: matrix-vector multiplication dimensions do not match'
+!      STOP
+!    END IF
+
+    Vp=0.0_q2
+    DO i=1,n
+      Vp=Vp+V(i)*M(i,:)
+    END DO
+
+  RETURN
+  END SUBROUTINE vector_matrix
+
+!-----------------------------------------------------------------------------------!
+! matrix_transpose:  Set matrix B to be the transpose of A
+!-----------------------------------------------------------------------------------!
+  SUBROUTINE matrix_transpose(A,B)
+    REAL(q2),INTENT(IN),DIMENSION(:,:) :: A
+    REAL(q2),INTENT(INOUT),DIMENSION(:,:) :: B
+
+    INTEGER :: i,j,n,m
+
+    n=SIZE(A,1)
+    m=SIZE(A,2)
 
     DO i=1,n
       DO j=1,m
@@ -70,22 +111,53 @@ MODULE matrix_mod
     END DO
 
   RETURN
-  END SUBROUTINE transpose_matrix
+  END SUBROUTINE matrix_transpose
 
-!------------------------------------------------------------------------------------!
-! volume: Function returning the triple product of the lattice vectors.
-!------------------------------------------------------------------------------------!
-    
-  FUNCTION volume(h)
-    REAL(q2),INTENT(IN),DIMENSION(3,3) :: h
-    REAL(q2) :: volume
-    
-    volume = h(1,1)*(h(2,2)*h(3,3)-h(2,3)*h(3,2))                                    &
-  &       -h(1,2)*(h(2,1)*h(3,3)-h(3,1)*h(2,3))                                      &
-  &       +h(1,3)*(h(2,1)*h(3,2)-h(3,1)*h(2,2))
+!-----------------------------------------------------------------------------------!
+! matrix_3x3_inverse:  Set matrix B to be the inverse of A
+!-----------------------------------------------------------------------------------!
+  SUBROUTINE matrix_3x3_inverse(A,B)
+    REAL(q2),INTENT(IN),DIMENSION(3,3) :: A
+    REAL(q2),INTENT(OUT),DIMENSION(3,3) :: B
+    REAL(q2) :: det
+    INTEGER :: i,j,it,jt
+
+    det=0
+    DO i=1,3
+      it=i-1
+      DO j=1,3
+        jt=j-1
+        B(i,j) =                                                                     & 
+  &       A(mod(it+1,3)+1,mod(jt+1,3)+1)*A(mod(it+2,3)+1,mod(jt+2,3)+1)              &
+  &      -A(mod(it+1,3)+1,mod(jt+2,3)+1)*A(mod(it+2,3)+1,mod(jt+1,3)+1)
+      END DO
+      det=det+A(i,1)*B(i,1)
+    END DO
+
+    DO i=1,3
+      DO j=1,3
+        B(i,j)=B(i,j)/det
+        if(mod(i+j,2).eq.1) B(i,j)=B(i,j)*(-1.0_q2)
+      END DO
+    END DO
 
   RETURN
-  END FUNCTION volume
+  END SUBROUTINE matrix_3x3_inverse
+
+!------------------------------------------------------------------------------------!
+! matrix_volume: Function returning the triple product of the lattice vectors.
+!------------------------------------------------------------------------------------!
+    
+  FUNCTION matrix_volume(h)
+    REAL(q2),INTENT(IN),DIMENSION(3,3) :: h
+    REAL(q2) :: matrix_volume
+    
+    matrix_volume = h(1,1)*(h(2,2)*h(3,3)-h(2,3)*h(3,2))                             &
+  &                -h(1,2)*(h(2,1)*h(3,3)-h(3,1)*h(2,3))                             &
+  &                +h(1,3)*(h(2,1)*h(3,2)-h(3,1)*h(2,2))
+
+  RETURN
+  END FUNCTION matrix_volume
 
 !-----------------------------------------------------------------------------------!
 

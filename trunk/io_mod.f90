@@ -8,7 +8,7 @@
 
 MODULE io_mod
   USE kind_mod , ONLY : q1,q2
-  USE matrix_mod , ONLY : transpose_matrix,matrix_vector
+  USE matrix_mod
   USE options_mod 
   USE ions_mod
   USE charge_mod
@@ -26,19 +26,20 @@ MODULE io_mod
 !    by first reading the header, and then charges
 !-----------------------------------------------------------------------------------!
 
-  SUBROUTINE read_charge(ions,chg,opts,chargefile)
+  SUBROUTINE read_charge(ions,chg,opts)
 
     TYPE(ions_obj) :: ions
     TYPE(charge_obj) :: chg
-    TYPE(opts_obj) :: opts
-    CHARACTER(LEN=120) :: chargefile
+    TYPE(options_obj) :: opts
 
+    CHARACTER(LEN=120) :: chargefile
     CHARACTER(LEN=7) :: text
     INTEGER :: cr,count_max,t1,t2
 
     CALL system_clock(t1,cr,count_max)
 
-    IF ( opts%in_opt == 0 ) THEN
+    chargefile=opts%chargefile
+    IF ( opts%in_opt == opts%in_auto ) THEN
       ! Try to guess the file type
       OPEN(100,FILE=chargefile,STATUS='old',ACTION='read',BLANK='null',PAD='yes')
       READ(100,'(6/,1A7)') text
@@ -71,7 +72,7 @@ MODULE io_mod
 
     TYPE(ions_obj) :: ions
     TYPE(charge_obj) :: chg
-    TYPE(opts_obj) :: opts
+    TYPE(options_obj) :: opts
     CHARACTER(LEN=120) :: chargefile
 
     IF (opts%out_opt == opts%out_chgcar) THEN

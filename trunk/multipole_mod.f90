@@ -7,7 +7,7 @@
 !
 !-----------------------------------------------------------------------------------!
 MODULE multipole
-  USE vars , ONLY : q2
+  USE kind
   USE matrix
   IMPLICIT NONE
 
@@ -58,9 +58,9 @@ MODULE multipole
       END DO
     END DO
 
-    CALL transpose_matrix(lattice,B,3,3)
+    CALL matrix_transpose(lattice,B)
     DO i=1,ndim 
-      CALL matrix_vector(B,dipole(i,1:3),v,3,3)
+      CALL matrix_vector(B,dipole(i,1:3),v)
       dipole(i,1:3)=v/REAL(nrho,q2)
     END DO
     WRITE(*,*)

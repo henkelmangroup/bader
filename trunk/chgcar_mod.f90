@@ -3,12 +3,12 @@
 !    Module for reading and writing VASP CHGCAR files
 !
 ! By Andri Arnaldson and Graeme Henkelman
-! Last modified by GH on Apr 23 2006
+! Last modified by GH on May 4 2006
 !-----------------------------------------------------------------------------------!
 
 MODULE chgcar_mod
-  USE kind_mod , ONLY : q1,q2
-  USE matrix_mod , ONLY : transpose_matrix,matrix_vector
+  USE kind_mod
+  USE matrix_mod
   USE ions_mod 
   USE charge_mod 
   IMPLICIT NONE
@@ -27,16 +27,15 @@ MODULE chgcar_mod
     TYPE(charge_obj) :: chg
     CHARACTER(LEN=120) :: chargefile
 
-    REAL(q2),DIMENSION(3,3) :: B
-    REAL(q2),DIMENSION(3) :: v
-    REAL(q2) :: side
-    INTEGER :: i,nx,ny,nz
+!    REAL(q2),DIMENSION(3) :: v
+    REAL(q2) :: scalefactor
+    INTEGER :: i,n1,n2,n3
     INTEGER,DIMENSION(110) :: nionlist=0
 
     OPEN(100,FILE=chargefile,STATUS='old',ACTION='read',BLANK='null',PAD='yes')
     WRITE(*,'(/,1A11,1A20)') 'OPEN ... ',chargefile
     WRITE(*,'(2x,A)') 'VASP-STYLE INPUT FILE'
-    READ(100,'(/,1F20.16)') side
+    READ(100,'(/,1F20.16)') scalefactor
     READ(100,'(3F13.6)') (ions%lattice(i,1:3) , i=1,3)
     READ(100,'(110I4)') nionlist
     READ(100,*)
@@ -49,28 +48,32 @@ MODULE chgcar_mod
       ions%num_ion(i)=nionlist(i)
     END DO
     ions%nions=SUM(nionlist)
-    ions%lattice=side*ions%lattice
-    CALL transpose_matrix(ions%lattice,B,3,3)
-    ions%corner=(/0.0,0.0,0.0/)
+    ions%lattice=scalefactor*ions%lattice
+    CALL matrix_transpose(ions%lattice,ions%dir2car)
+    CALL matrix_3x3_inverse(ions%dir2car,ions%car2dir)
+    chg%origin=(/0.0_q2,0.0_q2,0.0_q2/)
     ALLOCATE(ions%r_car(ions%nions,3),ions%r_dir(ions%nions,3))
     DO i=1,ions%nions
-!   Shouldn't r_dir be multiplied by side?
       READ(100,'(3(2X,1F8.6))') ions%r_dir(i,:)
-      CALL matrix_vector(B,ions%r_dir(i,:),v,3,3)
-      ions%r_car(i,:)=v
+      CALL matrix_vector(ions%dir2car,ions%r_dir(i,:),ions%r_car(i,:))
     END DO
     READ(100,*) 
-    READ(100,*) chg%nxf,chg%nyf,chg%nzf
-    chg%nrho=chg%nxf*chg%nyf*chg%nzf
-    ALLOCATE(chg%rho(chg%nxf,chg%nyf,chg%nzf))
-    READ(100,*) (((chg%rho(nx,ny,nz),nx=1,chg%nxf),ny=1,chg%nyf),nz=1,chg%nzf)
+    READ(100,*) chg%npts(:)
+    chg%nrho=PRODUCT(chg%npts(:))
+    ALLOCATE(chg%rho(chg%npts(1),chg%npts(2),chg%npts(3)))
+    READ(100,*) (((chg%rho(n1,n2,n3), &
+    &  n1=1,chg%npts(1)),n2=1,chg%npts(2)),n3=1,chg%npts(3))
     chg%halfstep=.FALSE.
-    WRITE(*,'(1A12,1I5,1A2,1I4,1A2,1I4)') 'FFT-grid: ',chg%nxf,'x',chg%nyf,'x',chg%nzf
+    WRITE(*,'(1A12,1I5,1A2,1I4,1A2,1I4)') &
+    &  'FFT-grid: ',chg%npts(1),'x',chg%npts(2),'x',chg%npts(3)
     WRITE(*,'(2x,A,1A20)') 'CLOSE ... ', chargefile
     CLOSE(100)
-
-!    write(*,*) sum(chg%rho)/chg%nrho
-!    pause
+    DO i=1,3
+      chg%lat2car(:,i)=ions%dir2car(:,i)/REAL(chg%npts(i),q2)
+      chg%car2lat(:,i)=ions%car2dir(:,i)*REAL(chg%npts(i),q2)
+    END DO
+    ! shift is due to the fact that chg(1,1,1) is at (0,0,0) in direct coordinates
+    chg%shift=(/1.0_q2,1.0_q2,1.0_q2/)
 
   RETURN
   END SUBROUTINE read_charge_chgcar
@@ -85,7 +88,7 @@ MODULE chgcar_mod
     TYPE(charge_obj) :: chg
     CHARACTER(120) :: chargefile
 
-    INTEGER :: i,nx,ny,nz
+    INTEGER :: i,n1,n2,n3
 
     OPEN(100,FILE=chargefile(1:LEN_TRIM(ADJUSTL(chargefile))),STATUS='replace')
     WRITE(100,*)'Bader charge density file'
@@ -95,8 +98,10 @@ MODULE chgcar_mod
     WRITE(100,*)'DIRECT'
     WRITE(100,'(3(2X,1F8.6))') (ions%r_dir(i,:) , i=1,ions%nions)
     WRITE(100,*)
-    WRITE(100,*) chg%nxf,chg%nyf,chg%nzf
-    WRITE(100,'(5E18.11)') (((chg%rho(nx,ny,nz),nx=1,chg%nxf),ny=1,chg%nyf),nz=1,chg%nzf)
+    WRITE(100,*) chg%npts(1),chg%npts(2),chg%npts(3)
+!    WRITE(100,'(5E18.11)') (((chg%rho(nx,ny,nz),nx=1,chg%nxf),ny=1,chg%nyf),nz=1,chg%nzf)
+    WRITE(100,'(5E18.11)') (((chg%rho(n1,n2,n3), &
+    &  n1=1,chg%npts(1)),n2=1,chg%npts(2)),n3=1,chg%npts(3))
     CLOSE(100)
 
   RETURN
