@@ -3,7 +3,7 @@
 !  Module for analyzing the charge with the Bader atom in molecules approach
 !
 ! By Andri Arnaldsson and Graeme Henkelman
-! Last modified by 
+! Last modified by GH on May 10, 2009
 !-----------------------------------------------------------------------------------!
 MODULE bader_mod
   USE kind_mod
@@ -127,7 +127,7 @@ MODULE bader_mod
         END DO
       END DO
     END DO
-    
+ 
 ! Sum up the charge included in each volume
     bdr%nvols=bnum
     ALLOCATE(bdr%volchg(bdr%nvols))
@@ -161,6 +161,8 @@ MODULE bader_mod
     END DO
 
     CALL assign_chg2atom(bdr,ions,chg)
+
+    DEALLOCATE(path)
 
     CALL system_clock(t2,cr,count_max)
     WRITE(*,'(2/,1A12,1F6.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
@@ -538,7 +540,6 @@ MODULE bader_mod
 
     INTEGER :: nx,ny,nz,i,j,b,mab,mib,ik,sc,cc,tenths_done,t1,t2,cr,count_max
     INTEGER,DIMENSION(bdr%nvols) :: rck
-!    CHARACTER(LEN=120) :: atomfilename,atomnumtext
     CHARACTER(LEN=120) :: atomfilename
 
     CALL system_clock(t1,cr,count_max)
@@ -735,6 +736,81 @@ MODULE bader_mod
 
   RETURN
   END SUBROUTINE bader_output
+
+    
+!-----------------------------------------------------------------------------------!
+!  rho_val:  Return the density at the point (p1,p2,p3) taking into account the
+!    boundary conditions.  This function is used to address points outside the
+!    charge density array without a bunch of if statements at the place the value
+!    is needed.
+!-----------------------------------------------------------------------------------!
+  FUNCTION volnum_val(bdr,chg,p1,p2,p3)
+    TYPE(bader_obj) :: bdr
+    TYPE(charge_obj) :: chg
+    INTEGER,INTENT(IN) :: p1,p2,p3
+    INTEGER :: volnum_val
+    
+    INTEGER,DIMENSION(3) :: p
+    INTEGER :: i
+    
+    p=(/p1,p2,p3/)
+    DO i=1,3
+      DO
+        IF(p(i) >= 1) EXIT
+        p(i)=p(i)+chg%npts(i)
+      END DO
+      DO
+        IF(p(i) <= chg%npts(i)) EXIT
+        p(i)=p(i)-chg%npts(i)
+      END DO
+    END DO
+    
+    volnum_val=bdr%volnum(p(1),p(2),p(3))
+    
+  RETURN
+  END FUNCTION volnum_val
+
+!-----------------------------------------------------------------------------------!
+! known_volnum: return number of the associated bader volnum if all surrounding
+!    grid points are known to be associated with the same bader volnum
+!-----------------------------------------------------------------------------------!
+  FUNCTION known_volnum(bdr,chg,p)
+   
+    TYPE(bader_obj) :: bdr
+    TYPE(charge_obj) :: chg
+    REAL(q2),DIMENSION(3),INTENT(IN) :: p
+    INTEGER :: known_volnum
+   
+    INTEGER :: volnum,d1,d2,d3,p1,p2,p3
+    LOGICAL :: first_flag
+
+    known_volnum=0
+    first_flag=.TRUE.
+
+    p1=FLOOR(p(1))
+    p2=FLOOR(p(2))
+    p3=FLOOR(p(3))
+
+    DO d1=0,1
+      p1=p(1)+d1
+      DO d2=0,1
+        p2=p(2)+d2
+        DO d3=0,1
+          p3=p(3)+d3
+          IF(first_flag) THEN
+            volnum=volnum_val(bdr,chg,p1,p2,p3)
+            IF(volnum <= 0) RETURN
+            first_flag=.FALSE.
+          ELSE
+            IF(volnum /= volnum_val(bdr,chg,p1,p2,p3)) RETURN
+          END IF
+        END DO
+      END DO
+    END DO
+    known_volnum=volnum
+
+  RETURN
+  END FUNCTION known_volnum
 
 !-----------------------------------------------------------------------------------!
 
