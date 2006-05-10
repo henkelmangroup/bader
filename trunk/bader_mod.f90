@@ -29,7 +29,7 @@ MODULE bader_mod
   TYPE bader_obj
     REAL(q2) :: tol
     INTEGER,ALLOCATABLE,DIMENSION(:,:,:) :: volnum
-    REAL(q2),ALLOCATABLE,DIMENSION(:,:) :: volpos
+    REAL(q2),ALLOCATABLE,DIMENSION(:,:) :: volpos_lat,volpos_car,volpos_dir
     REAL(q2),ALLOCATABLE,DIMENSION(:) :: volchg,iondist,ionchg,minsurfdist
     INTEGER,ALLOCATABLE,DIMENSION(:) :: nnion
     REAL(q2) :: stepsize
@@ -55,7 +55,7 @@ MODULE bader_mod
     TYPE(options_obj) :: opts
 
     REAL(q2),ALLOCATABLE,DIMENSION(:,:) :: tmpvolpos
-    REAL(q2),DIMENSION(3) :: v,npts
+    REAL(q2),DIMENSION(3) :: v
     INTEGER,DIMENSION(3) :: p
     INTEGER :: n1,n2,n3,i,known_max,pn,tenths_done
     INTEGER :: pdim,pnum,bdim,bnum
@@ -82,7 +82,7 @@ MODULE bader_mod
 
     bdim=64  ! temporary number of bader volumes, will be expanded as needed
     pdim=64  ! temporary path length, also expanded as needed
-    ALLOCATE(bdr%volpos(bdim,3))
+    ALLOCATE(bdr%volpos_lat(bdim,3))
     ALLOCATE(path(pdim,3))
     ALLOCATE(bdr%volnum(chg%npts(1),chg%npts(2),chg%npts(3)))
     bdr%volchg=0.0_q2
@@ -100,7 +100,7 @@ MODULE bader_mod
         DO n3=1,chg%npts(3)
           p=(/n1,n2,n3/)
           IF(bdr%volnum(p(1),p(2),p(3)) == 0) THEN
-            IF( opts%bader_opt == opts%bader_offgrid ) THEN
+            IF(opts%bader_opt == opts%bader_offgrid) THEN
               CALL max_offgrid(bdr,chg,p,pdim,pnum)
             ELSE
               CALL max_ongrid(bdr,chg,p,pdim,pnum)
@@ -111,14 +111,14 @@ MODULE bader_mod
               known_max=bnum
               IF (bnum > bdim) THEN
                 ALLOCATE(tmpvolpos(bdim,3))
-                tmpvolpos=bdr%volpos
-                DEALLOCATE(bdr%volpos)
+                tmpvolpos=bdr%volpos_lat
+                DEALLOCATE(bdr%volpos_lat)
                 bdim=2*bdim
-                ALLOCATE(bdr%volpos(bdim,3))
-                bdr%volpos(1:bnum-1,:) = tmpvolpos
+                ALLOCATE(bdr%volpos_lat(bdim,3))
+                bdr%volpos_lat(1:bnum-1,:) = tmpvolpos
                 DEALLOCATE(tmpvolpos)
               END IF
-              bdr%volpos(bnum,:) = REAL(p,q2)
+              bdr%volpos_lat(bnum,:) = REAL(p,q2)
             END IF
             DO i=1,pnum
               bdr%volnum(path(i,1),path(i,2),path(i,3)) = known_max
@@ -140,30 +140,27 @@ MODULE bader_mod
         END DO
       END DO
     END DO
-    
+
     ALLOCATE(tmpvolpos(bdim,3))
-    tmpvolpos=bdr%volpos
-    DEALLOCATE(bdr%volpos)
-    ALLOCATE(bdr%volpos(bdr%nvols,3))
-    bdr%volpos=tmpvolpos(1:bdr%nvols,:)
+    tmpvolpos=bdr%volpos_lat
+    DEALLOCATE(bdr%volpos_lat)
+    ALLOCATE(bdr%volpos_lat(bdr%nvols,3))
+    bdr%volpos_lat=tmpvolpos(1:bdr%nvols,:)
     DEALLOCATE(tmpvolpos) 
-              
+ 
     ALLOCATE(bdr%nnion(bdr%nvols),bdr%iondist(bdr%nvols),bdr%ionchg(ions%nions))
 
     bdr%volchg=bdr%volchg/REAL(chg%nrho,q2)
 
-    ! does this need halfshift applied?
-    npts=REAL(chg%npts,q2)
+    ! volpos in direct coordinates
+    ALLOCATE(bdr%volpos_dir(bdr%nvols,3))
+    ALLOCATE(bdr%volpos_car(bdr%nvols,3))
     DO i=1,bdr%nvols
-      bdr%volpos(i,:)=(bdr%volpos(i,:)-1.0_q2)/npts
+      bdr%volpos_dir(i,:)=lat2dir(chg,bdr%volpos_lat(i,:))
+      bdr%volpos_car(i,:)=lat2car(chg,bdr%volpos_lat(i,:))
     END DO
 
     CALL assign_chg2atom(bdr,ions,chg)
-
-    DO i=1,bdr%nvols
-      CALL matrix_vector(ions%dir2car,bdr%volpos(i,:),v)
-      bdr%volpos(i,:)=v
-    END DO
 
     CALL system_clock(t2,cr,count_max)
     WRITE(*,'(2/,1A12,1F6.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
@@ -230,7 +227,9 @@ MODULE bader_mod
 !GH: change this for non-orthogonal cells
     REAL(q2) :: rho_max,rho_tmp,rho_ctr
 
-   step_offgrid=.TRUE.
+!   step_offgrid=.TRUE.
+!   step_offgrid=is_max(p)
+    step_offgrid=.TRUE.
   RETURN
   END FUNCTION step_offgrid
 
@@ -285,20 +284,8 @@ MODULE bader_mod
     INTEGER,INTENT(INOUT) :: px,py,pz
     LOGICAL :: step_ongrid
 
-!GH: change this for non-orthogonal cells
     REAL(q2) :: rho_max,rho_tmp,rho_ctr
     INTEGER :: dx,dy,dz,pxt,pyt,pzt,pxm,pym,pzm
-    REAL(q2),DIMENSION(-1:1,-1:1,-1:1),SAVE :: w=RESHAPE((/           &
-    &    0.5773502691896_q2,0.7071067811865_q2,0.5773502691896_q2,    &
-    &    0.7071067811865_q2,1.0000000000000_q2,0.7071067811865_q2,    &
-    &    0.5773502691896_q2,0.7071067811865_q2,0.5773502691896_q2,    &
-    &    0.7071067811865_q2,1.0000000000000_q2,0.7071067811865_q2,    &
-    &    1.0000000000000_q2,0.0000000000000_q2,1.0000000000000_q2,    &
-    &    0.7071067811865_q2,1.0000000000000_q2,0.7071067811865_q2,    &
-    &    0.5773502691896_q2,0.7071067811865_q2,0.5773502691896_q2,    &
-    &    0.7071067811865_q2,1.0000000000000_q2,0.7071067811865_q2,    &
-    &    0.5773502691896_q2,0.7071067811865_q2,0.5773502691896_q2     &
-    &    /),(/3,3,3/))
 
     rho_max=0.0_q2
     pxm=px
@@ -312,7 +299,7 @@ MODULE bader_mod
         DO dz=-1,1
           pzt=pz+dz
           rho_tmp=rho_val(chg,pxt,pyt,pzt)
-          rho_tmp=rho_ctr+w(dx,dy,dz)*(rho_tmp-rho_ctr)
+          rho_tmp=rho_ctr+(rho_tmp-rho_ctr)*chg%lat_i_dist(dx,dy,dz)
           IF (rho_tmp > rho_max) THEN
             rho_max=rho_tmp
             pxm=pxt
@@ -339,9 +326,6 @@ MODULE bader_mod
 
   SUBROUTINE assign_chg2atom(bdr,ions,chg)
 
-    ! what about halfstep:  perhaps it would be good to have a lat2car
-    ! function which includes the origin and halfstep shifts
-
     TYPE(bader_obj) :: bdr
     TYPE(ions_obj) :: ions
     TYPE(charge_obj) :: chg
@@ -352,13 +336,13 @@ MODULE bader_mod
 
     bdr%ionchg=0.0_q2
     DO i=1,bdr%nvols
-      dv=bdr%volpos(i,:)-ions%r_dir(1,:)
+      dv=bdr%volpos_dir(i,:)-ions%r_dir(1,:)
       CALL dpbc_dir(dv)
       CALL matrix_vector(ions%dir2car,dv,v)
       dminsq=DOT_PRODUCT(v,v)
       dindex=1
       DO j=2,ions%nions
-        dv=bdr%volpos(i,:)-ions%r_dir(j,:)
+        dv=bdr%volpos_dir(i,:)-ions%r_dir(j,:)
         CALL dpbc_dir(dv)
         CALL matrix_vector(ions%dir2car,dv,v)
         dsq=DOT_PRODUCT(v,v)
@@ -401,11 +385,6 @@ MODULE bader_mod
 !   Store the minimum distance and the vector
     ALLOCATE(bdr%minsurfdist(ions%nions))
     bdr%minsurfdist=0.0_q2
-    IF (chg%halfstep) THEN
-      shift=0.5_q2               ! Gaussian style
-    ELSE
-      shift=1.0_q2               ! VASP style 
-    END IF
 
     tenths_done=0
     DO n1=1,chg%npts(1)
@@ -438,7 +417,7 @@ MODULE bader_mod
 !         If this is an edge cell, check if it is the closest to the atom so far
           IF (surfflag) THEN
             v(1:3)=(/n1,n2,n3/)
-            dv_dir=(v-shift)/REAL(chg%npts,q2)-ions%r_dir(atom,:)
+            dv_dir=(v-chg%org_lat)/REAL(chg%npts,q2)-ions%r_dir(atom,:)
             CALL dpbc_dir(dv_dir)
             CALL matrix_vector(ions%dir2car,dv_dir,dv_car)
             dist=DOT_PRODUCT(dv_car,dv_car)
@@ -742,7 +721,7 @@ MODULE bader_mod
     DO i=1,bdr%nvols
         IF(bdr%volchg(i) > bdr%tol) THEN
            bdimsig=bdimsig+1
-           WRITE(200,777) bdimsig,bdr%volpos(i,:),bdr%volchg(i), &
+           WRITE(200,777) bdimsig,bdr%volpos_car(i,:),bdr%volchg(i), &
            &              bdr%nnion(i),bdr%iondist(i)
            777 FORMAT(1I5,4F12.4,3X,1I5,1F12.4)
         END IF

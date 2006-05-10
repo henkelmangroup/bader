@@ -29,24 +29,30 @@ MODULE cube_mod
     CHARACTER(LEN=120) :: chargefile
 
     REAL(q2) :: vol,tmp
-    INTEGER :: i,n1,n2,n3
+    REAL(q2),DIMENSION(3) :: dlat,dcar
+    INTEGER :: i,n1,n2,n3,d1,d2,d3
 
-    OPEN(100,FILE=chargefile(1:LEN_TRIM(ADJUSTL(chargefile))),STATUS='old',ACTION='read')
+    OPEN(100,FILE=chargefile(1:LEN_TRIM(ADJUSTL(chargefile))), &
+    &    STATUS='old',ACTION='read')
     WRITE(*,'(/,1A11,1A20)') 'OPEN ... ',chargefile
     WRITE(*,'(1A27)') 'GAUSSIAN-STYLE INPUT FILE'
-! Skip the first two lines
+    ! Skip the first two lines
     READ(100,'(/)') 
-    READ(100,*) ions%nions,chg%origin
-    ! GH: do we need this?
-    ALLOCATE(ions%r_car(ions%nions,3),ions%r_dir(ions%nions,3),ions%ion_chg(ions%nions))
+    READ(100,*) ions%nions,chg%org_car
+    ALLOCATE(ions%r_car(ions%nions,3),ions%r_dir(ions%nions,3), &
+    &        ions%ion_chg(ions%nions))
     DO i=1,3
       READ(100,*) chg%npts(i),chg%lat2car(i,:)
     END DO
-    IF(chg%npts(1)<0) chg%npts(1)=(-1)*chg%npts(1)  ! This should really indicate the units (Bohr/Ang)
-    !GH: this -1 is to account for having points at the edge of the cube
+    ! This should really indicate the units (Bohr/Ang)
+    IF(chg%npts(1)<0) chg%npts(1)=(-1)*chg%npts(1)
+    ! The -1 is to account for having points at the edge of the cube
     DO i=1,3
       ions%lattice(:,i)=chg%lat2car(i,:)*REAL(chg%npts(i)-1,q2)
     END DO
+    ! GH: still not sure about this -1.  Should it factor into the
+    !     conversion matricies between lat and dir/car, as it is now?
+    !     What about the places in which we multiply by npts, or i_npts?
     CALL matrix_transpose(ions%lattice,ions%dir2car)
     CALL matrix_3x3_inverse(ions%dir2car,ions%car2dir)
     DO i=1,3
@@ -55,7 +61,7 @@ MODULE cube_mod
     vol=matrix_volume(ions%lattice)
     DO i=1,ions%nions
       READ(100,*) tmp,ions%ion_chg(i),ions%r_car(i,:)
-      ions%r_car(i,:)=ions%r_car(i,:)-chg%origin(:)
+!      ions%r_car(i,:)=ions%r_car(i,:)-chg%org_car(:)
       CALL matrix_vector(ions%car2dir,ions%r_car(i,:),ions%r_dir(i,:))
     END DO
     chg%nrho=PRODUCT(chg%npts(:))
@@ -64,13 +70,32 @@ MODULE cube_mod
     &            n1=1,chg%npts(1)),n2=1,chg%npts(2)),n3=1,chg%npts(3))
     chg%rho=chg%rho*vol 
 
-    chg%halfstep=.TRUE.
     WRITE(*,'(1A12,1I5,1A2,1I4,1A2,1I4)') 'FFT-grid: ',  &
     &         chg%npts(1),'x',chg%npts(2),'x',chg%npts(3)
     WRITE(*,'(2x,A,1A20)') 'CLOSE ... ', chargefile
     CLOSE(100)
 
-    chg%shift=(/1.0_q2,1.0_q2,1.0_q2/)
+    ! origin of the lattice is at chg(0.5,0.5,0.5)
+    chg%org_lat=(/0.5_q2,0.5_q2,0.5_q2/)
+    CALL matrix_vector(ions%car2dir,chg%org_car,chg%org_dir)
+
+    ! distance between neighboring points
+    DO d1=-1,1
+      dlat(1)=REAL(d1,q2)
+      DO d2=-1,1
+        dlat(2)=REAL(d2,q2)
+        DO d3=-1,1
+          dlat(3)=REAL(d3,q2)
+          CALL matrix_vector(chg%lat2car,dlat,dcar)
+          chg%lat_dist(d1,d2,d3)=SQRT(SUM(dcar*dcar))
+         IF ((d1 == 0).AND.(d2 == 0).AND.(d3 == 0)) THEN
+            chg%lat_i_dist(d1,d2,d3)=0.0_q2       
+          ELSE
+            chg%lat_i_dist(d1,d2,d3)=1.0_q2/chg%lat_dist(d1,d2,d3)
+          END IF
+        END DO
+      END DO
+    END DO
 
   RETURN
   END SUBROUTINE read_charge_cube
@@ -91,25 +116,19 @@ MODULE cube_mod
 
     WRITE(100,*) 'Gaussian cube file'
     WRITE(100,*) 'Bader charge'
-    WRITE(100,'(1I5,3(3X,1F9.6))') ions%nions,chg%origin
-!    WRITE(100,'(1I5,3(3X,1F9.6))') chg%npts(1),chg%steps(1),0.000000,0.000000
-!    WRITE(100,'(1I5,3(3X,1F9.6))') chg%npts(2),0.000000,chg%steps(2),0.000000
-!    WRITE(100,'(1I5,3(3X,1F9.6))') chg%npts(3),0.000000,0.000000,chg%steps(3)
+    WRITE(100,'(1I5,3(3X,1F9.6))') ions%nions,chg%org_car
     DO i=1,3
       WRITE(100,'(1I5,3(3X,1F9.6))') chg%npts(i),chg%lat2car(i,:)
     END DO
     DO i=1,ions%nions
-!    WRITE(100,'(1I5,3X,1F9.6,3(3X,1F9.6))')                                    & 
-!    &         INT(ions%ion_chg(i)),ions%ion_chg(i),                            &
-!    &         chg%steps*REAL((nxyz-1),q2)*ions%r_dir(i,:)+ions%origin
     WRITE(100,'(1I5,3X,1F9.6,3(3X,1F9.6))') & 
-    &         INT(ions%ion_chg(i)),ions%ion_chg(i),ions%r_car(i,:)+chg%origin
+    &     INT(ions%ion_chg(i)),ions%ion_chg(i),ions%r_car(i,:)
+!    &     INT(ions%ion_chg(i)),ions%ion_chg(i),ions%r_car(i,:)+chg%origin
     END DO
-!    WRITE(100,'(6E13.5)') (((chg%rho(nx,ny,nz),nz=1,chg%nzf),ny=1,chg%nyf),nx=1,chg%nxf)
     WRITE(100,'(6E13.5)') (((chg%rho(n1,n2,n3), &
     &  n1=1,chg%npts(1)),n2=1,chg%npts(2)),n3=1,chg%npts(3))
     CLOSE(100)
-                
+ 
   RETURN
   END SUBROUTINE write_charge_cube
 

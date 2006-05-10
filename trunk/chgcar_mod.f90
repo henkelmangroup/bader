@@ -3,7 +3,7 @@
 !    Module for reading and writing VASP CHGCAR files
 !
 ! By Andri Arnaldson and Graeme Henkelman
-! Last modified by GH on May 4 2006
+! Last modified by GH on May 9 2006
 !-----------------------------------------------------------------------------------!
 
 MODULE chgcar_mod
@@ -27,9 +27,9 @@ MODULE chgcar_mod
     TYPE(charge_obj) :: chg
     CHARACTER(LEN=120) :: chargefile
 
-!    REAL(q2),DIMENSION(3) :: v
     REAL(q2) :: scalefactor
-    INTEGER :: i,n1,n2,n3
+    REAL(q2),DIMENSION(3) :: dlat,dcar
+    INTEGER :: i,n1,n2,n3,d1,d2,d3
     INTEGER,DIMENSION(110) :: nionlist=0
 
     OPEN(100,FILE=chargefile,STATUS='old',ACTION='read',BLANK='null',PAD='yes')
@@ -51,8 +51,7 @@ MODULE chgcar_mod
     ions%lattice=scalefactor*ions%lattice
     CALL matrix_transpose(ions%lattice,ions%dir2car)
     CALL matrix_3x3_inverse(ions%dir2car,ions%car2dir)
-    chg%origin=(/0.0_q2,0.0_q2,0.0_q2/)
-    ALLOCATE(ions%r_car(ions%nions,3),ions%r_dir(ions%nions,3))
+    ALLOCATE(ions%r_dir(ions%nions,3),ions%r_car(ions%nions,3))
     DO i=1,ions%nions
       READ(100,'(3(2X,1F8.6))') ions%r_dir(i,:)
       CALL matrix_vector(ions%dir2car,ions%r_dir(i,:),ions%r_car(i,:))
@@ -60,10 +59,10 @@ MODULE chgcar_mod
     READ(100,*) 
     READ(100,*) chg%npts(:)
     chg%nrho=PRODUCT(chg%npts(:))
+    chg%i_npts=1.0_q2/REAL(chg%npts,q2)
     ALLOCATE(chg%rho(chg%npts(1),chg%npts(2),chg%npts(3)))
     READ(100,*) (((chg%rho(n1,n2,n3), &
     &  n1=1,chg%npts(1)),n2=1,chg%npts(2)),n3=1,chg%npts(3))
-    chg%halfstep=.FALSE.
     WRITE(*,'(1A12,1I5,1A2,1I4,1A2,1I4)') &
     &  'FFT-grid: ',chg%npts(1),'x',chg%npts(2),'x',chg%npts(3)
     WRITE(*,'(2x,A,1A20)') 'CLOSE ... ', chargefile
@@ -72,8 +71,35 @@ MODULE chgcar_mod
       chg%lat2car(:,i)=ions%dir2car(:,i)/REAL(chg%npts(i),q2)
       chg%car2lat(:,i)=ions%car2dir(:,i)*REAL(chg%npts(i),q2)
     END DO
-    ! shift is due to the fact that chg(1,1,1) is at (0,0,0) in direct coordinates
-    chg%shift=(/1.0_q2,1.0_q2,1.0_q2/)
+
+    ! origin of the lattice is at chg(1,1,1)
+    chg%org_lat=(/1.0_q2,1.0_q2,1.0_q2/)
+    chg%org_dir=(/0.0_q2,0.0_q2,0.0_q2/)
+    chg%org_car=(/0.0_q2,0.0_q2,0.0_q2/)
+
+    ! ion positions in grid points
+    ALLOCATE(ions%r_lat(ions%nions,3))
+    DO i=1,ions%nions
+      ions%r_lat(i,:)=dir2lat(chg,ions%r_dir(i,:))
+    END DO
+
+    ! distance between neighboring points
+    DO d1=-1,1
+      dlat(1)=REAL(d1,q2)
+      DO d2=-1,1
+        dlat(2)=REAL(d2,q2)
+        DO d3=-1,1
+          dlat(3)=REAL(d3,q2)
+          CALL matrix_vector(chg%lat2car,dlat,dcar)
+          chg%lat_dist(d1,d2,d3)=SQRT(SUM(dcar*dcar))
+          IF ((d1 == 0).AND.(d2 == 0).AND.(d3 == 0)) THEN
+            chg%lat_i_dist(d1,d2,d3)=0.0_q2
+          ELSE
+            chg%lat_i_dist(d1,d2,d3)=1.0_q2/chg%lat_dist(d1,d2,d3)
+          END IF
+        END DO
+      END DO
+    END DO
 
   RETURN
   END SUBROUTINE read_charge_chgcar
@@ -99,7 +125,6 @@ MODULE chgcar_mod
     WRITE(100,'(3(2X,1F8.6))') (ions%r_dir(i,:) , i=1,ions%nions)
     WRITE(100,*)
     WRITE(100,*) chg%npts(1),chg%npts(2),chg%npts(3)
-!    WRITE(100,'(5E18.11)') (((chg%rho(nx,ny,nz),nx=1,chg%nxf),ny=1,chg%nyf),nz=1,chg%nzf)
     WRITE(100,'(5E18.11)') (((chg%rho(n1,n2,n3), &
     &  n1=1,chg%npts(1)),n2=1,chg%npts(2)),n3=1,chg%npts(3))
     CLOSE(100)

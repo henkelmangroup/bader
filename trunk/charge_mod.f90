@@ -16,16 +16,19 @@ MODULE charge_mod
   TYPE :: charge_obj
     REAL(q2),ALLOCATABLE,DIMENSION(:,:,:) :: rho
     REAL(q2),DIMENSION(3,3) :: lat2car,car2lat
-    REAL(q2),DIMENSION(3) :: origin,shift
+    REAL(q2),DIMENSION(-1:1,-1:1,-1:1) :: lat_dist,lat_i_dist
+    REAL(q2),DIMENSION(3) :: org_lat,org_dir,org_car
+    REAL(q2),DIMENSION(3) :: i_npts
     INTEGER,DIMENSION(3) :: npts
     INTEGER :: nrho
-    LOGICAL :: halfstep, orthogonal
   END TYPE
 
   PRIVATE
   PUBLIC :: charge_obj
-  PUBLIC :: rho_val,pbc,dpbc_dir,dpbc,verticies
-  PUBLIC :: rho_grad
+  PUBLIC :: rho_val,rho_grad
+  PUBLIC :: pbc,dpbc_dir,dpbc
+  PUBLIC :: is_max
+  PUBLIC :: lat2car,car2lat,lat2dir,dir2lat
 
   INTERFACE ASSIGNMENT(=)
     MODULE PROCEDURE assign_charge
@@ -43,12 +46,14 @@ MODULE charge_mod
     
     chg1%lat2car=chg2%lat2car
     chg1%car2lat=chg2%car2lat
-    chg1%origin=chg2%origin
-    chg1%shift=chg2%shift
+    chg1%org_lat=chg2%org_lat
+    chg1%org_dir=chg2%org_dir
+    chg1%org_car=chg2%org_car
+    chg1%lat_dist=chg2%lat_dist
+    chg1%lat_i_dist=chg2%lat_i_dist
+    chg1%i_npts=chg2%i_npts
     chg1%npts=chg2%npts
     chg1%nrho=chg2%nrho
-    chg1%halfstep=chg2%halfstep
-    chg1%orthogonal=chg2%orthogonal
 
     ALLOCATE(chg1%rho(chg1%npts(1),chg1%npts(2),chg1%npts(3)))
     chg1%rho=chg2%rho
@@ -225,41 +230,101 @@ MODULE charge_mod
   END SUBROUTINE dpbc
 
 !-----------------------------------------------------------------------------------!
-! verticies: Return the points (ix,iy,iz) and (ixm,iym,izm) which are the verticies
-!   closest to the REAL(q2) point (px,py,pz)
+! is_max: return .true. if the grid point is a maximum of charge density
 !-----------------------------------------------------------------------------------!
-  SUBROUTINE verticies(px,py,pz,nxf,nyf,nzf,ix,iy,iz,ixm,iym,izm)
+  FUNCTION is_max(chg,p)
 
-!GH: not used, but could be more efficient than calling pbc for the offgrid algorithm
+    TYPE(charge_obj) :: chg
+    INTEGER,DIMENSION(3),INTENT(IN) :: p
+    LOGICAL :: is_max
 
-    REAL(q2),INTENT(INOUT) :: px,py,pz
-    INTEGER,INTENT(IN) :: nxf,nyf,nzf
-    INTEGER,INTENT(OUT) :: ix,iy,iz,ixm,iym,izm
+    REAL(q2) :: rho
+    INTEGER :: d1,d2,d3,p1,p2,p3
+  
+    is_max=.TRUE. 
+    p1=p(1)
+    p2=p(2)
+    p3=p(3)
+    rho=rho_val(chg,p1,p2,p3)
+    DO d1=-1,1
+      p1=p(1)+d1
+      DO d2=-1,1
+        p2=p(2)+d2
+        DO d3=-1,1
+          p3=p(3)+d3
+          IF(rho_val(chg,p1,p2,p3) > rho) THEN
+            is_max=.FALSE.
+          END IF
+        END DO
+      END DO
+    END DO
 
-    ix=FLOOR(px)
-    IF (ix == 0) THEN
-      ix=nxf
-      ixm=1
-    ELSE
-      ixm=ix+1
-    END IF
-    iy=FLOOR(py)
-    IF (iy == 0) THEN
-      iy=nyf
-      iym=1
-    ELSE
-      iym=iy+1
-    END IF
-    iz=FLOOR(pz)
-    IF (iz == 0) THEN
-      iz=nzf
-      izm=1
-    ELSE
-      izm=iz+1
-    END IF
+  RETURN 
+  END FUNCTION is_max
+
+!-----------------------------------------------------------------------------------!
+! lat2dir: convert from a lattice grid point to a direct coordinate vector
+!-----------------------------------------------------------------------------------!
+  FUNCTION lat2dir(chg,p)
+
+    TYPE(charge_obj) :: chg
+    REAL(q2),DIMENSION(3),INTENT(IN) :: p
+    REAL(q2),DIMENSION(3) :: lat2dir
+
+    lat2dir=p-chg%org_lat
+    lat2dir=lat2dir*chg%i_npts
+    lat2dir=lat2dir+chg%org_dir
 
   RETURN
-  END SUBROUTINE verticies
+  END FUNCTION lat2dir
+
+!-----------------------------------------------------------------------------------!
+! lat2car: convert from a lattice grid point to a Cartesian coordinate vector
+!-----------------------------------------------------------------------------------!
+  FUNCTION lat2car(chg,p)
+
+    TYPE(charge_obj) :: chg
+    REAL(q2),DIMENSION(3),INTENT(IN) :: p
+    REAL(q2),DIMENSION(3) :: lat2car,v
+
+    v=p-chg%org_lat
+    CALL matrix_vector(chg%lat2car,v,lat2car)
+    lat2car=lat2car+chg%org_car
+
+  RETURN
+  END FUNCTION lat2car
+
+!-----------------------------------------------------------------------------------!
+! dir2lat: convert from a direct coordinate vector to a lattice grid point
+!-----------------------------------------------------------------------------------!
+  FUNCTION dir2lat(chg,p)
+
+    TYPE(charge_obj) :: chg
+    REAL(q2),DIMENSION(3),INTENT(IN) :: p
+    REAL(q2),DIMENSION(3) :: dir2lat
+
+    dir2lat=p-chg%org_dir
+    dir2lat=dir2lat*REAL(chg%npts,q2)
+    dir2lat=dir2lat+chg%org_dir
+
+  RETURN
+  END FUNCTION dir2lat
+
+!-----------------------------------------------------------------------------------!
+! car2lat: convert from a Cartesian coordinate vector to a lattice grid point
+!-----------------------------------------------------------------------------------!
+  FUNCTION car2lat(chg,p)
+
+    TYPE(charge_obj) :: chg
+    REAL(q2),DIMENSION(3),INTENT(IN) :: p
+    REAL(q2),DIMENSION(3) :: car2lat,v
+
+    v=p-chg%org_car
+    CALL matrix_vector(chg%car2lat,v,car2lat)
+    car2lat=car2lat+chg%org_lat
+
+  RETURN
+  END FUNCTION car2lat
 
 !-----------------------------------------------------------------------------------!
 
