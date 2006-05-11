@@ -21,6 +21,7 @@ MODULE voronoi_mod
   PRIVATE
   PUBLIC :: voronoi_obj
   PUBLIC :: voronoi
+
   CONTAINS
 
 !-----------------------------------------------------------------------------------!
@@ -28,13 +29,13 @@ MODULE voronoi_mod
 !    In this scheme each element of charge density is associated with the atom that
 !    it is closest to.
 !-----------------------------------------------------------------------------------!
+
   SUBROUTINE voronoi(vor,ions,chg)
 
     TYPE(voronoi_obj) :: vor
     TYPE(ions_obj) :: ions
     TYPE(charge_obj) :: chg
 
-!    REAL(q2),DIMENSION(ndim,3) :: r_atm
     REAL(q2),DIMENSION(3) :: r_lat,dr_lat,dr_car,ngf,ngf_2
     REAL(q2) :: dist,min_dist,shift
     INTEGER :: i,n1,n2,n3,closest,tenths_done,cr,count_max,t1,t2
@@ -50,7 +51,6 @@ MODULE voronoi_mod
     ngf=REAL(chg%npts,q2)
     ngf_2=ngf/2.0_q2
 
-! fix this for non-orthogonal cells
     vor%vorchg=0.0_q2
     tenths_done=0
     DO n1=1,chg%npts(1)
@@ -82,12 +82,12 @@ MODULE voronoi_mod
         END DO
       END DO
     END DO
-    WRITE(*,*)
-! Don't have this normalization for MONDO
+
+    ! Don't have this normalization for MONDO
     vor%vorchg(:)=vor%vorchg(:)/REAL(chg%nrho,q2)
 
     CALL system_clock(t2,cr,count_max)
-    WRITE(*,'(1A12,1F6.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
+    WRITE(*,'(/,1A12,1F6.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
 
   RETURN
   END SUBROUTINE voronoi

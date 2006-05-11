@@ -17,9 +17,11 @@
     PUBLIC :: get_options,options_obj
 
     CONTAINS
+
 !-----------------------------------------------------------------------------------!
 ! get_options: Read any input flags and the charge density file name
 !-----------------------------------------------------------------------------------!
+
     SUBROUTINE get_options(opts)
 
       TYPE(options_obj) :: opts
@@ -49,7 +51,7 @@
         STOP
       END IF
 
-! Loop over all arguments
+      ! Loop over all arguments
       m=0
       readchgflag = .FALSE.
       DO WHILE(m<n)
@@ -59,7 +61,7 @@
         ip=LEN_TRIM(p)
         i=INDEX(p,'-')
         IF (i /= 1) THEN
-! Not a flag, so read the charge density file name
+          ! Not a flag, so read the charge density file name
           IF (readchgflag) THEN
             WRITE(*,'(A,A,A)') ' Option "',p(1:ip),'" is not valid'
             CALL write_options()
@@ -72,14 +74,14 @@
             STOP
           END IF
           readchgflag=.TRUE.
-! Help
+        ! Help
         ELSEIF (p(1:ip) == '-h') THEN
           CALL write_help()
           STOP
-! Verbose
+        ! Verbose
         ELSEIF (p(1:ip) == '-v') THEN
           opts%verbose_flag = .TRUE.
-! Bader options
+        ! Bader options
         ELSEIF (p(1:ip) == '-b') THEN
           m=m+1
           CALL GETARG(m,inc)
@@ -93,7 +95,7 @@
             WRITE(*,'(A,A,A)') ' Unknown option "',inc(1:it),'"'
             STOP
           END IF
-! Print options
+        ! Print options
         ELSEIF (p(1:ip) == '-p') THEN
           m=m+1
           CALL GETARG(m,inc)
@@ -109,7 +111,7 @@
             WRITE(*,'(A,A,A)') ' Unknown option "',inc(1:it),'"'
             STOP
           END IF
-! Output file type
+        ! Output file type
         ELSEIF (p(1:ip) == '-o') THEN
           m=m+1
           CALL GETARG(m,inc)
@@ -123,7 +125,7 @@
             WRITE(*,'(A,A,A)') ' Unknown option "',inc(1:it),'"'
             STOP
           END IF  
-! Calculation options
+        ! Calculation options
         ELSEIF (p(1:ip) == '-c') THEN
           m=m+1
           CALL GETARG(m,inc)
@@ -168,7 +170,7 @@
             WRITE(*,'(A,A,A)') ' Unknown option "',inc(1:it),'"'
             STOP
           ENDIF
-! Output file types
+        ! Output file types
         ELSEIF (p(1:ip) == '-i') THEN
           m=m+1
           CALL GETARG(m,inc)
@@ -182,17 +184,17 @@
             WRITE(*,'(A,A,A)') ' Unknown option "',inc(1:it),'"'
             STOP
           END IF
-! Bader tolerance
+        ! Bader tolerance
         ELSEIF (p(1:ip) == '-t') THEN
           m=m+1
           CALL GETARG(m,inr)
           opts%badertol=inr
-! Step size
+        ! Step size
         ELSEIF (p(1:ip) == '-s') THEN
           m=m+1
           CALL GETARG(m,inr)
           opts%stepsize=inr
-! Unknown flag
+        ! Unknown flag
         ELSE
           WRITE(*,'(A,A,A)') ' Unknown option flag "',p(1:ip),'"'
           STOP
@@ -200,7 +202,7 @@
 
       END DO
 
-! If no file name, we die
+    ! If no file name, we die
     IF (.NOT. readchgflag) THEN
       WRITE(*,*) 'Did not read a charge file name in the arguments'
       CALL write_options()
@@ -213,6 +215,7 @@
 !-----------------------------------------------------------------------------------!
 ! write_opts: write flag options
 !-----------------------------------------------------------------------------------!
+
     SUBROUTINE write_options()
 
       WRITE(*,*) ''
@@ -232,45 +235,46 @@
 !-----------------------------------------------------------------------------------!
 ! write_help: write help
 !-----------------------------------------------------------------------------------!
+
     SUBROUTINE write_help()
 
       WRITE(*,*) ''
       WRITE(*,*) 'Description of flags'
       WRITE(*,*) ''
       WRITE(*,*) '   -c | -n  < bader | voronoi | dipole | ldos >'
-      WRITE(*,*) '         Turn on [-c] or off [-n] the following calculations'
-      WRITE(*,*) '            bader: Bader atoms in molecules (default)'
-      WRITE(*,*) '            voronoi: population analysis based on distance'
-      WRITE(*,*) '            dipole: multiple moments in Bader volumes'
-      WRITE(*,*) '            ldos: local density of states in Bader volumes'
+      WRITE(*,*) '        Turn on [-c] or off [-n] the following calculations'
+      WRITE(*,*) '           bader: Bader atoms in molecules (default)'
+      WRITE(*,*) '           voronoi: population analysis based on distance'
+      WRITE(*,*) '           dipole: multiple moments in Bader volumes'
+      WRITE(*,*) '           ldos: local density of states in Bader volumes'
       WRITE(*,*) ''
       WRITE(*,*) '   -b < offgrid | ongrid >'
-      WRITE(*,*) '         Use the default off-grid bader partitioning [cur] or an'
-      WRITE(*,*) '         on-grid based algorithm.'
+      WRITE(*,*) '        Use the default off-grid bader partitioning [cur] or an'
+      WRITE(*,*) '        on-grid based algorithm.'
       WRITE(*,*) ''
       WRITE(*,*) '   -s < stepsize >'
-      WRITE(*,*) '         Steepest asent trajectory step size.  This parameter is'
-      WRITE(*,*) '         (only) used for the default offgrid Bader analysis.  If'
-      WRITE(*,*) '         not specified, the stepsize is set to the minimum distance'
-      WRITE(*,*) '         between charge density grid points.'
+      WRITE(*,*) '        Steepest asent trajectory step size.  This parameter is'
+      WRITE(*,*) '        (only) used for the default offgrid Bader analysis.  If'
+      WRITE(*,*) '        not specified, the stepsize is set to the minimum distance'
+      WRITE(*,*) '        between charge density grid points.'
       WRITE(*,*) ''
       WRITE(*,*) '   -p < none | atom | all >'
-      WRITE(*,*) '         Print options for calculated Bader volumes'
-      WRITE(*,*) '            none: do not output any Bader volumes'
-      WRITE(*,*) '            atom: all Bader volumes around the specified atom(s)'
-      WRITE(*,*) '            all: all Bader volumes'
+      WRITE(*,*) '        Print options for calculated Bader volumes'
+      WRITE(*,*) '           none: do not output any Bader volumes'
+      WRITE(*,*) '           atom: all Bader volumes around the specified atom(s)'
+      WRITE(*,*) '           all: all Bader volumes'
       WRITE(*,*) ''
       WRITE(*,*) '   -i < cube | chgcar >'
-      WRITE(*,*) '         Input charge density file type.  If not specified, the'
-      WRITE(*,*) '         program will try to determine the charge density file type'
-      WRITE(*,*) '         automatically.'
+      WRITE(*,*) '        Input charge density file type.  If not specified, the'
+      WRITE(*,*) '        program will try to determine the charge density file type'
+      WRITE(*,*) '        automatically.'
       WRITE(*,*) ''
       WRITE(*,*) '   -o < cube | chgcar >'
-      WRITE(*,*) '         Output charge density file type.'
+      WRITE(*,*) '        Output charge density file type.'
       WRITE(*,*) ''
-
     
     END SUBROUTINE write_help
+
 !-----------------------------------------------------------------------------------!
 
   END module options_mod

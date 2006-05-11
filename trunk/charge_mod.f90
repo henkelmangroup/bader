@@ -3,15 +3,15 @@
 !  Module for analyzing the charge
 !
 ! By Andri Arnaldsson and Graeme Henkelman
-! Last modified by GH on May 8, 2006
+! Last modified by GH on May 11, 2006
 !-----------------------------------------------------------------------------------!
+
 MODULE charge_mod
+
   USE kind_mod
   USE matrix_mod
   USE ions_mod
   IMPLICIT NONE
-
-! Public, allocatable variables
 
   TYPE :: charge_obj
     REAL(q2),ALLOCATABLE,DIMENSION(:,:,:) :: rho
@@ -41,6 +41,7 @@ MODULE charge_mod
 !-----------------------------------------------------------------------------------!
 
   SUBROUTINE assign_charge(chg1,chg2)
+
     TYPE(charge_obj), INTENT(INOUT) :: chg1
     TYPE(charge_obj), INTENT(IN) :: chg2
     
@@ -66,7 +67,9 @@ MODULE charge_mod
 !    charge density array without a bunch of if statements at the place the value
 !    is needed.
 !-----------------------------------------------------------------------------------!
+
   FUNCTION rho_val(chg,p1,p2,p3)
+
     TYPE(charge_obj) :: chg
     INTEGER,INTENT(IN) :: p1,p2,p3
     REAL(q2) :: rho_val
@@ -94,7 +97,9 @@ MODULE charge_mod
 !-----------------------------------------------------------------------------------!
 !  rho_grad:  Return the density and gradient at the point p
 !-----------------------------------------------------------------------------------!
+
   FUNCTION rho_grad(chg,p,rho)
+
     TYPE(charge_obj) :: chg
     REAL(q2),DIMENSION(3),INTENT(IN) :: p
     REAL(q2),INTENT(OUT) :: rho
@@ -164,6 +169,7 @@ MODULE charge_mod
 !-----------------------------------------------------------------------------------!
 ! pbc: Wrap the point (p(1),p(2),p(3)) to the boundary conditions [0,pmax].
 !-----------------------------------------------------------------------------------!
+
   SUBROUTINE pbc(p,pmax)
 
     INTEGER,DIMENSION(3),INTENT(INOUT) :: p
@@ -188,7 +194,9 @@ MODULE charge_mod
 !-----------------------------------------------------------------------------------!
 ! dpbc_dir:  Wrap the vector dr to the boundary conditions [-1/2,1/2].
 !-----------------------------------------------------------------------------------!
+
   SUBROUTINE dpbc_dir(dr)
+
     REAL(q2),INTENT(INOUT),DIMENSION(3) :: dr
 
     INTEGER :: i
@@ -209,7 +217,9 @@ MODULE charge_mod
 !-----------------------------------------------------------------------------------!
 ! dpbc:  Wrap the vector dr to the boundary conditions [-ngf/2,ngf/2].
 !-----------------------------------------------------------------------------------!
+
   SUBROUTINE dpbc(dr,nf,nf_2)
+
     REAL(q2),INTENT(IN),DIMENSION(3) :: nf,nf_2
     REAL(q2),INTENT(INOUT),DIMENSION(3) :: dr
 
@@ -232,6 +242,7 @@ MODULE charge_mod
 !-----------------------------------------------------------------------------------!
 ! is_max: return .true. if the grid point is a maximum of charge density
 !-----------------------------------------------------------------------------------!
+
   FUNCTION is_max(chg,p)
 
     TYPE(charge_obj) :: chg
@@ -265,6 +276,7 @@ MODULE charge_mod
 !-----------------------------------------------------------------------------------!
 ! lat2dir: convert from a lattice grid point to a direct coordinate vector
 !-----------------------------------------------------------------------------------!
+
   FUNCTION lat2dir(chg,p)
 
     TYPE(charge_obj) :: chg
@@ -281,6 +293,7 @@ MODULE charge_mod
 !-----------------------------------------------------------------------------------!
 ! lat2car: convert from a lattice grid point to a Cartesian coordinate vector
 !-----------------------------------------------------------------------------------!
+
   FUNCTION lat2car(chg,p)
 
     TYPE(charge_obj) :: chg
@@ -297,6 +310,7 @@ MODULE charge_mod
 !-----------------------------------------------------------------------------------!
 ! dir2lat: convert from a direct coordinate vector to a lattice grid point
 !-----------------------------------------------------------------------------------!
+
   FUNCTION dir2lat(chg,p)
 
     TYPE(charge_obj) :: chg
@@ -313,6 +327,7 @@ MODULE charge_mod
 !-----------------------------------------------------------------------------------!
 ! car2lat: convert from a Cartesian coordinate vector to a lattice grid point
 !-----------------------------------------------------------------------------------!
+
   FUNCTION car2lat(chg,p)
 
     TYPE(charge_obj) :: chg

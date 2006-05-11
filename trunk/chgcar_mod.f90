@@ -15,6 +15,7 @@ MODULE chgcar_mod
 
   PRIVATE
   PUBLIC :: read_charge_chgcar,write_charge_chgcar
+
   CONTAINS
 
 !-----------------------------------------------------------------------------------!
@@ -132,6 +133,6 @@ MODULE chgcar_mod
   RETURN
   END SUBROUTINE write_charge_chgcar
 
-!------------------------------------------------------------------------------------!
+!-----------------------------------------------------------------------------------!
 
 END MODULE chgcar_mod

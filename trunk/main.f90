@@ -1,36 +1,46 @@
 !-----------------------------------------------------------------------------------!
 ! Bader charge density analysis program
-! Version 0.1 mindist
+! Version 0.2 off-grid algorithm
 !
 ! By Andri Arnaldsson and Graeme Henkelman
-! Last modified by GH on June 14 2004
+! Last modified by GH on May 11, 2004
+!
+! Based on algorithms described in the following publications:
+!
+!   A fast and robust algorithm for Bader decomposition of charge density,
+!   G. Henkelman, A. Arnaldsson, and H. Jonsson,
+!   Comput. Mater. Sci. 36 254-360 (2006).
+!
+!   E. Sanville, R. Smith, and G. Henkelman
+!   in preparation
+!
 !-----------------------------------------------------------------------------------!
+
   PROGRAM Charge
+
      USE options_mod
      USE ions_mod
      USE charge_mod
      USE io_mod
      USE bader_mod 
      USE voronoi_mod
-!     USE multipole_mod
-!     USE results_mod , ONLY : output     
 
      IMPLICIT NONE
 
-! Variables
+     ! Variables
      TYPE(options_obj) :: opts
      TYPE(ions_obj) :: ions
      TYPE(charge_obj) :: chg
      TYPE(bader_obj) :: bdr
      TYPE(voronoi_obj) :: vor
 
-! Get the control variables
+     ! Get the control variables
      CALL get_options(opts)
 
-! Call the read routines from io_mod
+     ! Call the read routines from io_mod
      CALL read_charge(ions,chg,opts)
 
-! Calculate
+     ! Calculations
      IF (opts%bader_flag) THEN
        CALL bader_calc(bdr,ions,chg,opts)
        CALL bader_mindist(bdr,ions,chg)
@@ -39,25 +49,9 @@
 !     IF (opts%dipole_flag) CALL multipole()
      IF (opts%voronoi_flag) CALL voronoi(vor,ions,chg)
 
-! Write out the volumes !!!!
-
-!    INTEGER :: i,n,iargc,choose
-!    LOGICAL :: ertil
+!    INTEGER :: i,choose
 !    CHARACTER(LEN=20) :: cc
 !
-!    n=IARGC()+1
-!    IF (n > 1) THEN
-!      CALL GETARG(1,chargefile)
-!    ELSE
-!      WRITE(*,'(2x,A,$)') 'ENTER CHARGEFILE NAME: '
-!      READ(*,*) chargefile
-!    END IF
-!    i=LEN_TRIM(chargefile)
-!    INQUIRE(FILE=chargefile,EXIST=ertil)
-!    IF (.NOT. ertil) THEN 
-!      WRITE(*,'(2X,A,A)') chargefile(1:i),' DOES NOT EXIST IN THIS DIRECTORY' 
-!      STOP
-!    END IF
 !    IF (n == 1 .OR. n == 2) THEN
 !      WRITE(*,'(/,2X,A)') 'CHOOSE OUTPUT:'
 !      WRITE(*,'(4X,A)') '1 ... DO NOT WRITE OUT ANY BADER VOLUMES'
@@ -87,7 +81,7 @@
 !      WRITE(*,'(2X,A)') 'OUTPUT: WRITING SPECIFIED BADER VOLUMES TO FILE'
 !      WRITE(*,*) ' WITH VOLUMES: ',addup
 !    END IF
-!    IF (choose == 4) WRITE(*,'(2X,A)') 'OUTPUT: NOT WRITING OUT ANY BADER VOLUMES'     
+!    IF (choose == 4) WRITE(*,'(2X,A)') 'OUTPUT: NOT WRITING OUT ANY BADER VOLUMES'
 !
 !    CALL read_charge()
 !    CALL bader()

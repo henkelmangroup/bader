@@ -3,9 +3,11 @@
 !  Module for analyzing the charge with the Bader atom in molecules approach
 !
 ! By Andri Arnaldsson and Graeme Henkelman
-! Last modified by GH on May 10, 2009
+! Last modified by GH on May 11, 2009
 !-----------------------------------------------------------------------------------!
+
 MODULE bader_mod
+
   USE kind_mod
   USE matrix_mod
   USE options_mod
@@ -14,7 +16,7 @@ MODULE bader_mod
   USE io_mod
   IMPLICIT NONE
 
-! Public parameters
+! Variable descriptions:
 
 ! volnum: Bader volume number for each grid point
 ! volpos: position of maximum in each Bader volume
@@ -25,28 +27,27 @@ MODULE bader_mod
 ! path: array of points along the current charge density maximization
 ! minsurfdist: minimum distance from the Bader surface to the included ion
 
-! Public, allocatable variables
   TYPE bader_obj
-    REAL(q2) :: tol
-    INTEGER,ALLOCATABLE,DIMENSION(:,:,:) :: volnum
     REAL(q2),ALLOCATABLE,DIMENSION(:,:) :: volpos_lat,volpos_car,volpos_dir
     REAL(q2),ALLOCATABLE,DIMENSION(:) :: volchg,iondist,ionchg,minsurfdist
+    INTEGER,ALLOCATABLE,DIMENSION(:,:,:) :: volnum
+    INTEGER,ALLOCATABLE,DIMENSION(:,:) :: path
     INTEGER,ALLOCATABLE,DIMENSION(:) :: nnion
-    REAL(q2) :: stepsize
-    INTEGER nvols
+    REAL(q2) :: stepsize, tol
+    INTEGER nvols,pnum,bnum,pdim,bdim
   END TYPE
-
-  INTEGER,ALLOCATABLE,DIMENSION(:,:) :: path
 
   PRIVATE
   PUBLIC :: bader_obj
   PUBLIC :: bader_calc,bader_mindist,bader_output
 
   CONTAINS
+
 !-----------------------------------------------------------------------------------!
 ! bader_calc: Calculate the Bader volumes and integrate to give the total
 !   charge in each volume.
 !-----------------------------------------------------------------------------------!
+
   SUBROUTINE bader_calc(bdr,ions,chg,opts)
 
     TYPE(bader_obj) :: bdr
@@ -58,7 +59,6 @@ MODULE bader_mod
     REAL(q2),DIMENSION(3) :: v
     INTEGER,DIMENSION(3) :: p
     INTEGER :: n1,n2,n3,i,known_max,pn,tenths_done
-    INTEGER :: pdim,pnum,bdim,bnum
     INTEGER :: cr,count_max,t1,t2
 
     REAL(q2),DIMENSION(3) :: grad,voxlen
@@ -70,7 +70,7 @@ MODULE bader_mod
     WRITE(*,'(2x,A)')   '               0  10  25  50  75  100'
     WRITE(*,'(2x,A,$)') 'PERCENT DONE:  **'
 
-! copy bader variable from opts
+    ! copy bader variable from opts
     bdr%tol=opts%badertol
     bdr%stepsize=opts%stepsize
     IF (opts%stepsize == 0) THEN  ! check for transpose error
@@ -80,14 +80,14 @@ MODULE bader_mod
       bdr%stepsize=MINVAL(voxlen(:))
     END IF
 
-    bdim=64  ! temporary number of bader volumes, will be expanded as needed
-    pdim=64  ! temporary path length, also expanded as needed
-    ALLOCATE(bdr%volpos_lat(bdim,3))
-    ALLOCATE(path(pdim,3))
+    bdr%bdim=64
+    bdr%pdim=64
+    ALLOCATE(bdr%volpos_lat(bdr%bdim,3)) ! will be expanded as needed
+    ALLOCATE(bdr%path(bdr%pdim,3))
     ALLOCATE(bdr%volnum(chg%npts(1),chg%npts(2),chg%npts(3)))
     bdr%volchg=0.0_q2
     bdr%volnum=0
-    bnum=0
+    bdr%bnum=0
     bdr%nvols=0  ! True number of Bader volumes
 
     tenths_done=0
@@ -101,35 +101,38 @@ MODULE bader_mod
           p=(/n1,n2,n3/)
           IF(bdr%volnum(p(1),p(2),p(3)) == 0) THEN
             IF(opts%bader_opt == opts%bader_offgrid) THEN
-              CALL max_offgrid(bdr,chg,p,pdim,pnum)
+              CALL max_offgrid(bdr,chg,p)
             ELSE
-              CALL max_ongrid(bdr,chg,p,pdim,pnum)
+              CALL max_ongrid(bdr,chg,p)
             END IF
             known_max=bdr%volnum(p(1),p(2),p(3))
             IF (known_max == 0) THEN
-              bnum=bnum+1
-              known_max=bnum
-              IF (bnum > bdim) THEN
-                ALLOCATE(tmpvolpos(bdim,3))
-                tmpvolpos=bdr%volpos_lat
-                DEALLOCATE(bdr%volpos_lat)
-                bdim=2*bdim
-                ALLOCATE(bdr%volpos_lat(bdim,3))
-                bdr%volpos_lat(1:bnum-1,:) = tmpvolpos
-                DEALLOCATE(tmpvolpos)
+              IF (bdr%bnum >= bdr%bdim) THEN
+                CALL reallocate_volpos(bdr,bdr%bdim*2)
               END IF
-              bdr%volpos_lat(bnum,:) = REAL(p,q2)
+              bdr%bnum=bdr%bnum+1
+              known_max=bdr%bnum
+              bdr%volpos_lat(bdr%bnum,:) = REAL(p,q2)
             END IF
-            DO i=1,pnum
-              bdr%volnum(path(i,1),path(i,2),path(i,3)) = known_max
+            DO i=1,bdr%pnum
+              bdr%volnum(bdr%path(i,1),bdr%path(i,2),bdr%path(i,3)) = known_max
             END DO
           END IF
         END DO
       END DO
     END DO
  
-! Sum up the charge included in each volume
-    bdr%nvols=bnum
+    ! The total number of bader volumes is now known
+    bdr%nvols=bdr%bnum
+    CALL reallocate_volpos(bdr,bdr%nvols)
+    ALLOCATE(bdr%volpos_dir(bdr%nvols,3))
+    ALLOCATE(bdr%volpos_car(bdr%nvols,3))
+    DO i=1,bdr%nvols
+      bdr%volpos_dir(i,:)=lat2dir(chg,bdr%volpos_lat(i,:))
+      bdr%volpos_car(i,:)=lat2car(chg,bdr%volpos_lat(i,:))
+    END DO
+
+    ! Sum up the charge included in each volume
     ALLOCATE(bdr%volchg(bdr%nvols))
     bdr%volchg=0.0_q2
     DO n1=1,chg%npts(1)
@@ -140,29 +143,12 @@ MODULE bader_mod
         END DO
       END DO
     END DO
-
-    ALLOCATE(tmpvolpos(bdim,3))
-    tmpvolpos=bdr%volpos_lat
-    DEALLOCATE(bdr%volpos_lat)
-    ALLOCATE(bdr%volpos_lat(bdr%nvols,3))
-    bdr%volpos_lat=tmpvolpos(1:bdr%nvols,:)
-    DEALLOCATE(tmpvolpos) 
- 
-    ALLOCATE(bdr%nnion(bdr%nvols),bdr%iondist(bdr%nvols),bdr%ionchg(ions%nions))
-
     bdr%volchg=bdr%volchg/REAL(chg%nrho,q2)
 
-    ! volpos in direct coordinates
-    ALLOCATE(bdr%volpos_dir(bdr%nvols,3))
-    ALLOCATE(bdr%volpos_car(bdr%nvols,3))
-    DO i=1,bdr%nvols
-      bdr%volpos_dir(i,:)=lat2dir(chg,bdr%volpos_lat(i,:))
-      bdr%volpos_car(i,:)=lat2car(chg,bdr%volpos_lat(i,:))
-    END DO
-
+    ALLOCATE(bdr%nnion(bdr%nvols),bdr%iondist(bdr%nvols),bdr%ionchg(ions%nions))
     CALL assign_chg2atom(bdr,ions,chg)
 
-    DEALLOCATE(path)
+    DEALLOCATE(bdr%path)
 
     CALL system_clock(t2,cr,count_max)
     WRITE(*,'(2/,1A12,1F6.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
@@ -173,34 +159,26 @@ MODULE bader_mod
 !-----------------------------------------------------------------------------------!
 ! max_offgrid:  From the point (px,py,pz) do a maximization in the charge density
 !-----------------------------------------------------------------------------------!
-  SUBROUTINE max_offgrid(bdr,chg,p,pdim,pnum)
+
+  SUBROUTINE max_offgrid(bdr,chg,p)
     
     TYPE(bader_obj) :: bdr
     TYPE(charge_obj) :: chg
     INTEGER,DIMENSION(3),INTENT(INOUT) :: p
-    INTEGER,INTENT(INOUT) :: pdim,pnum
     
-    INTEGER,ALLOCATABLE,DIMENSION(:,:) :: tmp
     REAL :: rx,ry,rz
-    
-    pnum=1
-    path(pnum,1:3)=p
+ 
+    bdr%pnum=1
+    bdr%path(bdr%pnum,1:3)=p
     DO
       ! GH: replace this with a steepest ascent trajectory
       IF(step_offgrid(chg,rx,ry,rz)) THEN
 
         ! Only if this is a new point
-        pnum=pnum+1
-        IF (pnum > pdim) THEN
-          ALLOCATE(tmp(pdim,3))
-          tmp=path
-          DEALLOCATE(path)
-          pdim=2*pdim
-          ALLOCATE(path(pdim,3))
-          path=0.0_q2
-          path(1:pnum-1,:)=tmp
-          DEALLOCATE(tmp)
-        END IF
+        IF (bdr%pnum >= bdr%pdim) THEN
+          CALL reallocate_path(bdr,bdr%pdim*2)
+        ENDIF
+        bdr%pnum=bdr%pnum+1
 !        CALL pbc(px,py,pz,nxf,nyf,nzf)
 !        path(pnum,1:3)=(/px,py,pz/)
 !        IF(bdr%volnum(px,py,pz) /= 0) EXIT
@@ -217,21 +195,20 @@ MODULE bader_mod
 !  step_offgrid:
 !-----------------------------------------------------------------------------------!
 
-  FUNCTION step_offgrid(chg,rx,ry,rz)
+  FUNCTION step_offgrid(chg,r)
 
     TYPE(charge_obj) :: chg
-    REAL,INTENT(INOUT) :: rx,ry,rz
+    REAL,DIMENSION(3),INTENT(INOUT) :: r
     LOGICAL :: step_offgrid
 
-! get grad_rho
-! move rx -> rx+step*grad_rho
+    REAL,DIMENSION(3) :: grad
+    REAL :: rho
 
-!GH: change this for non-orthogonal cells
-    REAL(q2) :: rho_max,rho_tmp,rho_ctr
+    grad = grad_rho(chg,r,rho)
+    r = r + grad*bdr%stepsize
 
-!   step_offgrid=.TRUE.
-!   step_offgrid=is_max(p)
-    step_offgrid=.TRUE.
+    step_offgrid=is_max(chg,p)
+
   RETURN
   END FUNCTION step_offgrid
 
@@ -239,32 +216,25 @@ MODULE bader_mod
 ! max_ongrid:  From the point (p(1),p(2),p(3)) do a maximization on the charge
 !   density grid and assign the maximum found to the volnum array.
 !-----------------------------------------------------------------------------------!
-  SUBROUTINE max_ongrid(bdr,chg,p,pdim,pnum)
+
+  SUBROUTINE max_ongrid(bdr,chg,p)
 
     TYPE(bader_obj) :: bdr
     TYPE(charge_obj) :: chg
     INTEGER,DIMENSION(3),INTENT(INOUT) :: p
-    INTEGER,INTENT(INOUT) :: pdim,pnum
 
     INTEGER,ALLOCATABLE,DIMENSION(:,:) :: tmp
 
-    pnum=1
-    path(pnum,1:3)=p
+    bdr%pnum=1
+    bdr%path(bdr%pnum,1:3)=p
     DO
       IF(step_ongrid(chg,p(1),p(2),p(3))) THEN
-        pnum=pnum+1
-        IF (pnum > pdim) THEN
-          ALLOCATE(tmp(pdim,3))
-          tmp=path
-          DEALLOCATE(path)
-          pdim=2*pdim
-          ALLOCATE(path(pdim,3))
-          path=0.0_q2
-          path(1:pnum-1,:)=tmp
-          DEALLOCATE(tmp)
-        END IF
+        IF (bdr%pnum >= bdr%pdim) THEN
+          CALL reallocate_path(bdr,bdr%pdim*2)
+        ENDIF
+        bdr%pnum=bdr%pnum+1
         CALL pbc(p,chg%npts)
-        path(pnum,1:3)=p
+        bdr%path(bdr%pnum,1:3)=p
         IF(bdr%volnum(p(1),p(2),p(3)) /= 0) EXIT
       ELSE
         EXIT
@@ -312,7 +282,7 @@ MODULE bader_mod
       END DO
     END DO
 
-    step_ongrid=((pxm /= px) .or. (pym /= py) .or. (pzm /= pz))
+    step_ongrid = ((pxm /= px) .or. (pym /= py) .or. (pzm /= pz))
     IF (step_ongrid) THEN
       px=pxm
       py=pym
@@ -439,10 +409,10 @@ MODULE bader_mod
   RETURN
   END SUBROUTINE bader_mindist
 
-!------------------------------------------------------------------------------------!
+!-----------------------------------------------------------------------------------!
 ! write_volnum: Write out a CHGCAR type file with each entry containing an integer
 !    indicating the associated Bader maximum.
-!------------------------------------------------------------------------------------!
+!-----------------------------------------------------------------------------------!
 
   SUBROUTINE write_volnum(bdr,opts,ions,chg)
 
@@ -464,9 +434,9 @@ MODULE bader_mod
   RETURN
   END SUBROUTINE write_volnum
 
-!------------------------------------------------------------------------------------!
+!-----------------------------------------------------------------------------------!
 ! write_all_bader: Write out a CHGCAR type file for each of the Bader volumes found.
-!------------------------------------------------------------------------------------!
+!-----------------------------------------------------------------------------------!
 
   SUBROUTINE write_all_bader(bdr,opts,ions,chg)
 
@@ -477,15 +447,16 @@ MODULE bader_mod
 
     TYPE(charge_obj) :: tmp
     INTEGER :: nx,ny,nz,i,atomnum,badercur,tenths_done,t1,t2,cr,count_max
-!    CHARACTER(LEN=120) :: atomfilename,atomnumtext
     CHARACTER(LEN=120) :: atomfilename
     
-    tmp=chg
+    CALL system_clock(t1,cr,count_max)
 
     WRITE(*,'(/,2x,A)') 'WRITING BADER VOLUMES'
     WRITE(*,'(2x,A)')   '               0  10  25  50  75  100'
     WRITE(*,'(2x,A,$)') 'PERCENT DONE:  **'
-    CALL system_clock(t1,cr,count_max)
+
+    tmp=chg
+
     atomnum=0
     tenths_done=0
 
@@ -497,17 +468,6 @@ MODULE bader_mod
       IF(bdr%volchg(badercur) > bdr%tol) THEN
         atomnum=atomnum+1
         WRITE(atomfilename,'(A4,I4.4,A4)') "Bvol",atomnum,".dat"
-!        IF(atomnum<10) THEN
-!          WRITE(atomnumtext,'(1A3,I1)') '000',atomnum
-!        ELSE IF(atomnum<100) THEN
-!          WRITE(atomnumtext,'(1A2,I2)') '00',atomnum
-!        ELSE IF(atomnum<1000) THEN
-!          WRITE(atomnumtext,'(1A1,I3)') '0',atomnum
-!        ELSE
-!          WRITE(atomnumtext,'(I4)') atomnum
-!        END IF
-!        atomfilename = "Bvol"//Trim(atomnumtext(1:))//".dat"
-
         tmp%rho=0.0_q2
         WHERE(bdr%volnum == badercur) tmp%rho=chg%rho
         CALL write_charge(ions,chg,opts,atomfilename)
@@ -523,11 +483,11 @@ MODULE bader_mod
   RETURN
   END SUBROUTINE write_all_bader
 
-!------------------------------------------------------------------------------------!
+!-----------------------------------------------------------------------------------!
 ! write_all_atom: Write out a CHGCAR type file for each atom where all Bader volumes
 !              assigned to that atom are added together. This is only done if the 
 !              atoms has any 'significant' bader volumes associated with it.
-!------------------------------------------------------------------------------------!
+!-----------------------------------------------------------------------------------!
 
   SUBROUTINE write_all_atom(bdr,opts,ions,chg)
 
@@ -570,16 +530,6 @@ MODULE bader_mod
         WRITE(*,'(A,$)') '**'
       END DO
       IF(cc == 0) CYCLE
-!      IF(ik < 10) THEN
-!        WRITE(atomnumtext,'(1A3,I1)') '000',ik
-!      ELSE IF(ik<100) THEN
-!        WRITE(atomnumtext,'(1A2,I2)') '00',ik
-!      ELSE IF(ik<1000) THEN
-!        WRITE(atomnumtext,'(1A1,I3)') '0',ik
-!      ELSE
-!        WRITE(atomnumtext,'(I4)') ik
-!      END IF
-!      atomfilename = "BvAt"//Trim(atomnumtext(1:))//".dat"
       WRITE(atomfilename,'(A4,I4.4,A4)') "BvAt",ik,".dat"
 
       tmp%rho=0.0_q2
@@ -597,10 +547,10 @@ MODULE bader_mod
   RETURN
   END SUBROUTINE write_all_atom
 
-!------------------------------------------------------------------------------------!
+!-----------------------------------------------------------------------------------!
 ! write_sel_bader: Write out a CHGCAR type file for the user specified Bader volumes.
 !              Volumes associated with a atom can be read from AtomVolumes.dat
-!------------------------------------------------------------------------------------!
+!-----------------------------------------------------------------------------------!
 
   SUBROUTINE write_sel_bader(bdr,opts,ions,chg)
 
@@ -649,14 +599,14 @@ MODULE bader_mod
   RETURN
   END SUBROUTINE write_sel_bader
 
-!------------------------------------------------------------------------------------!
+!-----------------------------------------------------------------------------------!
 ! bader_output: Write out a summary of the bader analysis.
 !         AtomVolumes.dat: Stores the 'significant' Bader volumes associated with
 !                          each atom.
 !         ACF.dat        : Stores the main output to the screen.
 !         BCF.dat        : Stores 'significant' Bader volumes, their coordinates and
 !                          charge, atom associated and distance to it. 
-!------------------------------------------------------------------------------------!
+!-----------------------------------------------------------------------------------!
 
   SUBROUTINE bader_output(bdr,ions,chg)
 
@@ -673,8 +623,8 @@ MODULE bader_mod
     mib=MINVAL(bdr%nnion)
     OPEN(100,FILE='AVF.dat',STATUS='replace',ACTION='write')
     WRITE(100,'(A)') '   Atom                     Volume(s)   '
-    WRITE(100,'(A,A)') '-----------------------------------------------------------',&
-    &                  '-------------'
+    WRITE(100,'(A,A)') '----------------------------------------------------------',&
+    &                  '--------------'
 
     DO i=mib,mab
       cc=0
@@ -715,8 +665,8 @@ MODULE bader_mod
     WRITE(200,556) '#','X','Y','Z','CHARGE','ATOM','DISTANCE'
     556 FORMAT(4X,1A1,9X,1A1,2(11X,1A1),8X,1A6,5X,1A4,4X,1A8)
     
-    WRITE(200,668) '---------------------------------------------------------------',&
-    &              '----------'
+    WRITE(200,668) '--------------------------------------------------------------',&
+    &              '-----------'
     668 FORMAT(1A65,1A10)
    
     DO i=1,bdr%nvols
@@ -736,7 +686,6 @@ MODULE bader_mod
 
   RETURN
   END SUBROUTINE bader_output
-
     
 !-----------------------------------------------------------------------------------!
 !  rho_val:  Return the density at the point (p1,p2,p3) taking into account the
@@ -744,7 +693,9 @@ MODULE bader_mod
 !    charge density array without a bunch of if statements at the place the value
 !    is needed.
 !-----------------------------------------------------------------------------------!
+
   FUNCTION volnum_val(bdr,chg,p1,p2,p3)
+
     TYPE(bader_obj) :: bdr
     TYPE(charge_obj) :: chg
     INTEGER,INTENT(IN) :: p1,p2,p3
@@ -774,6 +725,7 @@ MODULE bader_mod
 ! known_volnum: return number of the associated bader volnum if all surrounding
 !    grid points are known to be associated with the same bader volnum
 !-----------------------------------------------------------------------------------!
+
   FUNCTION known_volnum(bdr,chg,p)
    
     TYPE(bader_obj) :: bdr
@@ -811,6 +763,52 @@ MODULE bader_mod
 
   RETURN
   END FUNCTION known_volnum
+
+!-----------------------------------------------------------------------------------!
+! reallocate_volpos: 
+!-----------------------------------------------------------------------------------!
+
+  SUBROUTINE reallocate_volpos(bdr,newsize)
+
+    TYPE(bader_obj) :: bdr
+    INTEGER :: newsize
+
+    INTEGER,ALLOCATABLE,DIMENSION(:,:) :: tmpvolpos
+
+    IF(newsize<bdr%pnum) write(*,*) 'Error: new volpos length too small'
+
+    ALLOCATE(tmpvolpos(bdr%bdim,3))
+    tmpvolpos=bdr%volpos_lat
+    DEALLOCATE(bdr%volpos_lat)
+    bdr%bdim=newsize
+    ALLOCATE(bdr%volpos_lat(bdr%bdim,3))
+    bdr%volpos_lat(1:bdr%bnum,:) = tmpvolpos(1:bdr%bnum,:)
+    DEALLOCATE(tmpvolpos)
+
+  END SUBROUTINE reallocate_volpos
+
+!-----------------------------------------------------------------------------------!
+! reallocate_path: 
+!-----------------------------------------------------------------------------------!
+
+  SUBROUTINE reallocate_path(bdr,newsize)
+
+    TYPE(bader_obj) :: bdr
+    INTEGER :: newsize
+
+    INTEGER,ALLOCATABLE,DIMENSION(:,:) :: tmppath
+
+    IF(newsize<bdr%pnum) write(*,*) 'Error: new path length too small'
+
+    ALLOCATE(tmppath(bdr%pdim,3))
+    tmppath=bdr%path
+    DEALLOCATE(bdr%path)
+    bdr%pdim=newsize
+    ALLOCATE(bdr%path(bdr%pdim,3))
+    bdr%path(1:bdr%pnum,:) = tmppath(1:bdr%pnum,:)
+    DEALLOCATE(tmppath)
+
+  END SUBROUTINE reallocate_path
 
 !-----------------------------------------------------------------------------------!
 

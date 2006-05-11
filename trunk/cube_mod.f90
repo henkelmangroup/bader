@@ -3,7 +3,7 @@
 !    Module for reading and writing charge density data
 !
 ! By Andri Arnaldson and Graeme Henkelman
-! Last modified by GH on May 8, 2006
+! Last modified by GH on May 11, 2006
 !-----------------------------------------------------------------------------------!
 
 MODULE cube_mod
@@ -15,6 +15,7 @@ MODULE cube_mod
 
   PRIVATE
   PUBLIC :: read_charge_cube, write_charge_cube
+
   CONTAINS
 
 !-----------------------------------------------------------------------------------!
@@ -75,6 +76,9 @@ MODULE cube_mod
     WRITE(*,'(2x,A,1A20)') 'CLOSE ... ', chargefile
     CLOSE(100)
 
+    ! Note: this is only for isolated atoms.  For periodic systems, this shift
+    ! might not be appropriate
+
     ! origin of the lattice is at chg(0.5,0.5,0.5)
     chg%org_lat=(/0.5_q2,0.5_q2,0.5_q2/)
     CALL matrix_vector(ions%car2dir,chg%org_car,chg%org_dir)
@@ -100,9 +104,9 @@ MODULE cube_mod
   RETURN
   END SUBROUTINE read_charge_cube
 
-!------------------------------------------------------------------------------------!
+!-----------------------------------------------------------------------------------!
 ! write_charge_cube: Write out a Gaussian cube type file
-!------------------------------------------------------------------------------------!
+!-----------------------------------------------------------------------------------!
 
   SUBROUTINE write_charge_cube(ions,chg,chargefile)
 
