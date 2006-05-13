@@ -27,7 +27,7 @@ MODULE charge_mod
   PUBLIC :: charge_obj
   PUBLIC :: rho_val,rho_grad
   PUBLIC :: pbc,dpbc_dir,dpbc
-  PUBLIC :: is_max
+  PUBLIC :: to_lat,is_max
   PUBLIC :: lat2car,car2lat,lat2dir,dir2lat
 
   INTERFACE ASSIGNMENT(=)
@@ -95,13 +95,13 @@ MODULE charge_mod
   END FUNCTION rho_val
 
 !-----------------------------------------------------------------------------------!
-!  rho_grad:  Return the density and gradient at the point p
+!  rho_grad:  Return the density and gradient at the point r
 !-----------------------------------------------------------------------------------!
 
-  FUNCTION rho_grad(chg,p,rho)
+  FUNCTION rho_grad(chg,r,rho)
 
     TYPE(charge_obj) :: chg
-    REAL(q2),DIMENSION(3),INTENT(IN) :: p
+    REAL(q2),DIMENSION(3),INTENT(IN) :: r
     REAL(q2),INTENT(OUT) :: rho
     REAL(q2),DIMENSION(3) :: rho_grad
 
@@ -113,9 +113,9 @@ MODULE charge_mod
     REAL(q2) :: rho0__,rho1__,rho_0_,rho_1_,rho__0,rho__1
     REAL(q2) :: rho_00,rho_01,rho_10,rho_11
 
-    p1=FLOOR(p(1))
-    p2=FLOOR(p(2))
-    p3=FLOOR(p(3))
+    p1=FLOOR(r(1))
+    p2=FLOOR(r(2))
+    p3=FLOOR(r(3))
 
     f1=p1-REAL(p1,q2)
     f2=p2-REAL(p2,q2)
@@ -133,6 +133,11 @@ MODULE charge_mod
     rho101=rho_val(chg,p1+1,p2,p3+1)
     rho110=rho_val(chg,p1+1,p2+1,p3)
     rho111=rho_val(chg,p1+1,p2+1,p3+1)
+
+    write(*,'(A,2F12.4)')'   011, 111: ',rho011,rho111
+    write(*,'(A,2F12.4)')'   001, 101: ',rho001,rho101
+    write(*,'(A,2F12.4)')'   010, 110: ',rho010,rho110
+    write(*,'(A,2F12.4)')'   000, 100: ',rho000,rho100
 
     rho00_=rho000*g3+rho001*f3
     rho01_=rho010*g3+rho011*f3
@@ -240,6 +245,54 @@ MODULE charge_mod
   END SUBROUTINE dpbc
 
 !-----------------------------------------------------------------------------------!
+! to_lat: return the nearest (integer) lattice  point p to the (read) point r
+!-----------------------------------------------------------------------------------!
+
+  FUNCTION to_lat(chg,r)
+
+    TYPE(charge_obj) :: chg
+    REAL(q2),DIMENSION(3),INTENT(IN) :: r
+    INTEGER,DIMENSION(3) :: to_lat
+
+    INTEGER,DIMENSION(3) :: p0,p,pmin
+    REAL(q2),DIMENSION(3) :: f,d_lat,d_car
+    REAL(q2) :: dsq, dsq_min
+    INTEGER p1,p2,p3
+    LOGICAL :: init_flag=.TRUE.
+
+    p0=FLOOR(r)
+    pmin=(/0,0,0/)
+    f=r-REAL(p0,q2)
+    dsq_min=0.0_q2
+
+!    write(*,*) 'into to_lat'
+    DO p1=0,1
+      DO p2=0,1
+        DO p3=0,1
+          p=(/p1,p2,p3/)
+!          write(*,*) 'testing p',p
+          d_lat=REAL(p,q2)-f
+          CALL matrix_vector(chg%lat2car,d_lat,d_car)
+          dsq=SUM(d_car*d_car)
+          IF ((dsq<dsq_min).OR.init_flag) THEN
+            init_flag=.FALSE.
+            pmin=p
+!            write(*,'(A,3I4,F12.4)') '   pmin: ',p1,p2,p3,dsq
+            dsq_min=dsq
+          END IF
+        END DO
+      END DO
+    END DO
+    to_lat=p0+pmin
+    CALL pbc(to_lat,chg%npts)
+!    write(*,*) ' pmin: ',pmin
+
+!    write(*,*) 'out to_lat'
+
+  RETURN
+  END FUNCTION to_lat
+
+!-----------------------------------------------------------------------------------!
 ! is_max: return .true. if the grid point is a maximum of charge density
 !-----------------------------------------------------------------------------------!
 
@@ -257,13 +310,16 @@ MODULE charge_mod
     p2=p(2)
     p3=p(3)
     rho=rho_val(chg,p1,p2,p3)
+!    write(*,*) 'rho: ',rho
     DO d1=-1,1
       p1=p(1)+d1
       DO d2=-1,1
         p2=p(2)+d2
         DO d3=-1,1
           p3=p(3)+d3
+!          write(*,*) ' ',d1,d2,d3,rho_val(chg,p1,p2,p3)
           IF(rho_val(chg,p1,p2,p3) > rho) THEN
+!            write(*,*) ' false'
             is_max=.FALSE.
           END IF
         END DO

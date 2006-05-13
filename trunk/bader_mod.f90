@@ -58,7 +58,7 @@ MODULE bader_mod
     REAL(q2),ALLOCATABLE,DIMENSION(:,:) :: tmpvolpos
     REAL(q2),DIMENSION(3) :: v
     INTEGER,DIMENSION(3) :: p
-    INTEGER :: n1,n2,n3,i,known_max,pn,tenths_done
+    INTEGER :: n1,n2,n3,i,path_volnum,pn,tenths_done
     INTEGER :: cr,count_max,t1,t2
 
     REAL(q2),DIMENSION(3) :: grad,voxlen
@@ -99,23 +99,29 @@ MODULE bader_mod
       DO n2=1,chg%npts(2)
         DO n3=1,chg%npts(3)
           p=(/n1,n2,n3/)
+          write(*,*) ''
+          write(*,'(A,3I4)') ' grd: ',p
           IF(bdr%volnum(p(1),p(2),p(3)) == 0) THEN
             IF(opts%bader_opt == opts%bader_offgrid) THEN
               CALL max_offgrid(bdr,chg,p)
             ELSE
               CALL max_ongrid(bdr,chg,p)
             END IF
-            known_max=bdr%volnum(p(1),p(2),p(3))
-            IF (known_max == 0) THEN
+            path_volnum=bdr%volnum(p(1),p(2),p(3))
+            IF (path_volnum == 0) THEN
               IF (bdr%bnum >= bdr%bdim) THEN
                 CALL reallocate_volpos(bdr,bdr%bdim*2)
               END IF
               bdr%bnum=bdr%bnum+1
-              known_max=bdr%bnum
+              write(*,*) '   new max',bdr%bnum
+              path_volnum=bdr%bnum
               bdr%volpos_lat(bdr%bnum,:) = REAL(p,q2)
             END IF
             DO i=1,bdr%pnum
-              bdr%volnum(bdr%path(i,1),bdr%path(i,2),bdr%path(i,3)) = known_max
+     IF ( (bdr%volnum(bdr%path(i,1),bdr%path(i,2),bdr%path(i,3)) /= 0) .AND. &
+     &    (bdr%volnum(bdr%path(i,1),bdr%path(i,2),bdr%path(i,3)) /= path_volnum) ) &
+     &    write(*,*) '   overwrite along path'
+              bdr%volnum(bdr%path(i,1),bdr%path(i,2),bdr%path(i,3)) = path_volnum
             END DO
           END IF
         END DO
@@ -157,7 +163,7 @@ MODULE bader_mod
   END SUBROUTINE bader_calc
 
 !-----------------------------------------------------------------------------------!
-! max_offgrid:  From the point (px,py,pz) do a maximization in the charge density
+! max_offgrid:  From the point p, do a maximization in the charge density
 !-----------------------------------------------------------------------------------!
 
   SUBROUTINE max_offgrid(bdr,chg,p)
@@ -166,55 +172,82 @@ MODULE bader_mod
     TYPE(charge_obj) :: chg
     INTEGER,DIMENSION(3),INTENT(INOUT) :: p
     
-    REAL :: rx,ry,rz
+    REAL(q2),DIMENSION(3) :: r
  
     bdr%pnum=1
-    bdr%path(bdr%pnum,1:3)=p
-    DO
-      ! GH: replace this with a steepest ascent trajectory
-      IF(step_offgrid(chg,rx,ry,rz)) THEN
+    bdr%path(bdr%pnum,:)=p
+    IF (is_max(chg,p)) THEN
+      write(*,*) '   max found (init)'
+      RETURN
+    END IF
+    r=REAL(p,q2)
 
-        ! Only if this is a new point
+!    write(*,*) 'max: ',p
+    DO
+      CALL step_offgrid(bdr,chg,r)
+      write(*,'(A,3F12.4)') '    offstep: ',r
+      p=to_lat(chg,r)
+      write(*,'(A,3I4)') '     to_lat: ',p
+      write(*,'(A,F12.4)') '        rho: ',rho_val(chg,p(1),p(2),p(3))
+
+      ! if the point is new, add it to the path
+!db      write(*,'(A,3I4)') '    cmpwith: ',bdr%path(bdr%pnum,:)
+      IF (.NOT.ALL(p(:)==bdr%path(bdr%pnum,:))) THEN
         IF (bdr%pnum >= bdr%pdim) THEN
           CALL reallocate_path(bdr,bdr%pdim*2)
         ENDIF
         bdr%pnum=bdr%pnum+1
-!        CALL pbc(px,py,pz,nxf,nyf,nzf)
-!        path(pnum,1:3)=(/px,py,pz/)
-!        IF(bdr%volnum(px,py,pz) /= 0) EXIT
+        CALL pbc(p,chg%npts)
+        bdr%path(bdr%pnum,:)=p
+!db        write(*,'(A,3I4)') '     adding: ',p
+      END IF
 
-      ELSE
+      ! quit if this is a maximum or a knoown volume number
+!      IF (is_max(chg,p).OR.(known_volnum(bdr,chg,r)/=0)) EXIT
+      IF (is_max(chg,p)) THEN
+        write(*,*) '   max found'
         EXIT
       END IF
+      IF (known_volnum(bdr,chg,r)/=0) THEN
+        write(*,*) '   known volnum'
+        EXIT
+      END IF
+
     END DO
     
   RETURN
   END SUBROUTINE max_offgrid
 
 !-----------------------------------------------------------------------------------!
-!  step_offgrid:
+!  step_offgrid: step a distance of StepSize along rho_grad
 !-----------------------------------------------------------------------------------!
 
-  FUNCTION step_offgrid(chg,r)
+  SUBROUTINE step_offgrid(bdr,chg,r)
 
+    TYPE(bader_obj) :: bdr
     TYPE(charge_obj) :: chg
-    REAL,DIMENSION(3),INTENT(INOUT) :: r
-    LOGICAL :: step_offgrid
+    REAL(q2),DIMENSION(3),INTENT(INOUT) :: r
 
-    REAL,DIMENSION(3) :: grad
-    REAL :: rho
+    REAL(q2),DIMENSION(3) :: grad,dr_car,dr_lat
+    REAL(q2) :: rho
 
-    grad = grad_rho(chg,r,rho)
-    r = r + grad*bdr%stepsize
-
-    step_offgrid=is_max(chg,p)
+    write(*,'(A,3F12.4)') '   r_before: ',r
+    grad = rho_grad(chg,r,rho)
+    write(*,'(A,3F12.4)') '   rho_grad: ',grad
+!db    write(*,'(A,F12.4)') '   stepsize: ',bdr%stepsize
+    dr_car = grad*bdr%stepsize/SQRT(SUM(grad*grad))
+!db    write(*,'(A,3F12.4)') '     dr_car: ',dr_car
+    CALL matrix_vector(chg%car2lat,dr_car,dr_lat)
+!db    write(*,'(A,3F12.4)') '     dr_lat: ',dr_lat
+    r = r + dr_lat
+!db    write(*,'(A,3F12.4)') '    r_after: ',r
 
   RETURN
-  END FUNCTION step_offgrid
+  END SUBROUTINE step_offgrid
 
 !-----------------------------------------------------------------------------------!
-! max_ongrid:  From the point (p(1),p(2),p(3)) do a maximization on the charge
-!   density grid and assign the maximum found to the volnum array.
+! max_ongrid:  From the point p do a maximization on the charge density grid and
+!   assign the maximum found to the volnum array.
 !-----------------------------------------------------------------------------------!
 
   SUBROUTINE max_ongrid(bdr,chg,p)
@@ -223,22 +256,20 @@ MODULE bader_mod
     TYPE(charge_obj) :: chg
     INTEGER,DIMENSION(3),INTENT(INOUT) :: p
 
-    INTEGER,ALLOCATABLE,DIMENSION(:,:) :: tmp
-
     bdr%pnum=1
-    bdr%path(bdr%pnum,1:3)=p
+    bdr%path(bdr%pnum,:)=p
     DO
-      IF(step_ongrid(chg,p(1),p(2),p(3))) THEN
-        IF (bdr%pnum >= bdr%pdim) THEN
-          CALL reallocate_path(bdr,bdr%pdim*2)
-        ENDIF
-        bdr%pnum=bdr%pnum+1
-        CALL pbc(p,chg%npts)
-        bdr%path(bdr%pnum,1:3)=p
-        IF(bdr%volnum(p(1),p(2),p(3)) /= 0) EXIT
-      ELSE
-        EXIT
-      END IF
+      CALL step_ongrid(chg,p)
+      ! if we didn't move, we're at a maximum
+      IF (ALL(p == bdr%path(bdr%pnum,:))) EXIT
+      ! otherwise, add point to path
+      IF (bdr%pnum >= bdr%pdim) THEN
+        CALL reallocate_path(bdr,bdr%pdim*2)
+      ENDIF
+      bdr%pnum=bdr%pnum+1
+      CALL pbc(p,chg%npts)
+      bdr%path(bdr%pnum,:)=p
+      IF(bdr%volnum(p(1),p(2),p(3)) /= 0) EXIT
     END DO
 
   RETURN
@@ -250,47 +281,39 @@ MODULE bader_mod
 !    point is a charge density maximum.
 !-----------------------------------------------------------------------------------!
 
-  FUNCTION step_ongrid(chg,px,py,pz)
+  SUBROUTINE step_ongrid(chg,p)
 
     TYPE(charge_obj) :: chg
-    INTEGER,INTENT(INOUT) :: px,py,pz
-    LOGICAL :: step_ongrid
+    INTEGER,DIMENSION(3),INTENT(INOUT) :: p
 
     REAL(q2) :: rho_max,rho_tmp,rho_ctr
-    INTEGER :: dx,dy,dz,pxt,pyt,pzt,pxm,pym,pzm
+    INTEGER,DIMENSION(3) :: pt,pm
+    INTEGER :: d1,d2,d3
 
     rho_max=0.0_q2
-    pxm=px
-    pym=py
-    pzm=pz
-    rho_ctr=rho_val(chg,px,py,pz)
-    DO dx=-1,1
-      pxt=px+dx
-      DO dy=-1,1
-        pyt=py+dy
-        DO dz=-1,1
-          pzt=pz+dz
-          rho_tmp=rho_val(chg,pxt,pyt,pzt)
-          rho_tmp=rho_ctr+(rho_tmp-rho_ctr)*chg%lat_i_dist(dx,dy,dz)
+    pm=p
+    rho_ctr=rho_val(chg,p(1),p(2),p(3))
+    DO d1=-1,1
+!      pt(1)=p(1)+d1
+      DO d2=-1,1
+!        pt(2)=p(2)+d2
+        DO d3=-1,1
+!          pt(3)=p(3)+d3
+          ! compare the time for this operation to individual assignments
+          pt=p+(/d1,d2,d3/)
+          rho_tmp=rho_val(chg,pt(1),pt(2),pt(3))
+          rho_tmp=rho_ctr+(rho_tmp-rho_ctr)*chg%lat_i_dist(d1,d2,d3)
           IF (rho_tmp > rho_max) THEN
             rho_max=rho_tmp
-            pxm=pxt
-            pym=pyt
-            pzm=pzt
+            pm=pt
           END IF
         END DO
       END DO
     END DO
-
-    step_ongrid = ((pxm /= px) .or. (pym /= py) .or. (pzm /= pz))
-    IF (step_ongrid) THEN
-      px=pxm
-      py=pym
-      pz=pzm
-    END IF
+    p=pm
 
   RETURN
-  END FUNCTION step_ongrid
+  END SUBROUTINE step_ongrid
 
 !-----------------------------------------------------------------------------------!
 ! assign_chg2atom: Assign an element of charge to a Bader atom.
@@ -315,6 +338,8 @@ MODULE bader_mod
       dindex=1
       DO j=2,ions%nions
         dv=bdr%volpos_dir(i,:)-ions%r_dir(j,:)
+        ! GH: this is not correct for non-orthogonal cells, find
+        ! proper min length vector by subtracting lattice vectors
         CALL dpbc_dir(dv)
         CALL matrix_vector(ions%dir2car,dv,v)
         dsq=DOT_PRODUCT(v,v)
@@ -367,7 +392,7 @@ MODULE bader_mod
       DO n2=1,chg%npts(2)
         DO n3=1,chg%npts(3)
 
-!         Check to see if this is at the edge of an atomic volume
+          ! Check to see if this is at the edge of an atomic volume
           atom=bdr%nnion(bdr%volnum(n1,n2,n3))
           surfflag=.FALSE.
           neighbourloop: DO d1=-1,1
@@ -388,7 +413,7 @@ MODULE bader_mod
 
 !         If this is an edge cell, check if it is the closest to the atom so far
           IF (surfflag) THEN
-            v(1:3)=(/n1,n2,n3/)
+            v=REAL((/n1,n2,n3/),q2)
             dv_dir=(v-chg%org_lat)/REAL(chg%npts,q2)-ions%r_dir(atom,:)
             CALL dpbc_dir(dv_dir)
             CALL matrix_vector(ions%dir2car,dv_dir,dv_car)
