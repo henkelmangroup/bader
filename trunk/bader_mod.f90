@@ -448,7 +448,7 @@ MODULE bader_mod
 
      TYPE(charge_obj) :: tmp
      INTEGER :: nx,ny,nz
-     CHARACTER(LEN=120) :: filename
+     CHARACTER(LEN=128) :: filename
 
      tmp=chg
      tmp%rho=bdr%volnum
@@ -472,7 +472,7 @@ MODULE bader_mod
 
     TYPE(charge_obj) :: tmp
     INTEGER :: nx,ny,nz,i,atomnum,badercur,tenths_done,t1,t2,cr,count_max
-    CHARACTER(LEN=120) :: atomfilename
+    CHARACTER(LEN=128) :: atomfilename
     
     CALL system_clock(t1,cr,count_max)
 
@@ -525,7 +525,7 @@ MODULE bader_mod
 
     INTEGER :: nx,ny,nz,i,j,b,mab,mib,ik,sc,cc,tenths_done,t1,t2,cr,count_max
     INTEGER,DIMENSION(bdr%nvols) :: rck
-    CHARACTER(LEN=120) :: atomfilename
+    CHARACTER(LEN=128) :: atomfilename
 
     CALL system_clock(t1,cr,count_max)
 
@@ -585,7 +585,7 @@ MODULE bader_mod
     TYPE(charge_obj) :: chg
 
     TYPE(charge_obj) :: tmp
-    CHARACTER(LEN=120) :: atomfilename
+    CHARACTER(LEN=128) :: atomfilename
     INTEGER,DIMENSION(bdr%nvols,2) :: volsig
 !    INTEGER,DIMENSION(na) :: vols
     INTEGER :: cr,count_max,t1,t2,i,bdimsig

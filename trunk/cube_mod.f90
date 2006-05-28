@@ -27,7 +27,7 @@ MODULE cube_mod
 
     TYPE(ions_obj) :: ions
     TYPE(charge_obj) :: chg
-    CHARACTER(LEN=120) :: chargefile
+    CHARACTER(LEN=128) :: chargefile
 
     REAL(q2) :: vol,tmp
     REAL(q2),DIMENSION(3) :: dlat,dcar
@@ -112,7 +112,7 @@ MODULE cube_mod
 
     TYPE(ions_obj) :: ions
     TYPE(charge_obj) :: chg
-    CHARACTER(LEN=120) :: chargefile
+    CHARACTER(LEN=128) :: chargefile
     
     INTEGER :: i,n1,n2,n3
 

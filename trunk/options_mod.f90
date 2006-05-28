@@ -3,7 +3,7 @@
     IMPLICIT NONE
 
     TYPE :: options_obj
-      CHARACTER(LEN=120) :: chargefile
+      CHARACTER(LEN=128) :: chargefile
       REAL(q2) :: badertol, stepsize
       INTEGER :: print_opt, print_none = 0, print_all = 1, print_atom = 2
       INTEGER :: out_opt, out_auto = 0, out_cube = 1, out_chgcar = 2
@@ -24,13 +24,17 @@
 
     SUBROUTINE get_options(opts)
 
+      EXTERNAL GETARG
       TYPE(options_obj) :: opts
       LOGICAL :: existflag, inl
       LOGICAL :: readchgflag
       INTEGER :: n,iargc,i,ip,m,it,ini
       REAL(q2) :: inr,temp
-      CHARACTER(LEN=120) :: p
-      CHARACTER(LEN=30) :: inc
+      CHARACTER(LEN=128) :: p
+!      CHARACTER(LEN=128) :: inc
+      CHARACTER*128 :: inc
+!      CHARACTER :: inc(128)
+!      CHARACTER,ALLOCATABLE :: inc(:)
 
 ! Default values
       opts%out_opt = opts%out_auto

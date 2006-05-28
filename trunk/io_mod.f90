@@ -32,7 +32,7 @@ MODULE io_mod
     TYPE(charge_obj) :: chg
     TYPE(options_obj) :: opts
 
-    CHARACTER(LEN=120) :: chargefile
+    CHARACTER(LEN=128) :: chargefile
     CHARACTER(LEN=7) :: text
     INTEGER :: cr,count_max,t1,t2
 
@@ -73,7 +73,7 @@ MODULE io_mod
     TYPE(ions_obj) :: ions
     TYPE(charge_obj) :: chg
     TYPE(options_obj) :: opts
-    CHARACTER(LEN=120) :: chargefile
+    CHARACTER(LEN=128) :: chargefile
 
     IF (opts%out_opt == opts%out_chgcar) THEN
       CALL write_charge_chgcar(ions,chg,chargefile)

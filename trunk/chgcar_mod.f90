@@ -26,7 +26,7 @@ MODULE chgcar_mod
 
     TYPE(ions_obj) :: ions
     TYPE(charge_obj) :: chg
-    CHARACTER(LEN=120) :: chargefile
+    CHARACTER(LEN=128) :: chargefile
 
     REAL(q2) :: scalefactor
     REAL(q2),DIMENSION(3) :: dlat,dcar
@@ -113,7 +113,7 @@ MODULE chgcar_mod
     
     TYPE(ions_obj) :: ions
     TYPE(charge_obj) :: chg
-    CHARACTER(120) :: chargefile
+    CHARACTER(128) :: chargefile
 
     INTEGER :: i,n1,n2,n3
 
