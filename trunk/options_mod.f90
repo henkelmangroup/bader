@@ -226,7 +226,7 @@
       WRITE(*,*) 'Usage:'
       WRITE(*,*) '   bader [ -c bader | voronoi | dipole | ldos ]'
       WRITE(*,*) '         [ -n bader | voronoi | dipole | ldos ]'
-      WRITE(*,*) '         [ -b cur | grid ] [ -s stepsize ]'
+      WRITE(*,*) '         [ -b offgrid | ongrid ] [ -s stepsize ]'
       WRITE(*,*) '         [ -p none | atom | all ] [ -h ] [ -v ]'
       WRITE(*,*) '         [ -i cube | chgcar ]'
       WRITE(*,*) '         [ -o cube | chgcar ]'
