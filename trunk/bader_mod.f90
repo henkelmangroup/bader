@@ -100,12 +100,14 @@ MODULE bader_mod
         DO n3=1,chg%npts(3)
           p=(/n1,n2,n3/)
           write(*,*) ''
-          write(*,'(A,3I4)') ' grd: ',p
+          !write(*,'(A,3I4)') ' grd: ',p
           IF(bdr%volnum(p(1),p(2),p(3)) == 0) THEN
             IF(opts%bader_opt == opts%bader_offgrid) THEN
               CALL max_offgrid(bdr,chg,p)
-            ELSE
+            ELSE IF(opts%bader_opt == opts%bader_ongrid) THEN
               CALL max_ongrid(bdr,chg,p)
+            ELSE 
+              CALL max_neargrid(bdr,chg,p)
             END IF
             path_volnum=bdr%volnum(p(1),p(2),p(3))
             IF (path_volnum == 0) THEN
@@ -113,7 +115,7 @@ MODULE bader_mod
                 CALL reallocate_volpos(bdr,bdr%bdim*2)
               END IF
               bdr%bnum=bdr%bnum+1
-              write(*,*) '   new max',bdr%bnum
+              !write(*,*) '   new max',bdr%bnum
               path_volnum=bdr%bnum
               bdr%volpos_lat(bdr%bnum,:) = REAL(p,q2)
             END IF
@@ -314,6 +316,90 @@ MODULE bader_mod
 
   RETURN
   END SUBROUTINE step_ongrid
+  !-----------------------------------------------------------------------------------!
+! max_neargrid:  From the point p do a maximization on the charge density grid and
+!   assign the maximum found to the volnum array.
+!-----------------------------------------------------------------------------------!
+
+  SUBROUTINE max_neargrid(bdr,chg,p)
+
+    TYPE(bader_obj) :: bdr
+    TYPE(charge_obj) :: chg
+    INTEGER,DIMENSION(3),INTENT(INOUT) :: p
+
+    bdr%pnum=1
+    bdr%path(bdr%pnum,:)=p
+    DO
+      CALL step_neargrid(chg,p)
+      ! if we didn't move, we're at a maximum
+      IF (ALL(p == bdr%path(bdr%pnum,:))) EXIT
+      ! otherwise, add point to path
+      IF (bdr%pnum >= bdr%pdim) THEN
+        CALL reallocate_path(bdr,bdr%pdim*2)
+      ENDIF
+      bdr%pnum=bdr%pnum+1
+      bdr%path(bdr%pnum,:)=p
+      IF(bdr%volnum(p(1),p(2),p(3)) /= 0) EXIT
+    END DO
+
+  RETURN
+  END SUBROUTINE max_neargrid
+
+!-----------------------------------------------------------------------------------!
+!  step_neargrid:  Do a single iteration of a maximization on the charge density 
+!    grid from the point (px,py,pz).  Return a logical indicating if the current
+
+
+  SUBROUTINE step_neargrid(chg,p)
+
+    TYPE(charge_obj) :: chg
+    INTEGER,DIMENSION(3),INTENT(INOUT) :: p
+    INTEGER,DIMENSION(3) :: pm,pp=(/0,0,0/)
+    INTEGER :: d1,d2,d3,i
+
+		
+    REAL(q2),DIMENSION(3) :: gradrl,dr=(/0.0_q2,0.0_q2,0.0_q2/)  
+    REAL(q2) :: cx,cy,cz,coeff
+    SAVE dr
+    SAVE pp
+     
+    print*,'p initial:',p
+
+    gradrl=rho_grad_gd(chg,p)
+    cx=gradrl(1)*chg%lat_i_dist(1,0,0)
+    cy=gradrl(2)*chg%lat_i_dist(0,1,0)
+    cz=gradrl(3)*chg%lat_i_dist(0,0,1)
+    coeff=1/MAX(ABS(cx),ABS(cy),ABS(cz))
+    gradrl=coeff*(/cx,cy,cz/)
+    print*,'gradrl:',gradrl
+    pm=p+ANINT(gradrl)
+    dr=dr+gradrl-ANINT(gradrl)
+    print*,'dr=',dr
+
+    DO i=1,3
+      IF (ABS(dr(i)) > 0.5) THEN
+        pm(i)=pm(i)+ANINT(dr(i))
+        dr(i)=dr(i)-ANINT(dr(i))
+      END IF
+    END DO
+
+    CALL pbc(pm,chg%npts)
+    IF (ALL(pm==pp) .or. ALL(pm==p)) THEN
+       print*, '    max:', p
+       dr=(/0.0_q2,0.0_q2,0.0_q2/)
+       pp=(/0,0,0/)
+       RETURN
+    END IF
+
+
+    pp=p
+    p=pm
+
+    print*,'p end',p
+    print*,' '
+
+  RETURN
+  END SUBROUTINE step_neargrid
 
 !-----------------------------------------------------------------------------------!
 ! assign_chg2atom: Assign an element of charge to a Bader atom.

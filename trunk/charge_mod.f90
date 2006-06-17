@@ -25,7 +25,7 @@ MODULE charge_mod
 
   PRIVATE
   PUBLIC :: charge_obj
-  PUBLIC :: rho_val,rho_grad
+  PUBLIC :: rho_val,rho_grad,rho_grad_gd
   PUBLIC :: pbc,dpbc_dir,dpbc
   PUBLIC :: to_lat,is_max
   PUBLIC :: lat2car,car2lat,lat2dir,dir2lat
@@ -170,6 +170,40 @@ MODULE charge_mod
 
   RETURN
   END FUNCTION rho_grad
+
+!-----------------------------------------------------------------------------------!
+!  rho_grad_gd:  Return the gradient at the grid point p
+!-----------------------------------------------------------------------------------!
+
+  FUNCTION rho_grad_gd(chg,p)
+
+    TYPE(charge_obj) :: chg
+    INTEGER,DIMENSION(3),INTENT(IN) :: p
+    REAL(q2),DIMENSION(3) :: rho_grad_gd
+
+    INTEGER :: p1,p2,p3
+    REAL(q2) :: rho001,rho010,rho100,rho00_1,rho_100,rho0_10
+
+    p1=p(1)
+    p2=p(2)
+    p3=p(3)
+
+    rho001=rho_val(chg,p1,p2,p3+1)
+    rho010=rho_val(chg,p1,p2+1,p3)
+    rho100=rho_val(chg,p1+1,p2,p3)
+    rho00_1=rho_val(chg,p1,p2,p3-1)
+    rho_100=rho_val(chg,p1-1,p2,p3)
+    rho0_10=rho_val(chg,p1,p2-1,p3)
+
+    rho_grad_gd(1)=(rho100-rho_100)*chg%lat_i_dist(1,0,0)/2.0_q2
+    rho_grad_gd(2)=(rho010-rho0_10)*chg%lat_i_dist(0,1,0)/2.0_q2
+    rho_grad_gd(3)=(rho001-rho00_1)*chg%lat_i_dist(0,0,1)/2.0_q2
+	
+    rho_grad_gd=rho_grad_gd/SQRT(SUM(rho_grad_gd*rho_grad_gd))
+
+  RETURN
+  END FUNCTION rho_grad_gd
+
 
 !-----------------------------------------------------------------------------------!
 ! pbc: Wrap the point (p(1),p(2),p(3)) to the boundary conditions [0,pmax].

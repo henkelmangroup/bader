@@ -8,7 +8,7 @@
       INTEGER :: print_opt, print_none = 0, print_all = 1, print_atom = 2
       INTEGER :: out_opt, out_auto = 0, out_cube = 1, out_chgcar = 2
       INTEGER :: in_opt, in_auto = 0, in_cube = 1, in_chgcar = 2
-      INTEGER :: bader_opt, bader_offgrid = 0, bader_ongrid = 1
+      INTEGER :: bader_opt, bader_offgrid = 0, bader_ongrid = 1, bader_neargrid = 2
       LOGICAL :: bader_flag, voronoi_flag, dipole_flag, ldos_flag
       LOGICAL :: verbose_flag
     END TYPE options_obj
@@ -40,7 +40,7 @@
       opts%out_opt = opts%out_auto
       opts%in_opt = opts%in_auto
       opts%print_opt = opts%print_none
-      opts%bader_opt = opts%bader_offgrid
+      opts%bader_opt = opts%bader_neargrid
       opts%bader_flag = .TRUE.
       opts%voronoi_flag = .FALSE.
       opts%dipole_flag = .FALSE.
@@ -95,6 +95,8 @@
             opts%bader_opt = opts%bader_offgrid
           ELSEIF (inc(1:it) == 'ONGRID' .OR. inc(1:it) == 'ongrid') THEN
             opts%bader_opt = opts%bader_ongrid
+          ELSEIF (inc(1:it) == 'NEARGRID' .OR. inc(1:it) == 'neargrid') THEN
+            opts%bader_opt = opts%bader_neargrid
           ELSE
             WRITE(*,'(A,A,A)') ' Unknown option "',inc(1:it),'"'
             STOP
@@ -226,7 +228,7 @@
       WRITE(*,*) 'Usage:'
       WRITE(*,*) '   bader [ -c bader | voronoi | dipole | ldos ]'
       WRITE(*,*) '         [ -n bader | voronoi | dipole | ldos ]'
-      WRITE(*,*) '         [ -b offgrid | ongrid ] [ -s stepsize ]'
+      WRITE(*,*) '         [ -b offgrid | ongrid | neargrid ] [ -s stepsize ]'
       WRITE(*,*) '         [ -p none | atom | all ] [ -h ] [ -v ]'
       WRITE(*,*) '         [ -i cube | chgcar ]'
       WRITE(*,*) '         [ -o cube | chgcar ]'
@@ -252,7 +254,7 @@
       WRITE(*,*) '           dipole: multiple moments in Bader volumes'
       WRITE(*,*) '           ldos: local density of states in Bader volumes'
       WRITE(*,*) ''
-      WRITE(*,*) '   -b < offgrid | ongrid >'
+      WRITE(*,*) '   -b < offgrid | ongrid | neargrid >'
       WRITE(*,*) '        Use the default off-grid bader partitioning [cur] or an'
       WRITE(*,*) '        on-grid based algorithm.'
       WRITE(*,*) ''
