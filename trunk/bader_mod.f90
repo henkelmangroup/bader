@@ -354,14 +354,13 @@ MODULE bader_mod
 
     TYPE(charge_obj) :: chg
     INTEGER,DIMENSION(3),INTENT(INOUT) :: p
-    INTEGER,DIMENSION(3) :: pm,pp=(/0,0,0/)
+    INTEGER,DIMENSION(3) :: pm
     INTEGER :: d1,d2,d3,i
 
 		
     REAL(q2),DIMENSION(3) :: gradrl,dr=(/0.0_q2,0.0_q2,0.0_q2/)  
-    REAL(q2) :: cx,cy,cz,coeff
+    REAL(q2) :: cx,cy,cz,coeff,cp,cm
     SAVE dr
-    SAVE pp
      
     print*,'p initial:',p
 
@@ -384,17 +383,15 @@ MODULE bader_mod
     END DO
 
     CALL pbc(pm,chg%npts)
-    IF (ALL(pm==pp) .or. ALL(pm==p)) THEN
+    cp=rho_val(chg,p(1),p(2),p(3))
+    cm=rho_val(chg,pm(1),pm(2),pm(3))
+    IF (cm <= cp) THEN
        print*, '    max:', p
        dr=(/0.0_q2,0.0_q2,0.0_q2/)
-       pp=(/0,0,0/)
        RETURN
     END IF
 
-
-    pp=p
     p=pm
-
     print*,'p end',p
     print*,' '
 
