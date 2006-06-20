@@ -40,7 +40,7 @@
       opts%out_opt = opts%out_auto
       opts%in_opt = opts%in_auto
       opts%print_opt = opts%print_none
-      opts%bader_opt = opts%bader_neargrid
+      opts%bader_opt = opts%bader_ongrid
       opts%bader_flag = .TRUE.
       opts%voronoi_flag = .FALSE.
       opts%dipole_flag = .FALSE.

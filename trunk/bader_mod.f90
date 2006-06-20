@@ -361,8 +361,8 @@ MODULE bader_mod
     REAL(q2),DIMENSION(3) :: gradrl,dr=(/0.0_q2,0.0_q2,0.0_q2/)  
     REAL(q2) :: cx,cy,cz,coeff,cp,cm
     SAVE dr
-     
-    print*,'p initial:',p
+
+    !print*,'p initial:',p
 
     gradrl=rho_grad_gd(chg,p)
     cx=gradrl(1)*chg%lat_i_dist(1,0,0)
@@ -370,10 +370,10 @@ MODULE bader_mod
     cz=gradrl(3)*chg%lat_i_dist(0,0,1)
     coeff=1/MAX(ABS(cx),ABS(cy),ABS(cz))
     gradrl=coeff*(/cx,cy,cz/)
-    print*,'gradrl:',gradrl
+    !print*,'gradrl:',gradrl
     pm=p+ANINT(gradrl)
     dr=dr+gradrl-ANINT(gradrl)
-    print*,'dr=',dr
+    !print*,'dr=',dr
 
     DO i=1,3
       IF (ABS(dr(i)) > 0.5) THEN
@@ -385,15 +385,15 @@ MODULE bader_mod
     CALL pbc(pm,chg%npts)
     cp=rho_val(chg,p(1),p(2),p(3))
     cm=rho_val(chg,pm(1),pm(2),pm(3))
-    IF (cm <= cp) THEN
+    IF (cm < cp) THEN
        print*, '    max:', p
        dr=(/0.0_q2,0.0_q2,0.0_q2/)
        RETURN
     END IF
 
     p=pm
-    print*,'p end',p
-    print*,' '
+    !print*,'p end',p
+    !print*,' '
 
   RETURN
   END SUBROUTINE step_neargrid
