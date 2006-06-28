@@ -117,9 +117,18 @@ MODULE charge_mod
     p2=FLOOR(r(2))
     p3=FLOOR(r(3))
 
+<<<<<<< charge_mod.f90
     f1=r(1)-REAL(p1,q2)
     f2=r(2)-REAL(p2,q2)
     f3=r(3)-REAL(p3,q2)
+    !print*,'f1',f1
+    !print*,'f2',f2
+    !print*,'f3',f3
+=======
+    f1=r(1)-REAL(p1,q2)
+    f2=r(2)-REAL(p2,q2)
+    f3=r(3)-REAL(p3,q2)
+>>>>>>> 1.10
 
     g1=1.0_q2-f1
     g2=1.0_q2-f2
@@ -134,10 +143,10 @@ MODULE charge_mod
     rho110=rho_val(chg,p1+1,p2+1,p3)
     rho111=rho_val(chg,p1+1,p2+1,p3+1)
 
-    write(*,'(A,2F12.4)')'   011, 111: ',rho011,rho111
-    write(*,'(A,2F12.4)')'   001, 101: ',rho001,rho101
-    write(*,'(A,2F12.4)')'   010, 110: ',rho010,rho110
-    write(*,'(A,2F12.4)')'   000, 100: ',rho000,rho100
+!    write(*,'(A,2F12.4)')'   011, 111: ',rho011,rho111
+!    write(*,'(A,2F12.4)')'   001, 101: ',rho001,rho101
+!    write(*,'(A,2F12.4)')'   010, 110: ',rho010,rho110
+!    write(*,'(A,2F12.4)')'   000, 100: ',rho000,rho100
 
     rho00_=rho000*g3+rho001*f3
     rho01_=rho010*g3+rho011*f3
@@ -189,17 +198,13 @@ MODULE charge_mod
     p1=p(1)
     p2=p(2)
     p3=p(3)
-
-    rho001=rho_val(chg,p1,p2,p3+1)
+    
+    rho001=rho_val(chg,p1,p2,p3+1) 
     rho010=rho_val(chg,p1,p2+1,p3)
     rho100=rho_val(chg,p1+1,p2,p3)
     rho00_1=rho_val(chg,p1,p2,p3-1)
     rho_100=rho_val(chg,p1-1,p2,p3)
     rho0_10=rho_val(chg,p1,p2-1,p3)
-
-!    rho_grad_gd(1)=(rho100-rho_100)*chg%lat_i_dist(1,0,0)/2.0_q2
-!    rho_grad_gd(2)=(rho010-rho0_10)*chg%lat_i_dist(0,1,0)/2.0_q2
-!    rho_grad_gd(3)=(rho001-rho00_1)*chg%lat_i_dist(0,0,1)/2.0_q2
 
     rho_grad_lat(1)=(rho100-rho_100)/2._q2
     rho_grad_lat(2)=(rho010-rho0_10)/2._q2
