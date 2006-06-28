@@ -25,7 +25,7 @@ MODULE charge_mod
 
   PRIVATE
   PUBLIC :: charge_obj
-  PUBLIC :: rho_val,rho_grad,rho_grad_gd
+  PUBLIC :: rho_val,rho_grad,rho_grad_dir
   PUBLIC :: pbc,dpbc_dir,dpbc
   PUBLIC :: to_lat,is_max
   PUBLIC :: lat2car,car2lat,lat2dir,dir2lat
@@ -117,9 +117,9 @@ MODULE charge_mod
     p2=FLOOR(r(2))
     p3=FLOOR(r(3))
 
-    f1=p1-REAL(p1,q2)
-    f2=p2-REAL(p2,q2)
-    f3=p3-REAL(p3,q2)
+    f1=r(1)-REAL(p1,q2)
+    f2=r(2)-REAL(p2,q2)
+    f3=r(3)-REAL(p3,q2)
 
     g1=1.0_q2-f1
     g2=1.0_q2-f2
@@ -172,16 +172,18 @@ MODULE charge_mod
   END FUNCTION rho_grad
 
 !-----------------------------------------------------------------------------------!
-!  rho_grad_gd:  Return the gradient at the grid point p
+!  rho_grad_dir:  Return the direction of the gradient in lattice vectors
+!                 at the grid position p
 !-----------------------------------------------------------------------------------!
 
-  FUNCTION rho_grad_gd(chg,p)
+  FUNCTION rho_grad_dir(chg,p)
 
     TYPE(charge_obj) :: chg
     INTEGER,DIMENSION(3),INTENT(IN) :: p
-    REAL(q2),DIMENSION(3) :: rho_grad_gd
+    REAL(q2),DIMENSION(3) :: rho_grad_dir
 
     INTEGER :: p1,p2,p3
+    REAL(q2),DIMENSION(3) :: rho_grad_lat,rho_grad_car
     REAL(q2) :: rho001,rho010,rho100,rho00_1,rho_100,rho0_10
 
     p1=p(1)
@@ -195,15 +197,25 @@ MODULE charge_mod
     rho_100=rho_val(chg,p1-1,p2,p3)
     rho0_10=rho_val(chg,p1,p2-1,p3)
 
-    rho_grad_gd(1)=(rho100-rho_100)*chg%lat_i_dist(1,0,0)/2.0_q2
-    rho_grad_gd(2)=(rho010-rho0_10)*chg%lat_i_dist(0,1,0)/2.0_q2
-    rho_grad_gd(3)=(rho001-rho00_1)*chg%lat_i_dist(0,0,1)/2.0_q2
-	
-    rho_grad_gd=rho_grad_gd/SQRT(SUM(rho_grad_gd*rho_grad_gd))
+!    rho_grad_gd(1)=(rho100-rho_100)*chg%lat_i_dist(1,0,0)/2.0_q2
+!    rho_grad_gd(2)=(rho010-rho0_10)*chg%lat_i_dist(0,1,0)/2.0_q2
+!    rho_grad_gd(3)=(rho001-rho00_1)*chg%lat_i_dist(0,0,1)/2.0_q2
+
+    rho_grad_lat(1)=(rho100-rho_100)/2._q2
+    rho_grad_lat(2)=(rho010-rho0_10)/2._q2
+    rho_grad_lat(3)=(rho001-rho00_1)/2._q2
+
+    ! convert to cartesian coordinates
+    CALL vector_matrix(rho_grad_lat,chg%car2lat,rho_grad_car)
+
+    ! express this vector in direct coordinates
+    CALL matrix_vector(chg%car2lat,rho_grad_car,rho_grad_dir)
+
+    ! return a unit vector
+    rho_grad_dir=rho_grad_dir/SQRT(SUM(rho_grad_dir*rho_grad_dir))
 
   RETURN
-  END FUNCTION rho_grad_gd
-
+  END FUNCTION rho_grad_dir
 
 !-----------------------------------------------------------------------------------!
 ! pbc: Wrap the point (p(1),p(2),p(3)) to the boundary conditions [0,pmax].

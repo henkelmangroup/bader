@@ -99,7 +99,7 @@ MODULE bader_mod
       DO n2=1,chg%npts(2)
         DO n3=1,chg%npts(3)
           p=(/n1,n2,n3/)
-          write(*,*) ''
+          !write(*,*) ''
           !write(*,'(A,3I4)') ' grd: ',p
           IF(bdr%volnum(p(1),p(2),p(3)) == 0) THEN
             IF(opts%bader_opt == opts%bader_offgrid) THEN
@@ -316,7 +316,8 @@ MODULE bader_mod
 
   RETURN
   END SUBROUTINE step_ongrid
-  !-----------------------------------------------------------------------------------!
+
+!-----------------------------------------------------------------------------------!
 ! max_neargrid:  From the point p do a maximization on the charge density grid and
 !   assign the maximum found to the volnum array.
 !-----------------------------------------------------------------------------------!
@@ -348,7 +349,7 @@ MODULE bader_mod
 !-----------------------------------------------------------------------------------!
 !  step_neargrid:  Do a single iteration of a maximization on the charge density 
 !    grid from the point (px,py,pz).  Return a logical indicating if the current
-
+!-----------------------------------------------------------------------------------!
 
   SUBROUTINE step_neargrid(chg,p)
 
@@ -357,18 +358,17 @@ MODULE bader_mod
     INTEGER,DIMENSION(3) :: pm
     INTEGER :: d1,d2,d3,i
 
-		
     REAL(q2),DIMENSION(3) :: gradrl,dr=(/0.0_q2,0.0_q2,0.0_q2/)  
     REAL(q2) :: cx,cy,cz,coeff,cp,cm
     SAVE dr
 
     !print*,'p initial:',p
 
-    gradrl=rho_grad_gd(chg,p)
+    gradrl=rho_grad_dir(chg,p)
     cx=gradrl(1)*chg%lat_i_dist(1,0,0)
     cy=gradrl(2)*chg%lat_i_dist(0,1,0)
     cz=gradrl(3)*chg%lat_i_dist(0,0,1)
-    coeff=1/MAX(ABS(cx),ABS(cy),ABS(cz))
+    coeff=1.0_q2/MAX(ABS(cx),ABS(cy),ABS(cz))
     gradrl=coeff*(/cx,cy,cz/)
     !print*,'gradrl:',gradrl
     pm=p+ANINT(gradrl)
@@ -376,7 +376,7 @@ MODULE bader_mod
     !print*,'dr=',dr
 
     DO i=1,3
-      IF (ABS(dr(i)) > 0.5) THEN
+      IF (ABS(dr(i)) > 0.5_q2) THEN
         pm(i)=pm(i)+ANINT(dr(i))
         dr(i)=dr(i)-ANINT(dr(i))
       END IF
