@@ -9,7 +9,7 @@
       INTEGER :: out_opt, out_auto = 0, out_cube = 1, out_chgcar = 2
       INTEGER :: in_opt, in_auto = 0, in_cube = 1, in_chgcar = 2
       INTEGER :: bader_opt, bader_offgrid = 0, bader_ongrid = 1, bader_neargrid = 2
-      INTEGER :: reassign_surf_num
+      INTEGER :: reassign_edge_itrs
       LOGICAL :: bader_flag, voronoi_flag, dipole_flag, ldos_flag
       LOGICAL :: verbose_flag
     END TYPE options_obj
@@ -42,7 +42,7 @@
       opts%in_opt = opts%in_auto
       opts%print_opt = opts%print_none
       opts%bader_opt = opts%bader_neargrid
-      opts%reassign_surf_num=2
+      opts%reassign_edge_itrs=2
       opts%bader_flag = .TRUE.
       opts%voronoi_flag = .FALSE.
       opts%dipole_flag = .FALSE.

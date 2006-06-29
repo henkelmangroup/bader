@@ -134,12 +134,12 @@ MODULE bader_mod
     END DO
     
 !    print*,'bdr%bnum at the end of normal loop',bdr%bnum
-    print*,'opts%reassign_surf_num',opts%reassign_surf_num
-    DO i=1,opts%reassign_surf_num
-      CALL reassign_surf(bdr,chg,opts)
-      WRITE(*,*) ' reassign surf iteration: ',i
+    print*,'opts%reassign_edge_itrs',opts%reassign_edge_itrs
+    DO i=1,opts%reassign_edge_itrs
+      CALL refine_edge(bdr,chg,opts)
+      WRITE(*,*) ' refine edge iteration: ',i
     END DO      
-!    print*,'finish call reassign_surf'
+!    print*,'finish call refine_edge'
  
     ! The total number of bader volumes is now known
     bdr%nvols=bdr%bnum
@@ -151,7 +151,6 @@ MODULE bader_mod
       bdr%volpos_car(i,:)=lat2car(chg,bdr%volpos_lat(i,:))
     END DO
 !    print*,'end of cal total bader vol'
-
 
     ! Sum up the charge included in each volume
     ALLOCATE(bdr%volchg(bdr%nvols))
@@ -413,10 +412,10 @@ MODULE bader_mod
   END SUBROUTINE step_neargrid
 
 !-----------------------------------------------------------------------------------!
-! reassign_surf: reassign the grid points on the surface of the Bader volumes.
+! refine_edge: refine the grid points on the edge of the Bader volumes.
 !-----------------------------------------------------------------------------------!
 
-  SUBROUTINE reassign_surf(bdr,chg,opts)
+  SUBROUTINE refine_edge(bdr,chg,opts)
 
     TYPE(bader_obj) :: bdr
     TYPE(charge_obj) :: chg
@@ -424,24 +423,24 @@ MODULE bader_mod
 
     INTEGER,DIMENSION(3) :: p
     INTEGER :: n1,n2,n3,path_volnum,i
-    INTEGER :: num_surf=0
+    INTEGER :: num_edge=0
 
-!    print*,'begin reassign_surf subroutine'
+!    print*,'begin refine_edge subroutine'
 !    print*,'points in each direction',chg%npts(1),chg%npts(2),chg%npts(3)
     DO n1=1,chg%npts(1)
       DO n2=1,chg%npts(2)
         DO n3=1,chg%npts(3)
           p=(/n1,n2,n3/)
-          IF(is_vol_surf(bdr,chg,p)) THEN
+          IF(is_vol_edge(bdr,chg,p)) THEN
             bdr%volnum(p(1),p(2),p(3))=0
-            num_surf=num_surf+1
+            num_edge=num_edge+1
           ENDIF
         END DO
       END DO
     END DO
-    WRITE(*,*) 'reassigning ',num_surf,' surf'
+    WRITE(*,*) 'reassigning ',num_edge,' edge'
 
-!    WRITE(*,*)'bdr%bnum in the begining of reassign_surf',bdr%bnum
+!    WRITE(*,*)'bdr%bnum in the begining of refine_edge',bdr%bnum
     DO n1=1,chg%npts(1)
       DO n2=1,chg%npts(2)
         DO n3=1,chg%npts(3)
@@ -471,10 +470,10 @@ MODULE bader_mod
         END DO
       END DO
     END DO
-  print*,'finish reasssign_surf'
+  print*,'finish refine_edge'
 
   RETURN
-  END SUBROUTINE reassign_surf
+  END SUBROUTINE refine_edge
 
 !-----------------------------------------------------------------------------------!
 ! assign_chg2atom: Assign an element of charge to a Bader atom.
@@ -554,7 +553,7 @@ MODULE bader_mod
           p=(/n1,n2,n3/)
 
 !         If this is an edge cell, check if it is the closest to the atom so far
-          IF (is_atm_surf(bdr,chg,p)) THEN
+          IF (is_atm_edge(bdr,chg,p)) THEN
             v=REAL((/n1,n2,n3/),q2)
             dv_dir=(v-chg%org_lat)/REAL(chg%npts,q2)-ions%r_dir(atom,:)
             CALL dpbc_dir(dv_dir)
@@ -932,21 +931,21 @@ MODULE bader_mod
   END FUNCTION known_volnum
 
 !-----------------------------------------------------------------------------------!
-! is_vol_surf: return .true. if the grid point is on the surface of a Bader volume.
+! is_vol_edge: return .true. if the grid point is on the edge of a Bader volume.
 !-----------------------------------------------------------------------------------!
 
-  FUNCTION is_vol_surf(bdr,chg,p)
+  FUNCTION is_vol_edge(bdr,chg,p)
 
     TYPE(bader_obj) :: bdr
     TYPE(charge_obj) :: chg
-    LOGICAL :: is_vol_surf
+    LOGICAL :: is_vol_edge
 
     INTEGER,DIMENSION(3),INTENT(IN) :: p
     INTEGER,DIMENSION(3) ::pt
     INTEGER :: d1,d2,d3,volnum,volnbr
 
     volnum=bdr%volnum(p(1),p(2),p(3))
-    is_vol_surf=.FALSE.
+    is_vol_edge=.FALSE.
     neighbourloop: DO d1=-1,1
       DO d2=-1,1
         DO d3=-1,1
@@ -954,7 +953,7 @@ MODULE bader_mod
           CALL pbc(pt,chg%npts)
           volnbr=bdr%volnum(pt(1),pt(2),pt(3))
           IF(volnbr/=0 .AND. volnbr/=volnum) THEN
-            is_vol_surf=.TRUE.
+            is_vol_edge=.TRUE.
             EXIT neighbourloop  
 !            bdr%volnum(p(1),p(2),p(3))=0
           END IF
@@ -963,24 +962,24 @@ MODULE bader_mod
     END DO neighbourloop
 
   RETURN
-  END FUNCTION is_vol_surf
+  END FUNCTION is_vol_edge
 
 !-----------------------------------------------------------------------------------!
-! is_atm_surf: return .true. if the grid point is on the edge of a Bader atom.
+! is_atm_edge: return .true. if the grid point is on the edge of a Bader atom.
 !-----------------------------------------------------------------------------------!
 
-  FUNCTION is_atm_surf(bdr,chg,p)
+  FUNCTION is_atm_edge(bdr,chg,p)
 
     TYPE(bader_obj) :: bdr
     TYPE(charge_obj) :: chg
-    LOGICAL :: is_atm_surf
+    LOGICAL :: is_atm_edge
 
     INTEGER,DIMENSION(3),INTENT(IN) :: p
     INTEGER,DIMENSION(3) ::pt
     INTEGER :: d1,d2,d3,atmnum,atmnbr
 
     atmnum=bdr%volnum(p(1),p(2),p(3))
-    is_atm_surf=.FALSE.
+    is_atm_edge=.FALSE.
     neighbourloop: DO d1=-1,1
       DO d2=-1,1
         DO d3=-1,1
@@ -988,7 +987,7 @@ MODULE bader_mod
           CALL pbc(pt,chg%npts)
           atmnbr=bdr%nnion(bdr%volnum(pt(1),pt(2),pt(3)))
           IF(atmnbr/=atmnum) THEN
-            is_atm_surf=.TRUE.
+            is_atm_edge=.TRUE.
             EXIT neighbourloop
           END IF
         END DO
@@ -996,7 +995,7 @@ MODULE bader_mod
     END DO neighbourloop
 
     RETURN
-    END FUNCTION is_atm_surf
+    END FUNCTION is_atm_edge
 
 !-----------------------------------------------------------------------------------!
 ! reallocate_volpos: 
