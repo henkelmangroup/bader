@@ -134,12 +134,12 @@ MODULE bader_mod
     END DO
     
 !    print*,'bdr%bnum at the end of normal loop',bdr%bnum
-    print*,'opts%checkep_times',opts%checkep_times
-    DO i=1,opts%checkep_times
-      CALL checkep(bdr,chg,opts)
-      print*,'times',i
+    print*,'opts%reassign_surf_num',opts%reassign_surf_num
+    DO i=1,opts%reassign_surf_num
+      CALL reassign_surf(bdr,chg,opts)
+      WRITE(*,*) ' reassign surf iteration: ',i
     END DO      
-!    print*,'finish call checkedp'
+!    print*,'finish call reassign_surf'
  
     ! The total number of bader volumes is now known
     bdr%nvols=bdr%bnum
@@ -413,66 +413,35 @@ MODULE bader_mod
   END SUBROUTINE step_neargrid
 
 !-----------------------------------------------------------------------------------!
-! is_ep: return .true. if the grid point is on the edge points of a Bader volume.
+! reassign_surf: reassign the grid points on the surface of the Bader volumes.
 !-----------------------------------------------------------------------------------!
 
-  SUBROUTINE is_ep(bdr,chg,p,n)
-
-    TYPE(bader_obj) :: bdr
-    TYPE(charge_obj) :: chg
-
-    INTEGER,DIMENSION(3),INTENT(IN) :: p
-    INTEGER,DIMENSION(3) ::pt
-    INTEGER :: d1,d2,d3,path_volnum
-    INTEGER,INTENT(INOUT) :: n
-
-    path_volnum=bdr%volnum(p(1),p(2),p(3))
-    DO d1=-1,1
-      DO d2=-1,1
-        DO d3=-1,1
-          pt=p+(/d1,d2,d3/)
-          CALL pbc(pt,chg%npts)
-          IF(bdr%volnum(pt(1),pt(2),pt(3))/=0.AND.bdr%volnum(pt(1),pt(2),pt(3))/=path_volnum) THEN
-             bdr%volnum(p(1),p(2),p(3))=0
-          END IF
-        END DO
-      END DO
-    END DO
-
-    IF(bdr%volnum(p(1),p(2),p(3))==0) THEN
-             n=n+1
-    END IF
-   
-    RETURN
-    END SUBROUTINE is_ep
-
-!-----------------------------------------------------------------------------------!
-! checkep: re-check the grid point on the edge points of a Bader volume.
-!-----------------------------------------------------------------------------------!
-
-  SUBROUTINE checkep(bdr,chg,opts)
+  SUBROUTINE reassign_surf(bdr,chg,opts)
 
     TYPE(bader_obj) :: bdr
     TYPE(charge_obj) :: chg
     TYPE(options_obj) :: opts
 
     INTEGER,DIMENSION(3) :: p
-    INTEGER :: n1,n2,n3,path_volnum,i,n=0
+    INTEGER :: n1,n2,n3,path_volnum,i
+    INTEGER :: num_surf=0
 
-!    print*,'begin checkep subroutne'
+!    print*,'begin reassign_surf subroutine'
 !    print*,'points in each direction',chg%npts(1),chg%npts(2),chg%npts(3)
     DO n1=1,chg%npts(1)
       DO n2=1,chg%npts(2)
         DO n3=1,chg%npts(3)
           p=(/n1,n2,n3/)
-          CALL is_ep(bdr,chg,p,n)
-!          print*,'check one point',p
+          IF(is_vol_surf(bdr,chg,p)) THEN
+            bdr%volnum(p(1),p(2),p(3))=0
+            num_surf=num_surf+1
+          ENDIF
         END DO
       END DO
     END DO
-    print*,'have resigned the ep', n
+    WRITE(*,*) 'reassigning ',num_surf,' surf'
 
-!    print*,'bdr%bnum in the beginning of checkep',bdr%bnum
+!    WRITE(*,*)'bdr%bnum in the begining of reassign_surf',bdr%bnum
     DO n1=1,chg%npts(1)
       DO n2=1,chg%npts(2)
         DO n3=1,chg%npts(3)
@@ -502,10 +471,10 @@ MODULE bader_mod
         END DO
       END DO
     END DO
-  print*,'finish resign'
+  print*,'finish reasssign_surf'
 
   RETURN
-  END SUBROUTINE checkep
+  END SUBROUTINE reassign_surf
 
 !-----------------------------------------------------------------------------------!
 ! assign_chg2atom: Assign an element of charge to a Bader atom.
@@ -559,11 +528,10 @@ MODULE bader_mod
     TYPE(charge_obj) :: chg
 
     REAL(q2),DIMENSION(3) :: shift,v,dv_dir,dv_car
-    INTEGER,DIMENSION(3) :: n
+    INTEGER,DIMENSION(3) :: p
     REAL :: dist
     INTEGER :: i,atom,atom_tmp,n1,n2,n3,d1,d2,d3
     INTEGER :: cr,count_max,t1,t2,tenths_done
-    LOGICAL :: surfflag
 
     CALL system_clock(t1,cr,count_max)
 
@@ -583,28 +551,10 @@ MODULE bader_mod
       END IF
       DO n2=1,chg%npts(2)
         DO n3=1,chg%npts(3)
-
-          ! Check to see if this is at the edge of an atomic volume
-          atom=bdr%nnion(bdr%volnum(n1,n2,n3))
-          surfflag=.FALSE.
-          neighbourloop: DO d1=-1,1
-            n(1)=n1+d1
-            DO d2=-1,1
-              n(2)=n2+d2
-              DO d3=-1,1
-                n(3)=n3+d3
-                CALL pbc(n,chg%npts)
-                atom_tmp=bdr%nnion(bdr%volnum(n(1),n(2),n(3)))
-                IF (atom_tmp /= atom ) THEN
-                  surfflag=.TRUE.
-                  EXIT neighbourloop
-                END IF
-              END DO
-            END DO
-          END DO neighbourloop
+          p=(/n1,n2,n3/)
 
 !         If this is an edge cell, check if it is the closest to the atom so far
-          IF (surfflag) THEN
+          IF (is_atm_surf(bdr,chg,p)) THEN
             v=REAL((/n1,n2,n3/),q2)
             dv_dir=(v-chg%org_lat)/REAL(chg%npts,q2)-ions%r_dir(atom,:)
             CALL dpbc_dir(dv_dir)
@@ -980,6 +930,73 @@ MODULE bader_mod
 
   RETURN
   END FUNCTION known_volnum
+
+!-----------------------------------------------------------------------------------!
+! is_vol_surf: return .true. if the grid point is on the surface of a Bader volume.
+!-----------------------------------------------------------------------------------!
+
+  FUNCTION is_vol_surf(bdr,chg,p)
+
+    TYPE(bader_obj) :: bdr
+    TYPE(charge_obj) :: chg
+    LOGICAL :: is_vol_surf
+
+    INTEGER,DIMENSION(3),INTENT(IN) :: p
+    INTEGER,DIMENSION(3) ::pt
+    INTEGER :: d1,d2,d3,volnum,volnbr
+
+    volnum=bdr%volnum(p(1),p(2),p(3))
+    is_vol_surf=.FALSE.
+    neighbourloop: DO d1=-1,1
+      DO d2=-1,1
+        DO d3=-1,1
+          pt=p+(/d1,d2,d3/)
+          CALL pbc(pt,chg%npts)
+          volnbr=bdr%volnum(pt(1),pt(2),pt(3))
+          IF(volnbr/=0 .AND. volnbr/=volnum) THEN
+            is_vol_surf=.TRUE.
+            EXIT neighbourloop  
+!            bdr%volnum(p(1),p(2),p(3))=0
+          END IF
+        END DO
+      END DO
+    END DO neighbourloop
+
+  RETURN
+  END FUNCTION is_vol_surf
+
+!-----------------------------------------------------------------------------------!
+! is_atm_surf: return .true. if the grid point is on the edge of a Bader atom.
+!-----------------------------------------------------------------------------------!
+
+  FUNCTION is_atm_surf(bdr,chg,p)
+
+    TYPE(bader_obj) :: bdr
+    TYPE(charge_obj) :: chg
+    LOGICAL :: is_atm_surf
+
+    INTEGER,DIMENSION(3),INTENT(IN) :: p
+    INTEGER,DIMENSION(3) ::pt
+    INTEGER :: d1,d2,d3,atmnum,atmnbr
+
+    atmnum=bdr%volnum(p(1),p(2),p(3))
+    is_atm_surf=.FALSE.
+    neighbourloop: DO d1=-1,1
+      DO d2=-1,1
+        DO d3=-1,1
+          pt=p+(/d1,d2,d3/)
+          CALL pbc(pt,chg%npts)
+          atmnbr=bdr%nnion(bdr%volnum(pt(1),pt(2),pt(3)))
+          IF(atmnbr/=atmnum) THEN
+            is_atm_surf=.TRUE.
+            EXIT neighbourloop
+          END IF
+        END DO
+      END DO
+    END DO neighbourloop
+
+    RETURN
+    END FUNCTION is_atm_surf
 
 !-----------------------------------------------------------------------------------!
 ! reallocate_volpos: 

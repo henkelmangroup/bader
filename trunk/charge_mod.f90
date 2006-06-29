@@ -117,18 +117,9 @@ MODULE charge_mod
     p2=FLOOR(r(2))
     p3=FLOOR(r(3))
 
-<<<<<<< charge_mod.f90
     f1=r(1)-REAL(p1,q2)
     f2=r(2)-REAL(p2,q2)
     f3=r(3)-REAL(p3,q2)
-    !print*,'f1',f1
-    !print*,'f2',f2
-    !print*,'f3',f3
-=======
-    f1=r(1)-REAL(p1,q2)
-    f2=r(2)-REAL(p2,q2)
-    f3=r(3)-REAL(p3,q2)
->>>>>>> 1.10
 
     g1=1.0_q2-f1
     g2=1.0_q2-f2
