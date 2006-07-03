@@ -1,3 +1,7 @@
+!-----------------------------------------------------------------------------------!
+! Bader charge density analysis program
+!   Module specifying precision and constants
+!-----------------------------------------------------------------------------------!
 MODULE kind_mod
   IMPLICIT NONE
 

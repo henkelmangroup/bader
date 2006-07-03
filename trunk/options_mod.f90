@@ -1,3 +1,7 @@
+!-----------------------------------------------------------------------------------!
+! Bader charge density analysis program
+!  Module for specifying input options
+!-----------------------------------------------------------------------------------!
   MODULE options_mod
     USE kind_mod , ONLY : q2
     IMPLICIT NONE

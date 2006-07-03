@@ -1,10 +1,6 @@
 !-----------------------------------------------------------------------------------!
 ! Bader charge density analysis program
 !  Module for doing a multipole expansion
-!
-! By Andri Arnaldsson and Graeme Henkelman
-! Last modified by 
-!
 !-----------------------------------------------------------------------------------!
 MODULE multipole
   USE kind

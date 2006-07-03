@@ -1,9 +1,6 @@
 !-----------------------------------------------------------------------------------!
 ! Bader charge density analysis program
 !  Module for analyzing the charge with the Bader atom in molecules approach
-!
-! By Andri Arnaldsson and Graeme Henkelman
-! Last modified by GH on May 11, 2009
 !-----------------------------------------------------------------------------------!
 
 MODULE bader_mod

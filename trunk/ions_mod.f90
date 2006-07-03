@@ -1,9 +1,6 @@
 !-----------------------------------------------------------------------------------!
 ! Bader charge density analysis program
-!    Module with ionic information
-!
-! By Andri Arnaldson and Graeme Henkelman
-! Last modified by GH on May 4, 2006
+!  Module with ion data structure
 !-----------------------------------------------------------------------------------!
 
 MODULE ions_mod

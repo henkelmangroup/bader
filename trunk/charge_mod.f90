@@ -1,9 +1,6 @@
 !-----------------------------------------------------------------------------------!
 ! Bader charge density analysis program
 !  Module for analyzing the charge
-!
-! By Andri Arnaldsson and Graeme Henkelman
-! Last modified by GH on May 11, 2006
 !-----------------------------------------------------------------------------------!
 
 MODULE charge_mod

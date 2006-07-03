@@ -1,9 +1,6 @@
 !-----------------------------------------------------------------------------------!
 ! Bader charge density analysis program
-!    Module for reading and writing VASP CHGCAR files
-!
-! By Andri Arnaldson and Graeme Henkelman
-! Last modified by GH on May 9 2006
+!  Module for reading and writing VASP CHGCAR files
 !-----------------------------------------------------------------------------------!
 
 MODULE chgcar_mod

@@ -1,10 +1,6 @@
 !-----------------------------------------------------------------------------------!
 ! Bader charge density analysis program
 !  Module for analyzing the charge with a voronoi analysis
-!
-! By Andri Arnaldsson and Graeme Henkelman
-! Last modified by 
-!
 !-----------------------------------------------------------------------------------!
 MODULE voronoi_mod
   USE kind_mod

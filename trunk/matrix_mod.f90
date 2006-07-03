@@ -1,9 +1,6 @@
 !-----------------------------------------------------------------------------------!
 ! Bader charge density analysis program
 !  Module containing matrix functions
-!
-! By Andri Arnaldsson and Graeme Henkelman
-! Last modified by GH on May 4 2003
 !-----------------------------------------------------------------------------------!
 MODULE matrix_mod
   USE kind_mod

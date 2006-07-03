@@ -1,9 +1,6 @@
 !-----------------------------------------------------------------------------------!
 ! Bader charge density analysis program
-!    Module for reading and writing charge density data
-!
-! By Andri Arnaldsson and Graeme Henkelman
-! Last modified by AA on Aug. 02 2005
+!  Module for writing results
 !-----------------------------------------------------------------------------------!
 
 MODULE results_mod

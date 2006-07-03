@@ -2,8 +2,7 @@
 ! Bader charge density analysis program
 ! Version 0.2 off-grid algorithm
 !
-! By Andri Arnaldsson and Graeme Henkelman
-! Last modified by GH on May 11, 2004
+! By Andri Arnaldsson, Wenjie Tang, and Graeme Henkelman
 !
 ! Based on algorithms described in the following publications:
 !
@@ -11,7 +10,7 @@
 !   G. Henkelman, A. Arnaldsson, and H. Jonsson,
 !   Comput. Mater. Sci. 36 254-360 (2006).
 !
-!   E. Sanville, R. Smith, and G. Henkelman
+!   E. Sanville, R. Smith, W. Tang, and G. Henkelman
 !   in preparation
 !
 !-----------------------------------------------------------------------------------!

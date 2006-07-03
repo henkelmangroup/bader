@@ -1,9 +1,6 @@
 !-----------------------------------------------------------------------------------!
 ! Bader charge density analysis program
 !  Module for reading wavefunctions
-!
-! By Andri Arnaldsson and Graeme Henkelman
-! Last modified by
 !-----------------------------------------------------------------------------------!
 
 MODULE wave_mod
