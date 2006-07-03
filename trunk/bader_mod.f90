@@ -89,10 +89,7 @@ MODULE bader_mod
     bdr%volnum=0
     bdr%bnum=0
     bdr%nvols=0  ! True number of Bader volumes
-    
-    DO i=1,3
-      print*,'ions%car:',ions%dir2car(:,i)
-    END DO  
+
     tenths_done=0
     DO n1=1,chg%npts(1)
       IF ((n1*10/chg%npts(1)) > tenths_done) THEN
@@ -132,9 +129,8 @@ MODULE bader_mod
         END DO
       END DO
     END DO
-    
-!    print*,'bdr%bnum at the end of normal loop',bdr%bnum
-    print*,'opts%reassign_edge_itrs',opts%reassign_edge_itrs
+
+!    print*,'opts%reassign_edge_itrs',opts%reassign_edge_itrs
     DO i=1,opts%reassign_edge_itrs
       CALL refine_edge(bdr,chg,opts)
       WRITE(*,*) ' refine edge iteration: ',i
@@ -150,7 +146,7 @@ MODULE bader_mod
       bdr%volpos_dir(i,:)=lat2dir(chg,bdr%volpos_lat(i,:))
       bdr%volpos_car(i,:)=lat2car(chg,bdr%volpos_lat(i,:))
     END DO
-!    print*,'end of cal total bader vol'
+    print*,'end of cal total bader vol'
 
     ! Sum up the charge included in each volume
     ALLOCATE(bdr%volchg(bdr%nvols))
@@ -346,7 +342,7 @@ MODULE bader_mod
       ENDIF
       bdr%pnum=bdr%pnum+1
       bdr%path(bdr%pnum,:)=p
-      IF(bdr%volnum(p(1),p(2),p(3)) /= 0) EXIT
+      IF(bdr%volnum(p(1),p(2),p(3)) > 0) EXIT
     END DO
 
   RETURN
@@ -368,26 +364,25 @@ MODULE bader_mod
     REAL(q2) :: cx,cy,cz,coeff,cp,cm
     SAVE dr
 
-    !print*,'p initial:',p
- 
-    gradrl=rho_grad_dir(chg,p)
+!    print*,'p initial:',p
+!    print*,'gradrl before',gradrl
+    IF(is_max_ng(chg,p)) THEN
+!       print*, '    max:', p
+       dr=(/0.0_q2,0.0_q2,0.0_q2/)
+       RETURN
+    END IF
+
+    gradrl=rho_grad_dir(chg,p)      
     cx=gradrl(1)*chg%lat_i_dist(1,0,0)
     cy=gradrl(2)*chg%lat_i_dist(0,1,0)
     cz=gradrl(3)*chg%lat_i_dist(0,0,1)
     coeff=1.0_q2/MAX(ABS(cx),ABS(cy),ABS(cz))
     gradrl=coeff*(/cx,cy,cz/)
-    !print*,'gradrl:',gradrl
+!    print*,'gradrl:',gradrl
     pm=p+ANINT(gradrl)
     dr=dr+gradrl-ANINT(gradrl)
     !print*,'dr=',dr
         
-!    CALL pbc(pm,chg%npts)
-!    IF(is_max(chg,pm)) THEN
-!       print*, '    max:', p
-!       dr=(/0.0_q2,0.0_q2,0.0_q2/)
-!       RETURN
-!    END IF
-
     DO i=1,3
       IF (ABS(dr(i)) > 0.5_q2) THEN
         pm(i)=pm(i)+ANINT(dr(i))
@@ -399,7 +394,7 @@ MODULE bader_mod
     cp=rho_val(chg,p(1),p(2),p(3))
     cm=rho_val(chg,pm(1),pm(2),pm(3))
     IF (cm < cp) THEN
-       print*, '    max:', p
+!       print*, '    max:', p
        dr=(/0.0_q2,0.0_q2,0.0_q2/)
        RETURN
     END IF
@@ -423,16 +418,37 @@ MODULE bader_mod
 
     INTEGER,DIMENSION(3) :: p
     INTEGER :: n1,n2,n3,path_volnum,i
-    INTEGER :: num_edge=0
+    INTEGER :: num_edge=0,sign,num
+
+!    p=(/2,1,15/)
+!    volnum=bdr%volnum(p(1),p(2),p(3))
+!    neighbourloop: DO d1=-1,1
+!      DO d2=-1,1
+!        DO d3=-1,1
+!          pt=p+(/d1,d2,d3/)
+!          CALL pbc(pt,chg%npts)
+!          volnbr=bdr%volnum(pt(1),pt(2),pt(3))
+!          print*,'pt',pt,'volnum',volnbr
+!          IF(ABS(volnbr)/=ABS(volnum)) THEN
+!            print*,'not match'
+!            EXIT neighbourloop
+!          END IF
+!        END DO
+!      END DO
+!    END DO neighbourloop
 
 !    print*,'begin refine_edge subroutine'
 !    print*,'points in each direction',chg%npts(1),chg%npts(2),chg%npts(3)
-    DO n1=1,chg%npts(1)
+     DO n1=1,chg%npts(1)
       DO n2=1,chg%npts(2)
         DO n3=1,chg%npts(3)
           p=(/n1,n2,n3/)
           IF(is_vol_edge(bdr,chg,p)) THEN
-            bdr%volnum(p(1),p(2),p(3))=0
+            bdr%volnum(p(1),p(2),p(3))=-1*bdr%volnum(p(1),p(2),p(3))
+            IF(is_max_ng(chg,p)) THEN
+              print*,'maxima at edge',p
+              bdr%volnum(p(1),p(2),p(3))=ABS(bdr%volnum(p(1),p(2),p(3)))
+            END IF
             num_edge=num_edge+1
           ENDIF
         END DO
@@ -445,7 +461,7 @@ MODULE bader_mod
       DO n2=1,chg%npts(2)
         DO n3=1,chg%npts(3)
           p=(/n1,n2,n3/)
-          IF(bdr%volnum(p(1),p(2),p(3)) == 0) THEN
+          IF(bdr%volnum(p(1),p(2),p(3)) < 0) THEN
             IF(opts%bader_opt == opts%bader_offgrid) THEN
               CALL max_offgrid(bdr,chg,p)
             ELSE IF(opts%bader_opt == opts%bader_ongrid) THEN
@@ -454,23 +470,33 @@ MODULE bader_mod
               CALL max_neargrid(bdr,chg,p)
             END IF
             path_volnum=bdr%volnum(p(1),p(2),p(3))
-            IF (path_volnum == 0) THEN
+            IF (path_volnum < 0) THEN
               IF (bdr%bnum >= bdr%bdim) THEN
                 CALL reallocate_volpos(bdr,bdr%bdim*2)
               END IF
               bdr%bnum=bdr%bnum+1
-              write(*,*) '   new max',bdr%bnum
+              write(*,*) '   new max',bdr%bnum,'p',p
               path_volnum=bdr%bnum
+              bdr%volnum(p(1),p(2),p(3))=bdr%bnum
               bdr%volpos_lat(bdr%bnum,:) = REAL(p,q2)
             END IF
             DO i=1,bdr%pnum
-              bdr%volnum(bdr%path(i,1),bdr%path(i,2),bdr%path(i,3))=path_volnum
+              num=bdr%volnum(bdr%path(i,1),bdr%path(i,2),bdr%path(i,3))
+              sign=ABS(num)/num
+              bdr%volnum(bdr%path(i,1),bdr%path(i,2),bdr%path(i,3))=sign*path_volnum
             END DO
           END IF
         END DO
       END DO
     END DO
-  print*,'finish refine_edge'
+
+    DO n1=1,chg%npts(1)
+      DO n2=1,chg%npts(2)
+        DO n3=1,chg%npts(3)
+            bdr%volnum(n1,n2,n3)=ABS(bdr%volnum(n1,n2,n3))
+        END DO
+      END DO
+    END DO
 
   RETURN
   END SUBROUTINE refine_edge
@@ -529,7 +555,7 @@ MODULE bader_mod
     REAL(q2),DIMENSION(3) :: shift,v,dv_dir,dv_car
     INTEGER,DIMENSION(3) :: p
     REAL :: dist
-    INTEGER :: i,atom,atom_tmp,n1,n2,n3,d1,d2,d3
+    INTEGER :: i,atom,n1,n2,n3,d1,d2,d3
     INTEGER :: cr,count_max,t1,t2,tenths_done
 
     CALL system_clock(t1,cr,count_max)
@@ -553,7 +579,7 @@ MODULE bader_mod
           p=(/n1,n2,n3/)
 
 !         If this is an edge cell, check if it is the closest to the atom so far
-          IF (is_atm_edge(bdr,chg,p)) THEN
+          IF (is_atm_edge(bdr,chg,p,atom)) THEN
             v=REAL((/n1,n2,n3/),q2)
             dv_dir=(v-chg%org_lat)/REAL(chg%npts,q2)-ions%r_dir(atom,:)
             CALL dpbc_dir(dv_dir)
@@ -564,7 +590,6 @@ MODULE bader_mod
               bdr%minsurfdist(atom)=dist
             END IF
           END IF
-
         END DO
       END DO
     END DO
@@ -952,10 +977,9 @@ MODULE bader_mod
           pt=p+(/d1,d2,d3/)
           CALL pbc(pt,chg%npts)
           volnbr=bdr%volnum(pt(1),pt(2),pt(3))
-          IF(volnbr/=0 .AND. volnbr/=volnum) THEN
+          IF(ABS(volnbr)/=ABS(volnum)) THEN
             is_vol_edge=.TRUE.
             EXIT neighbourloop  
-!            bdr%volnum(p(1),p(2),p(3))=0
           END IF
         END DO
       END DO
@@ -968,7 +992,7 @@ MODULE bader_mod
 ! is_atm_edge: return .true. if the grid point is on the edge of a Bader atom.
 !-----------------------------------------------------------------------------------!
 
-  FUNCTION is_atm_edge(bdr,chg,p)
+  FUNCTION is_atm_edge(bdr,chg,p,atom)
 
     TYPE(bader_obj) :: bdr
     TYPE(charge_obj) :: chg
@@ -977,8 +1001,9 @@ MODULE bader_mod
     INTEGER,DIMENSION(3),INTENT(IN) :: p
     INTEGER,DIMENSION(3) ::pt
     INTEGER :: d1,d2,d3,atmnum,atmnbr
+    INTEGER,INTENT(INOUT) ::atom 
 
-    atmnum=bdr%volnum(p(1),p(2),p(3))
+    atom=bdr%nnion(bdr%volnum(p(1),p(2),p(3)))
     is_atm_edge=.FALSE.
     neighbourloop: DO d1=-1,1
       DO d2=-1,1
@@ -986,7 +1011,7 @@ MODULE bader_mod
           pt=p+(/d1,d2,d3/)
           CALL pbc(pt,chg%npts)
           atmnbr=bdr%nnion(bdr%volnum(pt(1),pt(2),pt(3)))
-          IF(atmnbr/=atmnum) THEN
+          IF(atmnbr/=atom) THEN
             is_atm_edge=.TRUE.
             EXIT neighbourloop
           END IF

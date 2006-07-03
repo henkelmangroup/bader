@@ -27,7 +27,7 @@ MODULE charge_mod
   PUBLIC :: charge_obj
   PUBLIC :: rho_val,rho_grad,rho_grad_dir
   PUBLIC :: pbc,dpbc_dir,dpbc
-  PUBLIC :: to_lat,is_max
+  PUBLIC :: to_lat,is_max,is_max_ng
   PUBLIC :: lat2car,car2lat,lat2dir,dir2lat
 
   INTERFACE ASSIGNMENT(=)
@@ -184,12 +184,13 @@ MODULE charge_mod
 
     INTEGER :: p1,p2,p3
     REAL(q2),DIMENSION(3) :: rho_grad_lat,rho_grad_car
-    REAL(q2) :: rho001,rho010,rho100,rho00_1,rho_100,rho0_10
+    REAL(q2) :: rho000,rho001,rho010,rho100,rho00_1,rho_100,rho0_10
 
     p1=p(1)
     p2=p(2)
     p3=p(3)
     
+    rho000=rho_val(chg,p1,p2,p3)
     rho001=rho_val(chg,p1,p2,p3+1) 
     rho010=rho_val(chg,p1,p2+1,p3)
     rho100=rho_val(chg,p1+1,p2,p3)
@@ -200,6 +201,10 @@ MODULE charge_mod
     rho_grad_lat(1)=(rho100-rho_100)/2._q2
     rho_grad_lat(2)=(rho010-rho0_10)/2._q2
     rho_grad_lat(3)=(rho001-rho00_1)/2._q2
+
+!    IF(rho100 < rho000.AND.rho_100 < rho000) rho_grad_lat(1)=0._q2
+!    IF(rho010 < rho000.AND.rho0_10 < rho000) rho_grad_lat(2)=0._q2
+!    IF(rho001 < rho000.AND.rho00_1 < rho000) rho_grad_lat(3)=0._q2
 
     ! convert to cartesian coordinates
     CALL vector_matrix(rho_grad_lat,chg%car2lat,rho_grad_car)
@@ -370,6 +375,37 @@ MODULE charge_mod
 
   RETURN 
   END FUNCTION is_max
+
+!-----------------------------------------------------------------------------------!
+! is_max_ng: return .true. if the grid point is a maximum of charge density
+!-----------------------------------------------------------------------------------!
+
+  FUNCTION is_max_ng(chg,p)
+
+    TYPE(charge_obj) :: chg
+    INTEGER,DIMENSION(3),INTENT(IN) :: p
+    LOGICAL :: is_max_ng
+    INTEGER :: p1,p2,p3,i
+    REAL(q2) :: rho000,rho001,rho010,rho100,rho00_1,rho_100,rho0_10
+
+    p1=p(1)
+    p2=p(2)
+    p3=p(3)
+    i=0
+    is_max_ng=.FALSE.
+   
+    rho000=rho_val(chg,p1,p2,p3)
+    rho001=rho_val(chg,p1,p2,p3+1)
+    rho010=rho_val(chg,p1,p2+1,p3)
+    rho100=rho_val(chg,p1+1,p2,p3)
+    rho00_1=rho_val(chg,p1,p2,p3-1)
+    rho_100=rho_val(chg,p1-1,p2,p3)
+    rho0_10=rho_val(chg,p1,p2-1,p3)
+
+    IF(rho100 < rho000.AND.rho_100 < rho000.AND.rho010 < rho000.AND.rho0_10 < rho000.AND.rho001 < rho000.AND.rho00_1 < rho000)  is_max_ng=.TRUE.
+
+  RETURN
+  END FUNCTION is_max_ng
 
 !-----------------------------------------------------------------------------------!
 ! lat2dir: convert from a lattice grid point to a direct coordinate vector
