@@ -44,9 +44,11 @@ MODULE cube_mod
     END DO
     ! This should really indicate the units (Bohr/Ang)
     IF(chg%npts(1)<0) chg%npts(1)=(-1)*chg%npts(1)
+    chg%i_npts=1.0_q2/REAL(chg%npts,q2)
     ! The -1 is to account for having points at the edge of the cube
     DO i=1,3
-      ions%lattice(:,i)=chg%lat2car(i,:)*REAL(chg%npts(i)-1,q2)
+!test      ions%lattice(:,i)=chg%lat2car(i,:)*REAL(chg%npts(i)-1,q2)
+      ions%lattice(:,i)=chg%lat2car(i,:)*REAL(chg%npts(i),q2)
     END DO
     ! GH: still not sure about this -1.  Should it factor into the
     !     conversion matricies between lat and dir/car, as it is now?
@@ -54,7 +56,8 @@ MODULE cube_mod
     CALL matrix_transpose(ions%lattice,ions%dir2car)
     CALL matrix_3x3_inverse(ions%dir2car,ions%car2dir)
     DO i=1,3
-      chg%car2lat(:,i)=ions%car2dir(:,i)*REAL(chg%npts(i)-1,q2)
+!test      chg%car2lat(:,i)=ions%car2dir(:,i)*REAL(chg%npts(i)-1,q2)
+      chg%car2lat(:,i)=ions%car2dir(:,i)*REAL(chg%npts(i),q2)
     END DO
     vol=matrix_volume(ions%lattice)
     DO i=1,ions%nions
@@ -65,7 +68,7 @@ MODULE cube_mod
     chg%nrho=PRODUCT(chg%npts(:))
     ALLOCATE(chg%rho(chg%npts(1),chg%npts(2),chg%npts(3)))
     READ(100,*) (((chg%rho(n1,n2,n3),  &
-    &            n1=1,chg%npts(1)),n2=1,chg%npts(2)),n3=1,chg%npts(3))
+    &            n3=1,chg%npts(3)),n2=1,chg%npts(2)),n1=1,chg%npts(1))
     chg%rho=chg%rho*vol 
 
     WRITE(*,'(1A12,1I5,1A2,1I4,1A2,1I4)') 'FFT-grid: ',  &
@@ -77,7 +80,8 @@ MODULE cube_mod
     ! might not be appropriate
 
     ! origin of the lattice is at chg(0.5,0.5,0.5)
-    chg%org_lat=(/0.5_q2,0.5_q2,0.5_q2/)
+!    chg%org_lat=(/0.5_q2,0.5_q2,0.5_q2/)
+    chg%org_lat=(/1.0_q2,1.0_q2,1.0_q2/)
     CALL matrix_vector(ions%car2dir,chg%org_car,chg%org_dir)
 
     ! distance between neighboring points

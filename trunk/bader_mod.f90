@@ -115,6 +115,7 @@ MODULE bader_mod
               !write(*,*) '   new max',bdr%bnum
               path_volnum=bdr%bnum
               bdr%volpos_lat(bdr%bnum,:) = REAL(p,q2)
+!              write(*,*) '   new max',bdr%bnum,' ',bdr%volpos_lat(bdr%bnum,:)
             END IF
             DO i=1,bdr%pnum
      IF ( (bdr%volnum(bdr%path(i,1),bdr%path(i,2),bdr%path(i,3)) /= 0) .AND. &
@@ -143,7 +144,7 @@ MODULE bader_mod
       bdr%volpos_dir(i,:)=lat2dir(chg,bdr%volpos_lat(i,:))
       bdr%volpos_car(i,:)=lat2car(chg,bdr%volpos_lat(i,:))
     END DO
-    print*,'end of cal total bader vol'
+!    print*,'\nend of cal total bader vol'
 
     ! Sum up the charge included in each volume
     ALLOCATE(bdr%volchg(bdr%nvols))
@@ -157,7 +158,7 @@ MODULE bader_mod
       END DO
     END DO
     bdr%volchg=bdr%volchg/REAL(chg%nrho,q2)
-    print*,'end of sum up charge'
+!    print*,'end of sum up charge'
 
     ALLOCATE(bdr%nnion(bdr%nvols),bdr%iondist(bdr%nvols),bdr%ionchg(ions%nions))
     CALL assign_chg2atom(bdr,ions,chg)
@@ -515,17 +516,24 @@ MODULE bader_mod
     bdr%ionchg=0.0_q2
     DO i=1,bdr%nvols
       dv=bdr%volpos_dir(i,:)-ions%r_dir(1,:)
+!      write(*,*) 'bdr ',i,' ',bdr%volpos_dir(i,:)
+!      write(*,*) ' atm 1 ',ions%r_dir(1,:)
+!      write(*,*) '  dv   ',dv
       CALL dpbc_dir(dv)
       CALL matrix_vector(ions%dir2car,dv,v)
       dminsq=DOT_PRODUCT(v,v)
+!      write(*,*) '  dsq  ',dsq
       dindex=1
       DO j=2,ions%nions
         dv=bdr%volpos_dir(i,:)-ions%r_dir(j,:)
+!        write(*,*) ' atm ',j,' ',ions%r_dir(j,:)
+!      write(*,*) '  dv ',dv
         ! GH: this is not correct for non-orthogonal cells, find
         ! proper min length vector by subtracting lattice vectors
         CALL dpbc_dir(dv)
         CALL matrix_vector(ions%dir2car,dv,v)
         dsq=DOT_PRODUCT(v,v)
+!      write(*,*) '  dsq  ',dsq
         IF (dsq < dminsq) THEN
           dminsq=dsq
           dindex=j
@@ -578,6 +586,7 @@ MODULE bader_mod
 !         If this is an edge cell, check if it is the closest to the atom so far
           IF (is_atm_edge(bdr,chg,p,atom)) THEN
             v=REAL((/n1,n2,n3/),q2)
+!GH: FIX THIS?
             dv_dir=(v-chg%org_lat)/REAL(chg%npts,q2)-ions%r_dir(atom,:)
             CALL dpbc_dir(dv_dir)
             CALL matrix_vector(ions%dir2car,dv_dir,dv_car)

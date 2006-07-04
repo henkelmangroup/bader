@@ -31,10 +31,10 @@
 
       EXTERNAL GETARG
       TYPE(options_obj) :: opts
-      LOGICAL :: existflag, inl
+      LOGICAL :: existflag
       LOGICAL :: readchgflag
       INTEGER :: n,iargc,i,ip,m,it,ini
-      REAL(q2) :: inr,temp
+      REAL(q2) :: temp
       CHARACTER(LEN=128) :: p
 !      CHARACTER(LEN=128) :: inc
       CHARACTER*128 :: inc
@@ -182,7 +182,7 @@
             WRITE(*,'(A,A,A)') ' Unknown option "',inc(1:it),'"'
             STOP
           ENDIF
-        ! Output file types
+        ! Input file type
         ELSEIF (p(1:ip) == '-i') THEN
           m=m+1
           CALL GETARG(m,inc)
@@ -199,13 +199,18 @@
         ! Bader tolerance
         ELSEIF (p(1:ip) == '-t') THEN
           m=m+1
-          CALL GETARG(m,inr)
-          opts%badertol=inr
+          CALL GETARG(m,inc)
+          read(inc,*) opts%badertol
+        ! Refine edge iterations  -- change this to a flag once working
+        ELSEIF (p(1:ip) == '-r') THEN
+          m=m+1
+          CALL GETARG(m,inc)
+          read(inc,*) opts%reassign_edge_itrs
         ! Step size
         ELSEIF (p(1:ip) == '-s') THEN
           m=m+1
-          CALL GETARG(m,inr)
-          opts%stepsize=inr
+          CALL GETARG(m,inc)
+          read(inc,*) opts%stepsize
         ! Unknown flag
         ELSE
           WRITE(*,'(A,A,A)') ' Unknown option flag "',p(1:ip),'"'
@@ -238,11 +243,11 @@
       WRITE(*,*) '         [ -p none | atom | all ] [ -h ] [ -v ]'
       WRITE(*,*) '         [ -i cube | chgcar ]'
       WRITE(*,*) '         [ -o cube | chgcar ]'
+      WRITE(*,*) '         [ -r refine edge iterations ]'
       WRITE(*,*) '         chargefile'
       WRITE(*,*) ''
 
     END SUBROUTINE write_options
-
 
 !-----------------------------------------------------------------------------------!
 ! write_help: write help
@@ -269,6 +274,9 @@
       WRITE(*,*) '        (only) used for the default offgrid Bader analysis.  If'
       WRITE(*,*) '        not specified, the stepsize is set to the minimum distance'
       WRITE(*,*) '        between charge density grid points.'
+      WRITE(*,*) ''
+      WRITE(*,*) '   -r < iterations >'
+      WRITE(*,*) '        Number of times the bader edge points are reassigned.'
       WRITE(*,*) ''
       WRITE(*,*) '   -p < none | atom | all >'
       WRITE(*,*) '        Print options for calculated Bader volumes'
