@@ -13,9 +13,10 @@
       INTEGER :: out_opt, out_auto = 0, out_cube = 1, out_chgcar = 2
       INTEGER :: in_opt, in_auto = 0, in_cube = 1, in_chgcar = 2
       INTEGER :: bader_opt, bader_offgrid = 0, bader_ongrid = 1, bader_neargrid = 2
-      INTEGER :: reassign_edge_itrs
+      INTEGER :: refine_edge_itrs
       LOGICAL :: bader_flag, voronoi_flag, dipole_flag, ldos_flag
       LOGICAL :: verbose_flag
+      LOGICAL :: refine_set_flag
     END TYPE options_obj
 
     PRIVATE
@@ -46,7 +47,8 @@
       opts%in_opt = opts%in_auto
       opts%print_opt = opts%print_none
       opts%bader_opt = opts%bader_neargrid
-      opts%reassign_edge_itrs=2
+      opts%refine_set_flag = .FALSE.
+      opts%refine_edge_itrs = 1
       opts%bader_flag = .TRUE.
       opts%voronoi_flag = .FALSE.
       opts%dipole_flag = .FALSE.
@@ -205,7 +207,8 @@
         ELSEIF (p(1:ip) == '-r') THEN
           m=m+1
           CALL GETARG(m,inc)
-          read(inc,*) opts%reassign_edge_itrs
+          read(inc,*) opts%refine_edge_itrs
+          opts%refine_set_flag = .TRUE.
         ! Step size
         ELSEIF (p(1:ip) == '-s') THEN
           m=m+1
@@ -221,10 +224,14 @@
 
     ! If no file name, we die
     IF (.NOT. readchgflag) THEN
-      WRITE(*,*) 'Did not read a charge file name in the arguments'
+      WRITE(*,*) ' ERROR: Did not read a charge file name in the arguments'
       CALL write_options()
       STOP
     ENDIF
+
+    ! Default to no edge refinement for the ongrid algorithm
+    IF ((.NOT.opts%refine_set_flag).AND.(opts%bader_opt==opts%bader_ongrid)) &
+    & opts%refine_edge_itrs=0
  
     RETURN
     END SUBROUTINE get_options
@@ -276,7 +283,7 @@
       WRITE(*,*) '        between charge density grid points.'
       WRITE(*,*) ''
       WRITE(*,*) '   -r < iterations >'
-      WRITE(*,*) '        Number of times the bader edge points are reassigned.'
+      WRITE(*,*) '        Number of times the bader edges are refined.'
       WRITE(*,*) ''
       WRITE(*,*) '   -p < none | atom | all >'
       WRITE(*,*) '        Print options for calculated Bader volumes'
