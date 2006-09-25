@@ -13,7 +13,7 @@
       INTEGER :: out_opt, out_auto = 0, out_cube = 1, out_chgcar = 2
       INTEGER :: in_opt, in_auto = 0, in_cube = 1, in_chgcar = 2
       INTEGER :: bader_opt, bader_offgrid = 0, bader_ongrid = 1, bader_neargrid = 2
-      INTEGER :: refine_edge_itrs
+      INTEGER :: reassign_edge_itrs,refine_edge_itrs
       LOGICAL :: bader_flag, voronoi_flag, dipole_flag, ldos_flag
       LOGICAL :: verbose_flag
       LOGICAL :: refine_set_flag
@@ -47,6 +47,7 @@
       opts%in_opt = opts%in_auto
       opts%print_opt = opts%print_none
       opts%bader_opt = opts%bader_neargrid
+!      opts%reassign_edge_itrs=0
       opts%refine_set_flag = .FALSE.
       opts%refine_edge_itrs = 1
       opts%bader_flag = .TRUE.

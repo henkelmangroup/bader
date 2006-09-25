@@ -199,9 +199,9 @@ MODULE charge_mod
     rho_grad_lat(2)=(rho010-rho0_10)/2._q2
     rho_grad_lat(3)=(rho001-rho00_1)/2._q2
 
-!    IF(rho100 < rho000.AND.rho_100 < rho000) rho_grad_lat(1)=0._q2
-!    IF(rho010 < rho000.AND.rho0_10 < rho000) rho_grad_lat(2)=0._q2
-!    IF(rho001 < rho000.AND.rho00_1 < rho000) rho_grad_lat(3)=0._q2
+    IF(rho100 < rho000.AND.rho_100 < rho000) rho_grad_lat(1)=0._q2
+    IF(rho010 < rho000.AND.rho0_10 < rho000) rho_grad_lat(2)=0._q2
+    IF(rho001 < rho000.AND.rho00_1 < rho000) rho_grad_lat(3)=0._q2
 
     ! convert to cartesian coordinates
     CALL vector_matrix(rho_grad_lat,chg%car2lat,rho_grad_car)
@@ -210,7 +210,7 @@ MODULE charge_mod
     CALL matrix_vector(chg%car2lat,rho_grad_car,rho_grad_dir)
 
     ! return a unit vector
-    rho_grad_dir=rho_grad_dir/SQRT(SUM(rho_grad_dir*rho_grad_dir))
+!    rho_grad_dir=rho_grad_dir/SQRT(SUM(rho_grad_dir*rho_grad_dir))
 
   RETURN
   END FUNCTION rho_grad_dir

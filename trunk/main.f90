@@ -45,6 +45,7 @@
        CALL bader_calc(bdr,ions,chg,opts)
        CALL bader_mindist(bdr,ions,chg)
        CALL bader_output(bdr,ions,chg)
+!       CALL write_all_atom(bdr,opts,ions,chg)
      ENDIF
 !     IF (opts%dipole_flag) CALL multipole()
      IF (opts%voronoi_flag) CALL voronoi(vor,ions,chg)
