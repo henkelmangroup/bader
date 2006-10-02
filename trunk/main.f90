@@ -1,6 +1,6 @@
 !-----------------------------------------------------------------------------------!
 ! Bader charge density analysis program
-! Version 0.2 off-grid algorithm
+! Version 0.2, 09/28/26 near-grid algorithm 
 !
 ! Authors:
 !   Andri Arnaldsson, Wenjie Tang, and Graeme Henkelman
@@ -11,8 +11,12 @@
 !   G. Henkelman, A. Arnaldsson, and H. Jonsson,
 !   Comput. Mater. Sci. 36 254-360 (2006).
 !
-!   E. Sanville, R. Smith, W. Tang, and G. Henkelman
-!   in preparation
+!   An improved grid-based algorithm for Bader charge allocation
+!   E. Sanville, S. Kenny, R. Smith, and G. Henkelman
+!   (submitted)
+!
+!   (no title yet, but this will describe the default near-grid algorithm used here)
+!   W. Tang, E. Sanville, and G. Henkelman
 !
 !-----------------------------------------------------------------------------------!
 
@@ -45,10 +49,24 @@
        CALL bader_calc(bdr,ions,chg,opts)
        CALL bader_mindist(bdr,ions,chg)
        CALL bader_output(bdr,ions,chg)
-!       CALL write_all_atom(bdr,opts,ions,chg)
+       IF (opts.print_opt==opts.print_all_bader) THEN
+         CALL write_all_bader(bdr,opts,ions,chg)
+       ELSEIF (opts.print_opt==opts.print_all_atom) THEN
+         CALL write_all_atom(bdr,opts,ions,chg)
+       ENDIF
      ENDIF
 !     IF (opts%dipole_flag) CALL multipole()
      IF (opts%voronoi_flag) CALL voronoi(vor,ions,chg)
+
+      ! Write density files
+!      IF (opts.print_opt==opts.print_all_bader) THEN
+!        CALL write_all_bader(bdr,ions,chg)
+!      ELSEIF (opts.print_opt==opts.print_all_bader) THEN
+!        CALL write_all_atom(bdr,ions,chg)
+!      ENDIF
+
+!GH: need to add write selected bader and atomic regions
+
 
 !    INTEGER :: i,choose
 !    CHARACTER(LEN=20) :: cc

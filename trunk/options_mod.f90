@@ -9,7 +9,8 @@
     TYPE :: options_obj
       CHARACTER(LEN=128) :: chargefile
       REAL(q2) :: badertol, stepsize
-      INTEGER :: print_opt, print_none = 0, print_all = 1, print_atom = 2
+      INTEGER :: print_opt, print_none = 0, print_all_bader = 1, print_all_atom = 2, &
+                 &  print_sel_bader = 3, print_sel_atom = 4
       INTEGER :: out_opt, out_auto = 0, out_cube = 1, out_chgcar = 2
       INTEGER :: in_opt, in_auto = 0, in_cube = 1, in_chgcar = 2
       INTEGER :: bader_opt, bader_offgrid = 0, bader_ongrid = 1, bader_neargrid = 2
@@ -47,7 +48,6 @@
       opts%in_opt = opts%in_auto
       opts%print_opt = opts%print_none
       opts%bader_opt = opts%bader_neargrid
-!      opts%reassign_edge_itrs=0
       opts%refine_set_flag = .FALSE.
       opts%refine_edge_itrs = 1
       opts%bader_flag = .TRUE.
@@ -116,12 +116,16 @@
           CALL GETARG(m,inc)
           inc=ADJUSTL(inc)
           it=LEN_TRIM(inc)
-          IF (inc(1:it) == 'ALL' .OR. inc(1:it) == 'all') THEN
-            opts%print_opt = opts%print_all
-          ELSEIF (inc(1:it) == 'ATOM' .OR. inc(1:it) == 'atom') THEN
-            opts%print_opt = opts%print_atom
-          ELSEIF (inc(1:it) == 'NONE' .OR. inc(1:it) == 'none') THEN
+          IF (inc(1:it) == 'NONE' .OR. inc(1:it) == 'none') THEN
             opts%print_opt = opts%print_none
+          ELSEIF (inc(1:it) == 'ALL_BADER' .OR. inc(1:it) == 'all_bader') THEN
+            opts%print_opt = opts%print_all_bader
+          ELSEIF (inc(1:it) == 'ALL_ATOM' .OR. inc(1:it) == 'all_atom') THEN
+            opts%print_opt = opts%print_all_atom
+          ELSEIF (inc(1:it) == 'SEL_BADER' .OR. inc(1:it) == 'sel_bader') THEN
+            opts%print_opt = opts%print_sel_bader
+          ELSEIF (inc(1:it) == 'SEL_ATOM' .OR. inc(1:it) == 'sel_atom') THEN
+            opts%print_opt = opts%print_sel_atom
           ELSE
             WRITE(*,'(A,A,A)') ' Unknown option "',inc(1:it),'"'
             STOP

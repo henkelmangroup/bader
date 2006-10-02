@@ -36,7 +36,7 @@ MODULE bader_mod
 
   PRIVATE
   PUBLIC :: bader_obj
-  PUBLIC :: bader_calc,bader_mindist,bader_output,write_all_atom
+  PUBLIC :: bader_calc,bader_mindist,bader_output,write_all_atom,write_all_bader
 
   CONTAINS
 
@@ -145,7 +145,7 @@ MODULE bader_mod
     END DO
     WRITE(*,*) ''
 !stop
-    print*,'opts%refine_edge_itrs',opts%refine_edge_itrs
+!    print*,'opts%refine_edge_itrs',opts%refine_edge_itrs
     IF(opts%refine_edge_itrs > 0) THEN
       WRITE(*,'(/,2x,A)') 'REFINING EDGE'
       DO i=1,opts%refine_edge_itrs
@@ -164,7 +164,7 @@ MODULE bader_mod
       bdr%volpos_dir(i,:)=lat2dir(chg,bdr%volpos_lat(i,:))
       bdr%volpos_car(i,:)=lat2car(chg,bdr%volpos_lat(i,:))
     END DO
- !   print*,'\nend of cal total bader vol'
+ !   print*,'\nend of calc total bader vol'
 
     ! Sum up the charge included in each volume
     ALLOCATE(bdr%volchg(bdr%nvols))

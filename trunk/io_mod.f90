@@ -70,12 +70,16 @@ MODULE io_mod
     TYPE(ions_obj) :: ions
     TYPE(charge_obj) :: chg
     TYPE(options_obj) :: opts
+
     CHARACTER(LEN=128) :: chargefile
 
+    IF ( opts%out_opt == opts%out_auto ) THEN
+      ! write output file as the same type as input
+      opts%out_opt=opts%in_opt
+    ENDIF
     IF (opts%out_opt == opts%out_chgcar) THEN
       CALL write_charge_chgcar(ions,chg,chargefile)
-    ENDIF
-    IF (opts%out_opt == opts%out_cube) THEN 
+    ELSEIF (opts%out_opt == opts%out_cube) THEN 
       CALL write_charge_cube(ions,chg,chargefile)
     ENDIF
     
