@@ -685,8 +685,7 @@ MODULE bader_mod
         WRITE(atomfilename,'(A4,I4.4,A4)') "Bvol",atomnum,".dat"
         tmp%rho=0.0_q2
         WHERE(bdr%volnum == badercur) tmp%rho=chg%rho
-        CALL write_charge(ions,chg,opts,atomfilename)
-
+        CALL write_charge(ions,tmp,opts,atomfilename)
       END IF
     END DO
 
