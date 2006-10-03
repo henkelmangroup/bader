@@ -750,7 +750,7 @@ MODULE bader_mod
       DO b=1,cc
         WHERE(bdr%volnum == rck(b)) tmp%rho=chg%rho
       END DO 
-      CALL write_charge(ions,chg,opts,atomfilename)
+      CALL write_charge(ions,tmp,opts,atomfilename)
 
     END DO
     DEALLOCATE(tmp%rho)
