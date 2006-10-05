@@ -392,15 +392,6 @@ MODULE charge_mod
     is_max_ongrid=.FALSE.
 
 ! see which of these is more efficient:
-
-!    rho001=rho_val(chg,p1,p2,p3+1)
-!    rho010=rho_val(chg,p1,p2+1,p3)
-!    rho100=rho_val(chg,p1+1,p2,p3)
-!    rho00_1=rho_val(chg,p1,p2,p3-1)
-!    rho0_10=rho_val(chg,p1,p2-1,p3)
-!    rho_100=rho_val(chg,p1-1,p2,p3)
-!    IF(rho100 < rho000.AND.rho_100 < rho000.AND.rho010 < rho000.AND.rho0_10 < rho000.AND.rho001 < rho000.AND.rho00_1 < rho000)  is_max_ongrid=.TRUE.
-   
     rho000=rho_val(chg,p1,p2,p3)
     IF(rho_val(chg,p1,p2,p3+1)>rho000) RETURN
     IF(rho_val(chg,p1,p2,p3-1)>rho000) RETURN

@@ -44,9 +44,9 @@
 !      CHARACTER,ALLOCATABLE :: inc(:)
 
 ! Default values
-      opts%out_opt = opts%out_auto
+      opts%out_opt = opts%out_chgcar
       opts%in_opt = opts%in_auto
-      opts%print_opt = opts%print_none
+      opts%print_opt = opts%print_all_atom
       opts%bader_opt = opts%bader_neargrid
       opts%refine_set_flag = .FALSE.
       opts%refine_edge_itrs = 1
