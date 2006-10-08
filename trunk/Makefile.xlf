@@ -22,7 +22,11 @@ OBJS = kind_mod.o       \
 
 bader: $(OBJS) main.o
 	rm -f bader
-	$(FC) $(LINK) main.o -o $@ $(OBJS) 
+	$(FC) $(LINK) main.o -o $@ $(OBJS)
+
+dist: bader
+	tar -cf bader_osx.tar bader
+	gzip -9 bader_osx.tar
 
 clean:
-	rm -f *.o *.mod bader
+	rm -f *.o *.mod bader bader.tar.gz
