@@ -27,7 +27,7 @@ MODULE bader_mod
   TYPE bader_obj
     REAL(q2),ALLOCATABLE,DIMENSION(:,:) :: volpos_lat,volpos_car,volpos_dir
     REAL(q2),ALLOCATABLE,DIMENSION(:) :: volchg,iondist,ionchg,minsurfdist
-    INTEGER,ALLOCATABLE,DIMENSION(:,:,:) :: volnum,pass,known
+    INTEGER,ALLOCATABLE,DIMENSION(:,:,:) :: volnum,known
     INTEGER,ALLOCATABLE,DIMENSION(:,:) :: path
     INTEGER,ALLOCATABLE,DIMENSION(:) :: nnion
     REAL(q2) :: stepsize, tol
@@ -82,10 +82,10 @@ MODULE bader_mod
     ALLOCATE(bdr%volpos_lat(bdr%bdim,3)) ! will be expanded as needed
     ALLOCATE(bdr%path(bdr%pdim,3))
     ALLOCATE(bdr%volnum(chg%npts(1),chg%npts(2),chg%npts(3)))
-    ALLOCATE(bdr%pass(chg%npts(1),chg%npts(2),chg%npts(3)))
+    ALLOCATE(bdr%known(chg%npts(1),chg%npts(2),chg%npts(3)))
     bdr%volchg=0.0_q2
     bdr%volnum=0
-    bdr%pass=0
+    bdr%known=0
     bdr%bnum=0
     bdr%nvols=0  ! True number of Bader volumes
 
@@ -94,7 +94,7 @@ MODULE bader_mod
 !        DO n3=1,chg%npts(3)
 !            p=(/n1,n2,n3/)
 !            IF(bdr%pass(n1,n2,n3)/=0) THEN
-!              print*,p,bdr%pass(n1,n2,n3)
+!              print*,p,bdr%known(n1,n2,n3)
 !            END IF
 !        END DO
 !     END DO
@@ -132,8 +132,11 @@ MODULE bader_mod
 !              write(*,*) '   new max',bdr%bnum,' ',bdr%volpos_lat(bdr%bnum,:)
             END IF
             DO i=1,bdr%pnum
-                 bdr%volnum(bdr%path(i,1),bdr%path(i,2),bdr%path(i,3)) = path_volnum
-                 bdr%pass(bdr%path(i,1),bdr%path(i,2),bdr%path(i,3))=0
+                 ptemp=(/bdr%path(i,1),bdr%path(i,2),bdr%path(i,3)/)
+                 bdr%volnum(ptemp(1),ptemp(2),ptemp(3)) = path_volnum
+                 IF(bdr%known(ptemp(1),ptemp(2),ptemp(3))/=2) bdr%known(ptemp(1),ptemp(2),ptemp(3))=0
+                CALL assign_surrounding_pts(bdr,chg,ptemp)
+!                 CALL assign_surrounding_pts2(bdr,chg,ptemp)
             END DO
           END IF
         END DO
@@ -361,7 +364,7 @@ MODULE bader_mod
 !
 !GH: change this to be a known point (all neighbor points assigned)
 !
-!      IF(bdr%known(p(1),p(2),p(3))>0) EXIT
+      IF(bdr%known(p(1),p(2),p(3))==2) EXIT
 !
     END DO
 
@@ -410,10 +413,10 @@ MODULE bader_mod
       pm=pm+ANINT(dr)
       dr=dr-ANINT(dr)
     END IF
-    bdr%pass(p(1),p(2),p(3))=1
+    bdr%known(p(1),p(2),p(3))=1
 
     CALL pbc(pm,chg%npts)
-    IF (bdr%pass(pm(1),pm(2),pm(3)) > 0) THEN
+    IF (bdr%known(pm(1),pm(2),pm(3)) == 1) THEN
 !         print*, '    oscillating:', p
          pm=p
          CALL step_ongrid(chg,pm)
@@ -450,6 +453,8 @@ MODULE bader_mod
           IF(is_vol_edge(bdr,chg,p).AND.(.NOT.is_max_ongrid(chg,p))) THEN
             num_edge = num_edge+1
             bdr%volnum(p(1),p(2),p(3)) = -bdr%volnum(p(1),p(2),p(3))
+            bdr%known(p(1),p(2),p(3))=0
+            CALL reassign_volnum_ongrid2(bdr,chg,p)
           END IF
         END DO
       END DO
@@ -481,7 +486,8 @@ MODULE bader_mod
             END IF
             bdr%volnum(n1,n2,n3)=path_volnum
             DO i=1,bdr%pnum
-              bdr%pass(bdr%path(i,1),bdr%path(i,2),bdr%path(i,3))=0
+              ptemp=(/bdr%path(i,1),bdr%path(i,2),bdr%path(i,3)/)
+              IF(bdr%known(ptemp(1),ptemp(2),ptemp(3))/=2)bdr%known(ptemp(1),ptemp(2),ptemp(3))=0
             END DO 
           END IF
         END DO
@@ -976,22 +982,65 @@ MODULE bader_mod
     INTEGER,DIMENSION(3),INTENT(IN) :: p
     INTEGER,DIMENSION(3) :: pt
 
-    INTEGER :: x1,x2,x3
-
-    DO x1=-1,1
-      DO x2=-1,1
-!        DO x3=-1,1
-          pt=p+(/x1,x2,0/)
+          pt=p+(/1,0,0/)
           CALL pbc(pt,chg%npts)
-          IF(bdr%known(pt(1),pt(2),pt(3))==0) THEN 
+          IF(bdr%known(pt(1),pt(2),pt(3)) /= 2) THEN 
            CALL known_volnum_ongrid(bdr,chg,pt)
           END IF
-!        END DO
-      END DO
-    END DO
+          pt=p+(/-1,0,0/)
+          CALL pbc(pt,chg%npts)
+          IF(bdr%known(pt(1),pt(2),pt(3)) /= 2) THEN
+           CALL known_volnum_ongrid(bdr,chg,pt)
+          END IF
+          pt=p+(/0,1,0/)
+          CALL pbc(pt,chg%npts)
+          IF(bdr%known(pt(1),pt(2),pt(3)) /= 2) THEN
+           CALL known_volnum_ongrid(bdr,chg,pt)
+          END IF
+          pt=p+(/0,-1,0/)
+          CALL pbc(pt,chg%npts)
+          IF(bdr%known(pt(1),pt(2),pt(3)) /= 2) THEN
+           CALL known_volnum_ongrid(bdr,chg,pt)
+          END IF
+          pt=p+(/0,0,1/)
+          CALL pbc(pt,chg%npts)
+          IF(bdr%known(pt(1),pt(2),pt(3)) /= 2) THEN
+           CALL known_volnum_ongrid(bdr,chg,pt)
+          END IF
+          pt=p+(/0,0,-1/)
+          CALL pbc(pt,chg%npts)
+          IF(bdr%known(pt(1),pt(2),pt(3)) /= 2) THEN
+           CALL known_volnum_ongrid(bdr,chg,pt)
+          END IF
 
   RETURN
   END SUBROUTINE assign_surrounding_pts
+!-----------------------------------------------------------------------------------!
+! assign_surrounding_pts: check the surrounding points of p to see if their volnum
+!                         is known
+!-----------------------------------------------------------------------------------!
+  SUBROUTINE assign_surrounding_pts2(bdr,chg,p)
+
+    TYPE(bader_obj) :: bdr
+    TYPE(charge_obj) :: chg
+    INTEGER,DIMENSION(3),INTENT(IN) :: p
+    INTEGER,DIMENSION(3) :: pt
+    INTEGER :: d1,d2,d3
+
+    DO d1=-1,1
+     DO d2=-1,1
+      DO d3=-1,1
+          pt=p+(/d1,d2,d3/)
+          CALL pbc(pt,chg%npts)
+          IF(bdr%known(pt(1),pt(2),pt(3)) /= 2) THEN
+           CALL known_volnum_ongrid2(bdr,chg,pt)
+          END IF
+      END DO
+     END DO
+    END DO 
+
+  RETURN
+  END SUBROUTINE assign_surrounding_pts2
 
 !-----------------------------------------------------------------------------------!
 ! known_volnum_ongrid: return number of the associated bader volnum if nearest
@@ -1013,17 +1062,109 @@ MODULE bader_mod
     volnum=volnum_val(bdr,chg,p1,p2,p3)
     IF(volnum<=0) RETURN
    
- !   IF(volnum_val(bdr,chg,p1,p2,p3+1)/=volnum) RETURN
- !   IF(volnum_val(bdr,chg,p1,p2,p3-1)/=volnum) RETURN
+    IF(volnum_val(bdr,chg,p1,p2,p3+1)/=volnum) RETURN
+    IF(volnum_val(bdr,chg,p1,p2,p3-1)/=volnum) RETURN
     IF(volnum_val(bdr,chg,p1,p2+1,p3)/=volnum) RETURN
     IF(volnum_val(bdr,chg,p1,p2-1,p3)/=volnum) RETURN
     IF(volnum_val(bdr,chg,p1+1,p2,p3)/=volnum) RETURN
     IF(volnum_val(bdr,chg,p1-1,p2,p3)/=volnum) RETURN
 
-    bdr%known(p1,p2,p3)=volnum
+    bdr%known(p1,p2,p3)=2
   
   RETURN
   END SUBROUTINE known_volnum_ongrid
+!-----------------------------------------------------------------------------------!
+! known_volnum_ongrid: return number of the associated bader volnum if nearest
+!    grid points are known to be associated with the same bader volnum
+!-----------------------------------------------------------------------------------!
+
+  SUBROUTINE known_volnum_ongrid2(bdr,chg,p)
+
+    TYPE(bader_obj) :: bdr
+    TYPE(charge_obj) :: chg
+    INTEGER,DIMENSION(3),INTENT(IN) :: p
+    INTEGER,DIMENSION(3) :: pt
+    INTEGER :: volnum,d1,d2,d3,p1,p2,p3
+
+    p1=p(1)
+    p2=p(2)
+    p3=p(3)  
+
+    volnum=volnum_val(bdr,chg,p1,p2,p3)
+    IF(volnum<=0) RETURN
+
+    DO d1=-1,1
+      DO d2=-1,1
+        DO d3=-1,1
+          pt=p+(/d1,d2,d3/)
+          IF(volnum_val(bdr,chg,pt(1),pt(2),pt(3))/=volnum) RETURN
+        END DO
+      END DO
+    END DO
+    bdr%known(p1,p2,p3)=2
+
+  RETURN
+  END SUBROUTINE known_volnum_ongrid2
+!-----------------------------------------------------------------------------------!
+! reassign_volnum_ongrid: reassign the surrounding points of a edge point as unknown
+!                         points
+!-----------------------------------------------------------------------------------!
+
+  SUBROUTINE reassign_volnum_ongrid(bdr,chg,p)
+
+    TYPE(bader_obj) :: bdr
+    TYPE(charge_obj) :: chg
+    INTEGER,DIMENSION(3),INTENT(IN) :: p
+    INTEGER,DIMENSION(3) :: pt
+    INTEGER :: volnum,d1,d2,d3,p1,p2,p3
+    
+    pt=(/p(1)+1,p(2),p(3)/)
+    CALL pbc(pt,chg%npts)
+    bdr%known(pt(1),pt(2),pt(3))=0
+    pt=(/p(1)-1,p(2),p(3)/)
+    CALL pbc(pt,chg%npts)
+    bdr%known(pt(1),pt(2),pt(3))=0
+    pt=(/p(1),p(2)+1,p(3)/)
+    CALL pbc(pt,chg%npts)
+    bdr%known(pt(1),pt(2),pt(3))=0
+    pt=(/p(1),p(2)-1,p(3)/)
+    CALL pbc(pt,chg%npts)
+    bdr%known(pt(1),pt(2),pt(3))=0
+    pt=(/p(1),p(2),p(3)+1/)
+    CALL pbc(pt,chg%npts)
+    bdr%known(pt(1),pt(2),pt(3))=0
+    pt=(/p(1),p(2),p(3)-1/)
+    CALL pbc(pt,chg%npts)
+    bdr%known(pt(1),pt(2),pt(3))=0
+
+  RETURN
+  END SUBROUTINE reassign_volnum_ongrid
+
+!-----------------------------------------------------------------------------------!
+! reassign_volnum_ongrid: reassign the surrounding points of a edge point as unknown
+!                         points
+!-----------------------------------------------------------------------------------!
+
+  SUBROUTINE reassign_volnum_ongrid2(bdr,chg,p)
+
+    TYPE(bader_obj) :: bdr
+    TYPE(charge_obj) :: chg
+    INTEGER,DIMENSION(3),INTENT(IN) :: p
+    INTEGER,DIMENSION(3) :: pt
+    INTEGER :: volnum,d1,d2,d3,p1,p2,p3
+
+    DO d1=-1,1
+      DO d2=-1,1
+        DO d3=-1,1
+          pt=p+(/d1,d2,d3/)
+          CALL pbc(pt,chg%npts)
+          bdr%known(pt(1),pt(2),pt(3))=0
+        END DO
+      END DO
+    END DO
+
+  RETURN
+  END SUBROUTINE reassign_volnum_ongrid2
 
 !-----------------------------------------------------------------------------------!
 ! is_vol_edge: return .true. if the grid point is on the edge of a Bader volume.

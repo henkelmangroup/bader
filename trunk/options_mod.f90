@@ -49,7 +49,7 @@
       opts%print_opt = opts%print_none
       opts%bader_opt = opts%bader_neargrid
       opts%refine_set_flag = .FALSE.
-      opts%refine_edge_itrs = 1
+      opts%refine_edge_itrs = 4
       opts%bader_flag = .TRUE.
       opts%voronoi_flag = .FALSE.
       opts%dipole_flag = .FALSE.
