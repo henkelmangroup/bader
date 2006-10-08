@@ -142,6 +142,6 @@
 !    CALL output()
 
     WRITE(*,*)
-    STOP
+!    STOP
   END PROGRAM Charge
 

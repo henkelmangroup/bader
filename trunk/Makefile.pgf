@@ -1,6 +1,5 @@
 .SUFFIXES: .f90
 
-#FC = /export/home/local/pgi/linux86/5.2/bin/pgf90
 FC = pgf90
 
 FFLAGS = -O3 -fast
@@ -26,4 +25,4 @@ bader: $(OBJS) main.o
 	$(FC) $(LINK) main.o -o $@ $(OBJS) 
 
 clean:
-	rm -f *.o *.mod *.lst bader
+	rm -f *.o *.mod bader
