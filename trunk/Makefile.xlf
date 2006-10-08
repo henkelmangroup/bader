@@ -2,9 +2,6 @@
 
 FC = xlf90
 
-#FFLAGS = -g -qsuffix=f=f90
-#FFLAGS = -qlanglvl=90pure -qcheck -qflttrap -qsigtrap -qsuffix=f=f90 -qsource
-#FFLAGS = -qlanglvl=90pure -qcheck -qflttrap -qsigtrap -qsuffix=f=f90 -qsource -qdbg
 FFLAGS = -O2 -qarch=auto -qsuffix=f=f90 -qmaxmem=-1
 
 LINK = 
@@ -28,4 +25,4 @@ bader: $(OBJS) main.o
 	$(FC) $(LINK) main.o -o $@ $(OBJS) 
 
 clean:
-	rm -f *.o *.mod *.lst bader
+	rm -f *.o *.mod bader
