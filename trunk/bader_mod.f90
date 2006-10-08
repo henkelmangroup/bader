@@ -179,7 +179,8 @@ MODULE bader_mod
     DEALLOCATE(bdr%path)
 
     CALL system_clock(t2,cr,count_max)
-    WRITE(*,'(/,1A24,1F7.2,1A8)') 'BADER RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
+    WRITE(*,'(/,1A12,1F7.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
+!    WRITE(*,'(/,1A24,1F7.2,1A8)') 'BADER RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
 
 !    CALL write_volnum2(bdr,chg)
 
@@ -678,7 +679,7 @@ MODULE bader_mod
     DEALLOCATE(tmp%rho)
 
     CALL system_clock(t2,cr,count_max)
-    WRITE(*,'(2/,1A12,1F7.2,1A8,/)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
+    WRITE(*,'(2/,1A12,1F7.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
 
   RETURN
   END SUBROUTINE write_all_bader
@@ -706,7 +707,7 @@ MODULE bader_mod
 
     tmp=chg
 
-    WRITE(*,'(/,2x,A)') 'WRITING BADER VOLUMES '
+    WRITE(*,'(/,2x,A)') 'WRITING ATOMIC VOLUMES '
     WRITE(*,'(2x,A)')   '               0  10  25  50  75  100'
     WRITE(*,'(2x,A,$)') 'PERCENT DONE:  **'
     tenths_done=0
@@ -742,7 +743,7 @@ MODULE bader_mod
     DEALLOCATE(tmp%rho)
 
     CALL system_clock(t2,cr,count_max)
-    WRITE(*,'(2/,1A12,1F7.2,1A8,/)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
+    WRITE(*,'(2/,1A12,1F7.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
 
   RETURN
   END SUBROUTINE write_all_atom
@@ -794,7 +795,7 @@ MODULE bader_mod
     DEALLOCATE(tmp%rho)
 
     CALL system_clock(t2,cr,count_max)
-    WRITE(*,'(2/,1A12,1F7.2,1A8,/)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
+    WRITE(*,'(2/,1A12,1F7.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
 
   RETURN
   END SUBROUTINE write_sel_bader
@@ -881,7 +882,7 @@ MODULE bader_mod
 
     WRITE(*,'(2x,A,6X,1I8)')       'NUMBER OF BADER MAXIMA FOUND: ',bdr%nvols
     WRITE(*,'(2x,A,6X,1I8)')       '    SIGNIFICANT MAXIMA FOUND: ',bdimsig
-    WRITE(*,'(2x,A,2X,1F12.5,/)')  '         NUMBER OF ELECTRONS: ', &
+    WRITE(*,'(2x,A,2X,1F12.5)')  '         NUMBER OF ELECTRONS: ', &
     &                                        SUM(bdr%volchg(1:bdr%nvols))
 
   RETURN

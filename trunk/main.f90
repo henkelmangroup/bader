@@ -38,6 +38,9 @@
      TYPE(bader_obj) :: bdr
      TYPE(voronoi_obj) :: vor
 
+     ! Write the version number
+     WRITE(*,'(/,2X,A)') 'GRID BASED BADER ANALYSIS  (v0.20 10/08/06)'
+
      ! Get the control variables
      CALL get_options(opts)
 
@@ -49,9 +52,9 @@
        CALL bader_calc(bdr,ions,chg,opts)
        CALL bader_mindist(bdr,ions,chg)
        CALL bader_output(bdr,ions,chg)
-       IF (opts.print_opt==opts.print_all_bader) THEN
+       IF (opts%print_opt==opts%print_all_bader) THEN
          CALL write_all_bader(bdr,opts,ions,chg)
-       ELSEIF (opts.print_opt==opts.print_all_atom) THEN
+       ELSEIF (opts%print_opt==opts%print_all_atom) THEN
          CALL write_all_atom(bdr,opts,ions,chg)
        ENDIF
      ENDIF
@@ -138,6 +141,7 @@
 !
 !    CALL output()
 
-  STOP
+    WRITE(*,*)
+    STOP
   END PROGRAM Charge
 

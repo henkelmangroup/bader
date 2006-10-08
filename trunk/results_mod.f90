@@ -132,7 +132,7 @@ MODULE results_mod
 
     WRITE(*,'(/,2x,A,6X,1I8)')     'NUMBER OF BADER MAXIMA FOUND: ',bdr%nvols
     WRITE(*,'(2x,A,6X,1I8)')       '    SIGNIFICANT MAXIMA FOUND: ',bdimsig
-    WRITE(*,'(2x,A,2X,1F12.5,/)')  '         NUMBER OF ELECTRONS: ',                 &
+    WRITE(*,'(2x,A,2X,1F12.5)')  '         NUMBER OF ELECTRONS: ',                 &
   &                                          SUM(bdr%volchg(1:bdr%nvols))
 
   RETURN
