@@ -23,7 +23,7 @@ MODULE charge_mod
   PRIVATE
   PUBLIC :: charge_obj
   PUBLIC :: rho_val,rho_grad,rho_grad_dir
-  PUBLIC :: pbc,dpbc_dir,dpbc
+  PUBLIC :: pbc,dpbc_dir,dpbc,dpbc_dir2
   PUBLIC :: to_lat,is_max,is_max_ongrid
   PUBLIC :: lat2car,car2lat,lat2dir,dir2lat
 
@@ -287,6 +287,39 @@ MODULE charge_mod
 
   RETURN
   END SUBROUTINE dpbc
+!-----------------------------------------------------------------------------------!
+! dpbc_dir2:  Wrap the vector dr to the boundary conditions [-1/2,1/2].
+!-----------------------------------------------------------------------------------!
+
+  SUBROUTINE dpbc_dir2(dr)
+
+    REAL(q2),INTENT(INOUT),DIMENSION(3) :: dr
+    REAL(q2),DIMENSION(3) :: drt
+
+    INTEGER :: i
+
+    DO i=1,3
+      DO
+        IF(dr(i) > -0.5_q2) EXIT
+        drt(i)=dr(i)+1.0_q2
+        IF(SQRT(SUM(drt*drt))<=SQRT(SUM(dr*dr))) THEN
+           dr(i)=drt(i)
+        ELSE
+           EXIT
+        END IF
+      END DO
+      DO
+        IF(dr(i) < 0.5_q2) EXIT
+        drt(i)=dr(i)-1.0_q2
+        IF(SQRT(SUM(drt*drt))<=SQRT(SUM(dr*dr))) THEN
+           dr(i)=drt(i)
+        ELSE
+           EXIT
+        END IF
+      END DO
+    END DO
+  RETURN
+  END SUBROUTINE dpbc_dir2
 
 !-----------------------------------------------------------------------------------!
 ! to_lat: return the nearest (integer) lattice  point p to the (read) point r

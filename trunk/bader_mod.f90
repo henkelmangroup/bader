@@ -135,8 +135,9 @@ MODULE bader_mod
                  ptemp=(/bdr%path(i,1),bdr%path(i,2),bdr%path(i,3)/)
                  bdr%volnum(ptemp(1),ptemp(2),ptemp(3)) = path_volnum
                  IF(bdr%known(ptemp(1),ptemp(2),ptemp(3))/=2) bdr%known(ptemp(1),ptemp(2),ptemp(3))=0
-                CALL assign_surrounding_pts(bdr,chg,ptemp)
-!                 CALL assign_surrounding_pts2(bdr,chg,ptemp)
+                 CALL assign_surrounding_pts(bdr,chg,ptemp)
+!!             bdr%volnum(bdr%path(1,1),bdr%path(1,2),bdr%path(1,3)) = path_volnum
+!!             bdr%volnum(bdr%path(bdr%pnum,1),bdr%path(bdr%pnum,2),bdr%path(bdr%pnum,3)) = path_volnum
             END DO
           END IF
         END DO
@@ -495,18 +496,6 @@ MODULE bader_mod
     END DO
     WRITE(*,'(2x,A,1I8)') 'REASSIGNED POINTS:',num_reassign
 
-!    DO n1=1,chg%npts(1)
-!      DO n2=1,chg%npts(2)
-!        DO n3=1,chg%npts(3)
-!          p=(/n1,n2,n3/)
-!          bvolnum=bdr%volnum(n1,n2,n3)
-!          IF(bvolnum < 0 .OR. bvolnum > bdr%bnum) THEN
-!             print*,'p=',p,'volnum',bvolnum
-!          END IF
-!        END DO
-!      END DO
-!    END DO
-
   RETURN
   END SUBROUTINE refine_edge
 
@@ -530,7 +519,7 @@ MODULE bader_mod
 !      write(*,*) 'bdr ',i,' ',bdr%volpos_dir(i,:)
 !      write(*,*) ' atm 1 ',ions%r_dir(1,:)
 !      write(*,*) '  dv   ',dv
-      CALL dpbc_dir(dv)
+      CALL dpbc_dir2(dv)
       CALL matrix_vector(ions%dir2car,dv,v)
       dminsq=DOT_PRODUCT(v,v)
 !      write(*,*) '  dsq  ',dsq
@@ -541,7 +530,7 @@ MODULE bader_mod
 !      write(*,*) '  dv ',dv
         ! GH: this is not correct for non-orthogonal cells, find
         ! proper min length vector by subtracting lattice vectors
-        CALL dpbc_dir(dv)
+        CALL dpbc_dir2(dv)
         CALL matrix_vector(ions%dir2car,dv,v)
         dsq=DOT_PRODUCT(v,v)
 !      write(*,*) '  dsq  ',dsq
