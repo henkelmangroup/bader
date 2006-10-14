@@ -22,8 +22,12 @@ OBJS = kind_mod.obj       \
 	$(FC) $(FFLAGS) -c $*.f90
 
 bader: $(OBJS) main.obj
-	rm -f bader
+	rm -f bader.exe
 	$(FC) $(LINK) main.obj -o $@ $(OBJS) 
 
+dist: bader
+	tar -cf bader_win.tar bader.exe
+	gzip -9 bader_win.tar
+
 clean:
-	rm -f *.obj *.mod bader
+	rm -f *.obj *.mod bader.exe bader_win.tar.gz
