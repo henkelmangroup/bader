@@ -23,6 +23,7 @@ MODULE multipole
     REAL(q2),DIMENSION(3) :: dv,v,ringf,shift
     INTEGER :: i,atom,nx,ny,nz,tenths_done
     INTEGER :: cr,count_max,t1,t2
+    TYPE(ions_obj) :: ions
 
     CALL system_clock(t1,cr,count_max)
 
@@ -48,7 +49,7 @@ MODULE multipole
           atom=bader_atom(bader_num(nx,ny,nz))
           v(1:3)=(/nx,ny,nz/)
           dv=(v-shift)*ringf-r_dir(atom,:)
-          CALL dpbc_dir(dv)
+          CALL dpbc_dir(ions,dv)
           dipole(atom,:)=dipole(atom,:)-dv*rho(nx,ny,nz)
         END DO
       END DO

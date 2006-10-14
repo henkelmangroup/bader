@@ -519,7 +519,7 @@ MODULE bader_mod
 !      write(*,*) 'bdr ',i,' ',bdr%volpos_dir(i,:)
 !      write(*,*) ' atm 1 ',ions%r_dir(1,:)
 !      write(*,*) '  dv   ',dv
-      CALL dpbc_dir2(dv)
+      CALL dpbc_dir(ions,dv)
       CALL matrix_vector(ions%dir2car,dv,v)
       dminsq=DOT_PRODUCT(v,v)
 !      write(*,*) '  dsq  ',dsq
@@ -530,7 +530,7 @@ MODULE bader_mod
 !      write(*,*) '  dv ',dv
         ! GH: this is not correct for non-orthogonal cells, find
         ! proper min length vector by subtracting lattice vectors
-        CALL dpbc_dir2(dv)
+        CALL dpbc_dir(ions,dv)
         CALL matrix_vector(ions%dir2car,dv,v)
         dsq=DOT_PRODUCT(v,v)
 !      write(*,*) '  dsq  ',dsq
@@ -588,7 +588,7 @@ MODULE bader_mod
             v=REAL((/n1,n2,n3/),q2)
 !GH: FIX THIS?
             dv_dir=(v-chg%org_lat)/REAL(chg%npts,q2)-ions%r_dir(atom,:)
-            CALL dpbc_dir(dv_dir)
+            CALL dpbc_dir(ions,dv_dir)
             CALL matrix_vector(ions%dir2car,dv_dir,dv_car)
             dist=DOT_PRODUCT(dv_car,dv_car)
             IF ((bdr%minsurfdist(atom) == 0.0_q2) .OR.  &

@@ -135,17 +135,16 @@ MODULE matrix_mod
       it=i-1
       DO j=1,3
         jt=j-1
-        B(i,j) = & 
+        B(j,i) = & 
         &      A(mod(it+1,3)+1,mod(jt+1,3)+1)*A(mod(it+2,3)+1,mod(jt+2,3)+1)  &
         &     -A(mod(it+1,3)+1,mod(jt+2,3)+1)*A(mod(it+2,3)+1,mod(jt+1,3)+1)
       END DO
-      det=det+A(i,1)*B(i,1)
+      det=det+A(i,1)*B(1,i)
     END DO
 
     DO i=1,3
       DO j=1,3
         B(i,j)=B(i,j)/det
-        if(mod(i+j,2).eq.1) B(i,j)=B(i,j)*(-1.0_q2)
       END DO
     END DO
 

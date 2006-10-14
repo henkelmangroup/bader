@@ -23,7 +23,7 @@ MODULE charge_mod
   PRIVATE
   PUBLIC :: charge_obj
   PUBLIC :: rho_val,rho_grad,rho_grad_dir
-  PUBLIC :: pbc,dpbc_dir,dpbc,dpbc_dir2
+  PUBLIC :: pbc,dpbc_dir,dpbc
   PUBLIC :: to_lat,is_max,is_max_ongrid
   PUBLIC :: lat2car,car2lat,lat2dir,dir2lat
 
@@ -244,7 +244,7 @@ MODULE charge_mod
 ! dpbc_dir:  Wrap the vector dr to the boundary conditions [-1/2,1/2].
 !-----------------------------------------------------------------------------------!
 
-  SUBROUTINE dpbc_dir(dr)
+  SUBROUTINE dpbc_dir_org(dr)
 
     REAL(q2),INTENT(INOUT),DIMENSION(3) :: dr
 
@@ -261,7 +261,7 @@ MODULE charge_mod
       END DO
     END DO
   RETURN
-  END SUBROUTINE dpbc_dir
+  END SUBROUTINE dpbc_dir_org
 
 !-----------------------------------------------------------------------------------!
 ! dpbc:  Wrap the vector dr to the boundary conditions [-ngf/2,ngf/2].
@@ -288,38 +288,43 @@ MODULE charge_mod
   RETURN
   END SUBROUTINE dpbc
 !-----------------------------------------------------------------------------------!
-! dpbc_dir2:  Wrap the vector dr to the boundary conditions [-1/2,1/2].
+! dpbc_dir:  Wrap the vector dr to the boundary conditions [-1/2,1/2].
 !-----------------------------------------------------------------------------------!
 
-  SUBROUTINE dpbc_dir2(dr)
+  SUBROUTINE dpbc_dir(ions,dr_dir)
 
-    REAL(q2),INTENT(INOUT),DIMENSION(3) :: dr
-    REAL(q2),DIMENSION(3) :: drt
-
+    TYPE(ions_obj) :: ions
+    REAL(q2),INTENT(INOUT),DIMENSION(3) :: dr_dir
+    REAL(q2),DIMENSION(3) :: drt_lat,drt_car,drt_dir,dr_car,dr_lat
+    REAL(q2),DIMENSION(3,3) :: lat_len
     INTEGER :: i
+
+    ! convert to cartesian coordinates
+    CALL matrix_vector(ions%dir2car,dr_dir,dr_car)
 
     DO i=1,3
       DO
-        IF(dr(i) > -0.5_q2) EXIT
-        drt(i)=dr(i)+1.0_q2
-        IF(SQRT(SUM(drt*drt))<=SQRT(SUM(dr*dr))) THEN
-           dr(i)=drt(i)
+        drt_car=dr_car+ions%lattice(i,:)
+        IF(SQRT(SUM(drt_car*drt_car))<=SQRT(SUM(dr_car*dr_car))) THEN
+           dr_car=drt_car
         ELSE
            EXIT
         END IF
       END DO
       DO
-        IF(dr(i) < 0.5_q2) EXIT
-        drt(i)=dr(i)-1.0_q2
-        IF(SQRT(SUM(drt*drt))<=SQRT(SUM(dr*dr))) THEN
-           dr(i)=drt(i)
+        drt_car=dr_car-ions%lattice(i,:)
+        IF(SQRT(SUM(drt_car*drt_car))<=SQRT(SUM(dr_car*dr_car))) THEN
+           dr_car=drt_car
         ELSE
            EXIT
         END IF
       END DO
     END DO
+    ! express this vector in direct coordinates  
+     CALL matrix_vector(ions%car2dir,dr_car,dr_dir)
+
   RETURN
-  END SUBROUTINE dpbc_dir2
+  END SUBROUTINE dpbc_dir
 
 !-----------------------------------------------------------------------------------!
 ! to_lat: return the nearest (integer) lattice  point p to the (read) point r
