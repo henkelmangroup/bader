@@ -7,8 +7,10 @@ FC = lf95
 FFLAGS = -o1
 
 #LINK = -L/home/andri/lib -lfj9i6 -lfj9f6 -lelf
-#LINK = ../lib/fj90i.lib ../lib/fj90f.lib ../lib/fj90g.lib
-LINK = -ml MSVC -staticlink
+#LINK = -lib ../lib/fj90i.lib -lib ../lib/fj90f.lib -lib ../lib/fj90g.lib
+LINK = -lib ../lib/fj90f.lib
+#LINK = -ml MSVC -staticlink
+#LINK = -staticlink -ml LF95
 
 OBJS = kind_mod.obj       \
        matrix_mod.obj     \
@@ -26,7 +28,7 @@ OBJS = kind_mod.obj       \
 	$(FC) $(FFLAGS) -c $*.f90
 
 bader: $(OBJS)
-	$(FC) $(FFLAGS) $(LINK) --out $@ $(OBJS) 
+	$(FC) $(FFLAGS) $(LINK) -out $@ $(OBJS) 
 
 clean:
 	rm -f *.obj *.mod bader
