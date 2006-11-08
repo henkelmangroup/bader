@@ -606,16 +606,14 @@ MODULE bader_mod
     bdr%ionchg=0.0_q2
     DO i=1,bdr%nvols
       dv=bdr%volpos_dir(i,:)-ions%r_dir(1,:)
-!GH      CALL dpbc_dir(ions,dv)
+!      CALL dpbc_dir(ions,dv)
       CALL matrix_vector(ions%dir2car,dv,v)
       CALL dpbc_car(ions,v)
       dminsq=DOT_PRODUCT(v,v)
       dindex=1
       DO j=2,ions%nions
         dv=bdr%volpos_dir(i,:)-ions%r_dir(j,:)
-        ! GH: this is not correct for non-orthogonal cells, find
-        ! proper min length vector by subtracting lattice vectors
-!GH        CALL dpbc_dir(ions,dv)
+!        CALL dpbc_dir(ions,dv)
         CALL matrix_vector(ions%dir2car,dv,v)
         CALL dpbc_car(ions,v)
         dsq=DOT_PRODUCT(v,v)
@@ -671,11 +669,11 @@ MODULE bader_mod
 !         If this is an edge cell, check if it is the closest to the atom so far
           IF (is_atm_edge(bdr,chg,p,atom)) THEN
             v=REAL((/n1,n2,n3/),q2)
-!GH: FIX THIS?
             dv_dir=(v-chg%org_lat)/REAL(chg%npts,q2)-ions%r_dir(atom,:)
-            CALL dpbc_dir(ions,dv_dir)
+!            CALL dpbc_dir(ions,dv_dir)
 !            CALL dpbc_dir_org(dv_dir)
             CALL matrix_vector(ions%dir2car,dv_dir,dv_car)
+            CALL dpbc_car(ions,dv_car)
             dist=DOT_PRODUCT(dv_car,dv_car)
             IF ((bdr%minsurfdist(atom) == 0.0_q2) .OR.  &
             &   (bdr%minsurfdist(atom) > dist)) THEN

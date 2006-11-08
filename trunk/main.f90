@@ -41,7 +41,7 @@
      CHARACTER(LEN=128) :: atomfilename
  
     ! Write the version number
-     WRITE(*,'(/,2X,A)') 'GRID BASED BADER ANALYSIS  (v0.20 10/08/06)'
+     WRITE(*,'(/,2X,A)') 'GRID BASED BADER ANALYSIS  (v0.21 11/08/06)'
 
      ! Get the control variables
      CALL get_options(opts)
