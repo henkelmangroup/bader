@@ -314,9 +314,9 @@ MODULE bader_mod
     INTEGER,DIMENSION(3) :: pt,pm
     INTEGER :: d1,d2,d3
 
-    rho_max=0.0_q2
     pm=p
     rho_ctr=rho_val(chg,p(1),p(2),p(3))
+    rho_max=rho_ctr
     DO d1=-1,1
       DO d2=-1,1
         DO d3=-1,1
@@ -360,11 +360,8 @@ MODULE bader_mod
       ENDIF
       bdr%pnum=bdr%pnum+1
       bdr%path(bdr%pnum,:)=p
-!      IF(bdr%volnum(p(1),p(2),p(3)) > 0) EXIT
-!      IF(bdr%volnum(p(1),p(2),p(3)) > 0.AND.bdr%pnum > 25) EXIT
 !
 !GH: change this to be a known point (all neighbor points assigned)
-!
       IF(bdr%known(p(1),p(2),p(3))==2) EXIT
 !
     END DO
@@ -457,7 +454,7 @@ MODULE bader_mod
 !
 !GH: change this to be a known point (all neighbor points assigned)
 !
-!      IF(bdr%known(p(1),p(2),p(3))==2) EXIT
+      IF(bdr%known(p(1),p(2),p(3))==2) EXIT
 !
     END DO
 
@@ -488,7 +485,7 @@ MODULE bader_mod
     print*,'p initial:',p
     gradrl=rho_grad_dir(chg,p)
     IF(MAXVAL(ABS(gradrl)) < 1E-30) THEN
-      IF(is_max_ongrid(chg,p)) THEN 
+      IF(is_max(chg,p)) THEN 
         print*, '    is_max:', p
         dr=(/0.0_q2,0.0_q2,0.0_q2/)
         RETURN
