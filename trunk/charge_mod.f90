@@ -23,7 +23,7 @@ MODULE charge_mod
   PRIVATE
   PUBLIC :: charge_obj
   PUBLIC :: rho_val,rho_grad,rho_grad_dir
-  PUBLIC :: pbc,dpbc_dir,dpbc
+  PUBLIC :: pbc,dpbc_dir,dpbc,dpbc_dir_org,dpbc_car
   PUBLIC :: to_lat,is_max,is_max_ongrid
   PUBLIC :: lat2car,car2lat,lat2dir,dir2lat
 
@@ -205,6 +205,7 @@ MODULE charge_mod
 
     ! convert to cartesian coordinates
     CALL vector_matrix(rho_grad_lat,chg%car2lat,rho_grad_car)
+!    CALL matrix_vector(chg%lat2car,rho_grad_lat,rho_grad_car)
 
     ! express this vector in direct coordinates
     CALL matrix_vector(chg%car2lat,rho_grad_car,rho_grad_dir)
@@ -241,29 +242,6 @@ MODULE charge_mod
   END SUBROUTINE pbc
 
 !-----------------------------------------------------------------------------------!
-! dpbc_dir:  Wrap the vector dr to the boundary conditions [-1/2,1/2].
-!-----------------------------------------------------------------------------------!
-
-  SUBROUTINE dpbc_dir_org(dr)
-
-    REAL(q2),INTENT(INOUT),DIMENSION(3) :: dr
-
-    INTEGER :: i
-
-    DO i=1,3
-      DO
-        IF(dr(i) > -0.5_q2) EXIT
-        dr(i)=dr(i)+1.0_q2
-      END DO
-      DO
-        IF(dr(i) < 0.5_q2) EXIT
-        dr(i)=dr(i)-1.0_q2
-      END DO
-    END DO
-  RETURN
-  END SUBROUTINE dpbc_dir_org
-
-!-----------------------------------------------------------------------------------!
 ! dpbc:  Wrap the vector dr to the boundary conditions [-ngf/2,ngf/2].
 !-----------------------------------------------------------------------------------!
 
@@ -288,43 +266,88 @@ MODULE charge_mod
   RETURN
   END SUBROUTINE dpbc
 !-----------------------------------------------------------------------------------!
-! dpbc_dir:  Wrap the vector dr to the boundary conditions [-1/2,1/2].
+! dpbc_dir_org:  Wrap the vector dr to the boundary conditions [-1/2,1/2].
+!-----------------------------------------------------------------------------------!
+
+  SUBROUTINE dpbc_dir_org(dr)
+
+    REAL(q2),INTENT(INOUT),DIMENSION(3) :: dr
+
+    INTEGER :: i
+
+    DO i=1,3
+      DO
+        IF(dr(i) > -0.5_q2) EXIT
+        dr(i)=dr(i)+1.0_q2
+      END DO
+      DO
+        IF(dr(i) < 0.5_q2) EXIT
+        dr(i)=dr(i)-1.0_q2
+      END DO
+    END DO
+  RETURN
+  END SUBROUTINE dpbc_dir_org
+
+!-----------------------------------------------------------------------------------!
+! dpbc_dir:  Find the smallest distance vector in direct coordinates
 !-----------------------------------------------------------------------------------!
 
   SUBROUTINE dpbc_dir(ions,dr_dir)
 
     TYPE(ions_obj) :: ions
     REAL(q2),INTENT(INOUT),DIMENSION(3) :: dr_dir
-    REAL(q2),DIMENSION(3) :: drt_lat,drt_car,drt_dir,dr_car,dr_lat
-    REAL(q2),DIMENSION(3,3) :: lat_len
-    INTEGER :: i
+    REAL(q2),DIMENSION(3) :: dr_car
 
     ! convert to cartesian coordinates
     CALL matrix_vector(ions%dir2car,dr_dir,dr_car)
 
-    DO i=1,3
-      DO
-        drt_car=dr_car+ions%lattice(i,:)
-        IF(SQRT(SUM(drt_car*drt_car))<=SQRT(SUM(dr_car*dr_car))) THEN
-           dr_car=drt_car
-        ELSE
-           EXIT
-        END IF
-      END DO
-      DO
-        drt_car=dr_car-ions%lattice(i,:)
-        IF(SQRT(SUM(drt_car*drt_car))<=SQRT(SUM(dr_car*dr_car))) THEN
-           dr_car=drt_car
-        ELSE
-           EXIT
-        END IF
-      END DO
-    END DO
-    ! express this vector in direct coordinates  
-     CALL matrix_vector(ions%car2dir,dr_car,dr_dir)
+    CALL dpbc_car(ions,dr_car)
+
+    ! express this vector in direct coordinates
+    CALL matrix_vector(ions%car2dir,dr_car,dr_dir)
 
   RETURN
   END SUBROUTINE dpbc_dir
+
+!-----------------------------------------------------------------------------------!
+! dpbc_car:  Find the smallest distance vector in Cartesian coordinates
+!-----------------------------------------------------------------------------------!
+
+  SUBROUTINE dpbc_car(ions,dr_car)
+
+    TYPE(ions_obj) :: ions
+    REAL(q2),INTENT(INOUT),DIMENSION(3) :: dr_car
+    REAL(q2),DIMENSION(3) :: drt_car,v1,v2,v3
+    REAL(q2) :: dsq,dsqmin
+    INTEGER :: d1,d2,d3
+    LOGICAL :: done
+
+    dsqmin=DOT_PRODUCT(dr_car,dr_car)
+    DO
+      done=.TRUE.
+      DO d1=-1,1
+        v1=ions%lattice(1,:)*REAL(d1,q2)
+        DO d2=-1,1
+          v2=ions%lattice(2,:)*REAL(d2,q2)
+          DO d3=-1,1
+            v3=ions%lattice(3,:)*REAL(d3,q2)
+
+            drt_car=dr_car+v1+v2+v3
+            dsq=DOT_PRODUCT(drt_car,drt_car)
+            IF(dsq<dsqmin) THEN
+              dr_car=drt_car
+              dsqmin=dsq
+              done=.FALSE.
+            END IF
+
+          END DO
+        END DO
+      END DO
+      IF(done) EXIT
+    END DO
+
+  RETURN
+  END SUBROUTINE dpbc_car
 
 !-----------------------------------------------------------------------------------!
 ! to_lat: return the nearest (integer) lattice  point p to the (read) point r
@@ -426,7 +449,6 @@ MODULE charge_mod
     p1=p(1)
     p2=p(2)
     p3=p(3)
-    i=0
     is_max_ongrid=.FALSE.
 
 ! see which of these is more efficient:

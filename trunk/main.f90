@@ -28,7 +28,8 @@
      USE io_mod
      USE bader_mod 
      USE voronoi_mod
-
+     USE chgcar_mod
+     
      IMPLICIT NONE
 
      ! Variables
@@ -37,8 +38,9 @@
      TYPE(charge_obj) :: chg
      TYPE(bader_obj) :: bdr
      TYPE(voronoi_obj) :: vor
-
-     ! Write the version number
+     CHARACTER(LEN=128) :: atomfilename
+ 
+    ! Write the version number
      WRITE(*,'(/,2X,A)') 'GRID BASED BADER ANALYSIS  (v0.20 10/08/06)'
 
      ! Get the control variables
