@@ -14,10 +14,11 @@
       INTEGER :: out_opt, out_auto = 0, out_cube = 1, out_chgcar = 2
       INTEGER :: in_opt, in_auto = 0, in_cube = 1, in_chgcar = 2
       INTEGER :: bader_opt, bader_offgrid = 0, bader_ongrid = 1, bader_neargrid = 2
+      INTEGER :: quit_opt, quit_max = 0, quit_known = 1
       INTEGER :: reassign_edge_itrs,refine_edge_itrs
       LOGICAL :: bader_flag, voronoi_flag, dipole_flag, ldos_flag
       LOGICAL :: verbose_flag
-      LOGICAL :: refine_set_flag
+      LOGICAL :: refine_auto_flag,refine_set_flag
     END TYPE options_obj
 
     PRIVATE
@@ -49,7 +50,9 @@
       opts%print_opt = opts%print_none
       opts%bader_opt = opts%bader_neargrid
       opts%refine_set_flag = .FALSE.
-      opts%refine_edge_itrs = 1
+      opts%quit_opt = opts%quit_known
+      opts%refine_auto_flag = .TRUE.
+      opts%refine_edge_itrs = 0
       opts%bader_flag = .TRUE.
       opts%voronoi_flag = .FALSE.
       opts%dipole_flag = .FALSE.
@@ -106,6 +109,20 @@
             opts%bader_opt = opts%bader_ongrid
           ELSEIF (inc(1:it) == 'NEARGRID' .OR. inc(1:it) == 'neargrid') THEN
             opts%bader_opt = opts%bader_neargrid
+          ELSE
+            WRITE(*,'(A,A,A)') ' Unknown option "',inc(1:it),'"'
+            STOP
+          END IF
+        ! Quit options
+        ELSEIF (p(1:ip) == '-m') THEN
+          m=m+1
+          CALL GETARG(m,inc)
+          inc=ADJUSTL(inc)
+          it=LEN_TRIM(inc)
+          IF (inc(1:it) == 'MAX' .OR. inc(1:it) == 'max') THEN
+            opts%quit_opt = opts%quit_max
+          ELSEIF (inc(1:it) == 'KNOWN' .OR. inc(1:it) == 'known') THEN
+            opts%quit_opt = opts%quit_known
           ELSE
             WRITE(*,'(A,A,A)') ' Unknown option "',inc(1:it),'"'
             STOP
@@ -212,8 +229,16 @@
         ELSEIF (p(1:ip) == '-r') THEN
           m=m+1
           CALL GETARG(m,inc)
-          read(inc,*) opts%refine_edge_itrs
-          opts%refine_set_flag = .TRUE.
+          inc=ADJUSTL(inc)
+          it=LEN_TRIM(inc) 
+          IF (inc(1:it) == 'AUTO' .OR. inc(1:it) == 'auto') THEN
+            opts%refine_auto_flag = .TRUE.
+            opts%refine_edge_itrs=0
+          ELSE
+            read(inc,*) opts%refine_edge_itrs
+            opts%refine_auto_flag = .FALSE.
+            opts%refine_set_flag = .TRUE.
+          END IF
         ! Step size
         ELSEIF (p(1:ip) == '-s') THEN
           m=m+1
@@ -235,8 +260,10 @@
     ENDIF
 
     ! Default to no edge refinement for the ongrid algorithm
-    IF ((.NOT.opts%refine_set_flag).AND.(opts%bader_opt==opts%bader_ongrid)) &
-    & opts%refine_edge_itrs=0
+    IF ((.NOT.opts%refine_set_flag).AND.(opts%bader_opt==opts%bader_ongrid)) THEN
+      opts%refine_edge_itrs=0
+      opts%refine_auto_flag = .FALSE.
+    END IF
  
     RETURN
     END SUBROUTINE get_options

@@ -49,7 +49,8 @@
      ! Call the read routines from io_mod
      CALL read_charge(ions,chg,opts)
 
-     ! Calculations
+!     CALL write_surface(chg,ions)
+!     stop
      IF (opts%bader_flag) THEN
        CALL bader_calc(bdr,ions,chg,opts)
        CALL bader_mindist(bdr,ions,chg)

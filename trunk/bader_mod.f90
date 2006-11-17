@@ -37,7 +37,7 @@ MODULE bader_mod
 
   PRIVATE
   PUBLIC :: bader_obj
-  PUBLIC :: bader_calc,bader_mindist,bader_output,write_all_atom,write_all_bader
+  PUBLIC :: bader_calc,bader_mindist,bader_output,write_all_atom,write_all_bader,write_surface
 
   CONTAINS
 
@@ -58,6 +58,7 @@ MODULE bader_mod
     INTEGER,DIMENSION(3) :: p,ptemp
     INTEGER :: n1,n2,n3,i,path_volnum,pn,tenths_done
     INTEGER :: cr,count_max,t1,t2
+    INTEGER :: ref_iter=1
 
     REAL(q2),DIMENSION(3) :: grad,voxlen
     REAL(q2) :: rho
@@ -90,18 +91,6 @@ MODULE bader_mod
     bdr%bnum=0
     bdr%nvols=0  ! True number of Bader volumes
 
-!    DO n1=1,chg%npts(1)
-!     DO n2=1,chg%npts(2)
-!        DO n3=1,chg%npts(3)
-!            p=(/n1,n2,n3/)
-!            IF(bdr%known(n1,n2,n3)/=0) THEN
-!              print*,p,bdr%known(n1,n2,n3)
-!            END IF
-!        END DO
-!     END DO
-!    END DO
-!stop
-
     tenths_done=0
     DO n1=1,chg%npts(1)
       IF ((n1*10/chg%npts(1)) > tenths_done) THEN
@@ -120,7 +109,7 @@ MODULE bader_mod
             ELSE IF(opts%bader_opt == opts%bader_ongrid) THEN
               CALL max_ongrid(bdr,chg,p)
             ELSE 
-              CALL max_neargrid(bdr,chg,p)
+              CALL max_neargrid(bdr,chg,opts,p)
             END IF
             path_volnum=bdr%volnum(p(1),p(2),p(3))
             IF (path_volnum == 0) THEN
@@ -138,7 +127,7 @@ MODULE bader_mod
                  ptemp=(/bdr%path(i,1),bdr%path(i,2),bdr%path(i,3)/)
                  bdr%volnum(ptemp(1),ptemp(2),ptemp(3)) = path_volnum
                  IF(bdr%known(ptemp(1),ptemp(2),ptemp(3))/=2) bdr%known(ptemp(1),ptemp(2),ptemp(3))=0
-                 CALL assign_surrounding_pts(bdr,chg,ptemp)
+                 IF(opts%quit_opt == opts%quit_known)CALL assign_surrounding_pts(bdr,chg,ptemp)
 !             bdr%volnum(bdr%path(1,1),bdr%path(1,2),bdr%path(1,3)) = path_volnum
 !             bdr%volnum(bdr%path(bdr%pnum,1),bdr%path(bdr%pnum,2),bdr%path(bdr%pnum,3)) = path_volnum
             END DO
@@ -149,7 +138,15 @@ MODULE bader_mod
     WRITE(*,*) ''
 
 !    print*,'opts%refine_edge_itrs',opts%refine_edge_itrs
-    IF(opts%refine_edge_itrs > 0) THEN
+    IF(opts%refine_auto_flag) THEN
+      WRITE(*,'(/,2x,A)') 'REFINING AUTOMATICALLY'
+      DO
+       WRITE(*,'(2x,A,I2)') 'ITERATION:',ref_iter
+       CALL refine_edge(bdr,chg,opts)
+       IF(.NOT.opts%refine_auto_flag) EXIT
+       ref_iter=ref_iter+1
+      END DO
+    ELSE IF((.NOT.opts%refine_auto_flag) .AND. opts%refine_edge_itrs > 0) THEN
       WRITE(*,'(/,2x,A)') 'REFINING EDGE'
       DO i=1,opts%refine_edge_itrs
         WRITE(*,'(2x,A,I2)') 'ITERATION:',i
@@ -182,7 +179,9 @@ MODULE bader_mod
 
     ALLOCATE(bdr%nnion(bdr%nvols),bdr%iondist(bdr%nvols),bdr%ionchg(ions%nions))
     CALL assign_chg2atom(bdr,ions,chg)
-     
+
+   ! CALL write_max(bdr,chg,ions)
+
     DEALLOCATE(bdr%path)
 
     CALL system_clock(t2,cr,count_max)
@@ -341,10 +340,12 @@ MODULE bader_mod
 !   assign the maximum found to the volnum array.
 !-----------------------------------------------------------------------------------!
 
-  SUBROUTINE max_neargrid(bdr,chg,p)
+  SUBROUTINE max_neargrid(bdr,chg,opts,p)
 
     TYPE(bader_obj) :: bdr
     TYPE(charge_obj) :: chg
+    TYPE(options_obj) :: opts
+
     INTEGER,DIMENSION(3),INTENT(INOUT) :: p
 
     bdr%pnum=1
@@ -362,8 +363,7 @@ MODULE bader_mod
       bdr%path(bdr%pnum,:)=p
 !
 !GH: change this to be a known point (all neighbor points assigned)
-      IF(bdr%known(p(1),p(2),p(3))==2) EXIT
-!
+      IF(opts%quit_opt == opts%quit_known .AND. bdr%known(p(1),p(2),p(3))==2) EXIT
     END DO
 
   RETURN
@@ -542,8 +542,10 @@ MODULE bader_mod
           IF(is_vol_edge(bdr,chg,p).AND.(.NOT.is_max(chg,p))) THEN
             num_edge = num_edge+1
             bdr%volnum(p(1),p(2),p(3)) = -bdr%volnum(p(1),p(2),p(3))
-            bdr%known(p(1),p(2),p(3))=0
-            CALL reassign_volnum_ongrid2(bdr,chg,p)
+            IF(opts%quit_opt == opts%quit_known) THEN
+              bdr%known(p(1),p(2),p(3))=0
+              CALL reassign_volnum_ongrid2(bdr,chg,p)
+            END IF 
           END IF
         END DO
       END DO
@@ -563,7 +565,7 @@ MODULE bader_mod
             ELSE IF(opts%bader_opt == opts%bader_ongrid) THEN
               CALL max_ongrid(bdr,chg,p)
             ELSE
-              CALL max_neargrid(bdr,chg,p)
+              CALL max_neargrid(bdr,chg,opts,p)
             END IF
             path_volnum=bdr%volnum(p(1),p(2),p(3))
             IF (path_volnum < 0 .OR. path_volnum > bdr%bnum) THEN
@@ -583,6 +585,7 @@ MODULE bader_mod
       END DO
     END DO
     WRITE(*,'(2x,A,1I8)') 'REASSIGNED POINTS:',num_reassign
+    IF(opts%refine_auto_flag .AND. num_reassign==0)opts%refine_auto_flag=.FALSE.
 
   RETURN
   END SUBROUTINE refine_edge
@@ -1565,27 +1568,49 @@ MODULE bader_mod
     TYPE(ions_obj) :: ions
     TYPE(charge_obj) :: chg
 
-    TYPE(charge_obj) :: tmp
+    REAL(q2),ALLOCATABLE,DIMENSION(:,:,:) :: tmp
 
     INTEGER:: n1,n2,n3
     CHARACTER(LEN=128) :: atomfilename
 
-    tmp=chg
-    tmp%rho=0.0_q2
+    ALLOCATE(tmp(1,chg%npts(2),chg%npts(3)))
+    OPEN(100,FILE='SURFACE.dat',STATUS='replace',ACTION='write')
 
-    DO n1=1,chg%npts(1)
-     DO n2=1,chg%npts(2)
-      DO n3=1,chg%npts(3)
-        IF(n1==127 .OR. n1==128 .OR. n1==129 .OR. n1==130) THEN
-          tmp%rho(n1,n2,n3)=chg%rho(n1,n2,n3)
-         END IF
-       END DO
-      END DO
-     END DO
-     WRITE(atomfilename,'(A7)') "surface"
-     CALL write_charge_chgcar(ions,tmp,atomfilename)
+    WRITE(100,'(5E19.11)')(((chg%rho(n1,n2,n3), &
+    &n1=128,128),n2=1,chg%npts(2)),n3=1,chg%npts(3))
+    CLOSE(100)
 
   END SUBROUTINE write_surface
+
+!-----------------------------------------------------------------------------------!
+! write significant maximum:
+!-----------------------------------------------------------------------------------!
+
+  SUBROUTINE write_newchg(bdr,chg,ions)
+
+    INTEGER:: volnum,index
+    TYPE(ions_obj) :: ions
+    TYPE(charge_obj) :: chg
+    TYPE(bader_obj) :: bdr
+
+    INTEGER:: n1,n2,n3
+    CHARACTER(LEN=128) :: atomfilename
+
+     DO n1=1,chg%npts(1)
+      DO n2=1,chg%npts(2)
+        DO n3=1,chg%npts(3)
+!          IF(bdr%volnum(n1,n2,n3)==2.AND.chg%rho(n1,n2,n3)>1) THEN
+          IF(chg%rho(n1,n2,n3)>1) THEN
+            chg%rho(n1,n2,n3)=LOG(chg%rho(n1,n2,n3))
+          END IF
+        END DO
+      END DO
+    END DO
+
+    WRITE(atomfilename,'(A6)') "newchg"
+    CALL write_charge_chgcar(ions,chg,atomfilename)
+  
+  END SUBROUTINE write_newchg
 
 !-----------------------------------------------------------------------------------!
 
