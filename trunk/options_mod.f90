@@ -18,7 +18,7 @@
       INTEGER :: reassign_edge_itrs,refine_edge_itrs
       LOGICAL :: bader_flag, voronoi_flag, dipole_flag, ldos_flag
       LOGICAL :: verbose_flag
-      LOGICAL :: refine_auto_flag,refine_set_flag
+!      LOGICAL :: refine_auto_flag,refine_set_flag
     END TYPE options_obj
 
     PRIVATE
@@ -49,10 +49,10 @@
       opts%in_opt = opts%in_auto
       opts%print_opt = opts%print_none
       opts%bader_opt = opts%bader_neargrid
-      opts%refine_set_flag = .FALSE.
+!      opts%refine_set_flag = .FALSE.
       opts%quit_opt = opts%quit_known
-      opts%refine_auto_flag = .TRUE.
-      opts%refine_edge_itrs = 0
+!      opts%refine_auto_flag = .TRUE.
+      opts%refine_edge_itrs = -1
       opts%bader_flag = .TRUE.
       opts%voronoi_flag = .FALSE.
       opts%dipole_flag = .FALSE.
@@ -232,12 +232,9 @@
           inc=ADJUSTL(inc)
           it=LEN_TRIM(inc) 
           IF (inc(1:it) == 'AUTO' .OR. inc(1:it) == 'auto') THEN
-            opts%refine_auto_flag = .TRUE.
-            opts%refine_edge_itrs=0
+            opts%refine_edge_itrs=-1
           ELSE
             read(inc,*) opts%refine_edge_itrs
-            opts%refine_auto_flag = .FALSE.
-            opts%refine_set_flag = .TRUE.
           END IF
         ! Step size
         ELSEIF (p(1:ip) == '-s') THEN
@@ -260,9 +257,8 @@
     ENDIF
 
     ! Default to no edge refinement for the ongrid algorithm
-    IF ((.NOT.opts%refine_set_flag).AND.(opts%bader_opt==opts%bader_ongrid)) THEN
+    IF (opts%bader_opt==opts%bader_ongrid) THEN
       opts%refine_edge_itrs=0
-      opts%refine_auto_flag = .FALSE.
     END IF
  
     RETURN

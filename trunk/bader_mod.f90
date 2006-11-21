@@ -58,7 +58,7 @@ MODULE bader_mod
     INTEGER,DIMENSION(3) :: p,ptemp
     INTEGER :: n1,n2,n3,i,path_volnum,pn,tenths_done
     INTEGER :: cr,count_max,t1,t2
-    INTEGER :: ref_iter=1
+    INTEGER :: ref_itrs=1
 
     REAL(q2),DIMENSION(3) :: grad,voxlen
     REAL(q2) :: rho
@@ -138,15 +138,15 @@ MODULE bader_mod
     WRITE(*,*) ''
 
 !    print*,'opts%refine_edge_itrs',opts%refine_edge_itrs
-    IF(opts%refine_auto_flag) THEN
+    IF(opts%refine_edge_itrs==-1) THEN
       WRITE(*,'(/,2x,A)') 'REFINING AUTOMATICALLY'
       DO
-       WRITE(*,'(2x,A,I2)') 'ITERATION:',ref_iter
+       WRITE(*,'(2x,A,I2)') 'ITERATION:',ref_itrs
        CALL refine_edge(bdr,chg,opts)
-       IF(.NOT.opts%refine_auto_flag) EXIT
-       ref_iter=ref_iter+1
+       IF(opts%refine_edge_itrs==0) EXIT
+       ref_itrs=ref_itrs+1
       END DO
-    ELSE IF((.NOT.opts%refine_auto_flag) .AND. opts%refine_edge_itrs > 0) THEN
+    ELSE IF(opts%refine_edge_itrs > 0) THEN
       WRITE(*,'(/,2x,A)') 'REFINING EDGE'
       DO i=1,opts%refine_edge_itrs
         WRITE(*,'(2x,A,I2)') 'ITERATION:',i
@@ -585,7 +585,7 @@ MODULE bader_mod
       END DO
     END DO
     WRITE(*,'(2x,A,1I8)') 'REASSIGNED POINTS:',num_reassign
-    IF(opts%refine_auto_flag .AND. num_reassign==0)opts%refine_auto_flag=.FALSE.
+    IF(opts%refine_edge_itrs==-1 .AND. num_reassign==0)opts%refine_edge_itrs=0
 
   RETURN
   END SUBROUTINE refine_edge
