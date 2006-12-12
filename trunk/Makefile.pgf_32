@@ -1,5 +1,7 @@
 .SUFFIXES: .f90
 
+DIST=bader_lnx
+
 FC = pgf90
 
 FFLAGS = -O3 -fast -tp px
@@ -25,8 +27,8 @@ bader: $(OBJS) main.o
 	$(FC) $(LINK) main.o -o $@ $(OBJS) 
 
 dist: bader
-	tar -cf bader_lnx.tar bader
-	gzip -9 bader_lnx.tar
+	tar -cf $(DIST).tar bader
+	gzip -9 $(DIST).tar
 
 clean:
-	rm -f *.o *.mod bader bader_lnx.tar.gz
+	rm -f *.o *.mod $(DIST).tar.gz bader
