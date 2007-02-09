@@ -7,7 +7,7 @@
     IMPLICIT NONE
 
     TYPE :: options_obj
-      CHARACTER(LEN=128) :: chargefile
+      CHARACTER(LEN=128) :: chargefile,refchgfile
       REAL(q2) :: badertol, stepsize
       INTEGER :: print_opt, print_none = 0, print_all_bader = 1, print_all_atom = 2, &
                  &  print_sel_bader = 3, print_sel_atom = 4
@@ -17,8 +17,7 @@
       INTEGER :: quit_opt, quit_max = 0, quit_known = 1
       INTEGER :: reassign_edge_itrs,refine_edge_itrs
       LOGICAL :: bader_flag, voronoi_flag, dipole_flag, ldos_flag
-      LOGICAL :: verbose_flag
-!      LOGICAL :: refine_auto_flag,refine_set_flag
+      LOGICAL :: verbose_flag,ref_flag
     END TYPE options_obj
 
     PRIVATE
@@ -49,9 +48,7 @@
       opts%in_opt = opts%in_auto
       opts%print_opt = opts%print_none
       opts%bader_opt = opts%bader_neargrid
-!      opts%refine_set_flag = .FALSE.
       opts%quit_opt = opts%quit_known
-!      opts%refine_auto_flag = .TRUE.
       opts%refine_edge_itrs = -1
       opts%bader_flag = .TRUE.
       opts%voronoi_flag = .FALSE.
@@ -60,6 +57,7 @@
       opts%verbose_flag = .FALSE.
       opts%badertol = 1.0e-4_q2
       opts%stepsize = 0.0_q2
+      opts%ref_flag=.FALSE.
 
       n=IARGC()
       IF (n == 0) THEN
@@ -241,6 +239,18 @@
           m=m+1
           CALL GETARG(m,inc)
           read(inc,*) opts%stepsize
+        !doing analysis with ref charge
+        ELSEIF (p(1:ip) == '-ref') THEN
+          m=m+1
+          CALL GETARG(m,inc)
+          inc=ADJUSTL(inc)
+          it=LEN_TRIM(inc)
+          IF (inc(1:it) == 'NONE' .OR. inc(1:it) == 'none') THEN
+            opts%ref_flag = .FALSE.
+          ELSE
+            opts%ref_flag = .TRUE.
+            opts%refchgfile = inc(1:it)
+          END IF           
         ! Unknown flag
         ELSE
           WRITE(*,'(A,A,A)') ' Unknown option flag "',p(1:ip),'"'

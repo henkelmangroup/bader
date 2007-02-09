@@ -37,7 +37,7 @@ MODULE bader_mod
 
   PRIVATE
   PUBLIC :: bader_obj
-  PUBLIC :: bader_calc,bader_mindist,bader_output,write_all_atom,write_all_bader,write_surface
+  PUBLIC :: bader_calc,bader_mindist,bader_output,write_all_atom,write_all_bader
 
   CONTAINS
 
@@ -46,11 +46,11 @@ MODULE bader_mod
 !   charge in each volume.
 !-----------------------------------------------------------------------------------!
 
-  SUBROUTINE bader_calc(bdr,ions,chg,opts)
+  SUBROUTINE bader_calc(bdr,ions,chgval,opts)
 
     TYPE(bader_obj) :: bdr
     TYPE(ions_obj) :: ions
-    TYPE(charge_obj) :: chg
+    TYPE(charge_obj) :: chgval
     TYPE(options_obj) :: opts
 
     REAL(q2),ALLOCATABLE,DIMENSION(:,:) :: tmpvolpos
@@ -62,6 +62,15 @@ MODULE bader_mod
 
     REAL(q2),DIMENSION(3) :: grad,voxlen
     REAL(q2) :: rho
+    CHARACTER(LEN=128) :: atomfilename
+    TYPE(charge_obj) :: chgtemp
+    TYPE(ions_obj) :: ionstemp
+
+    IF(opts%ref_flag) THEN
+      CALL read_charge_chgcar(ionstemp,chgtemp,opts%refchgfile)
+    ELSE
+      chgtemp=chgval
+    END IF
 
     CALL system_clock(t1,cr,count_max)
     
@@ -74,7 +83,7 @@ MODULE bader_mod
     bdr%stepsize=opts%stepsize
     IF (opts%stepsize == 0) THEN  ! check for transpose error
       DO i=1,3
-       voxlen(i)=SQRT(SUM(chg%lat2car(:,i)*chg%lat2car(:,i)))
+       voxlen(i)=SQRT(SUM(chgval%lat2car(:,i)*chgval%lat2car(:,i)))
       END DO
       bdr%stepsize=MINVAL(voxlen(:))
     END IF
@@ -83,8 +92,8 @@ MODULE bader_mod
     bdr%pdim=64
     ALLOCATE(bdr%volpos_lat(bdr%bdim,3)) ! will be expanded as needed
     ALLOCATE(bdr%path(bdr%pdim,3))
-    ALLOCATE(bdr%volnum(chg%npts(1),chg%npts(2),chg%npts(3)))
-    ALLOCATE(bdr%known(chg%npts(1),chg%npts(2),chg%npts(3)))
+    ALLOCATE(bdr%volnum(chgval%npts(1),chgval%npts(2),chgval%npts(3)))
+    ALLOCATE(bdr%known(chgval%npts(1),chgval%npts(2),chgval%npts(3)))
     bdr%volchg=0.0_q2
     bdr%volnum=0
     bdr%known=0
@@ -92,24 +101,21 @@ MODULE bader_mod
     bdr%nvols=0  ! True number of Bader volumes
 
     tenths_done=0
-    DO n1=1,chg%npts(1)
-      IF ((n1*10/chg%npts(1)) > tenths_done) THEN
-        tenths_done=(n1*10/chg%npts(1))
+    DO n1=1,chgval%npts(1)
+      IF ((n1*10/chgval%npts(1)) > tenths_done) THEN
+        tenths_done=(n1*10/chgval%npts(1))
         WRITE(*,'(A,$)') '**'
       END IF
-      DO n2=1,chg%npts(2)
-        DO n3=1,chg%npts(3)
+      DO n2=1,chgval%npts(2)
+        DO n3=1,chgval%npts(3)
           p=(/n1,n2,n3/)
-!          p=(/50,37,1/)
-          !write(*,*) ''
-          !write(*,'(A,3I4)') ' grd: ',p
           IF(bdr%volnum(p(1),p(2),p(3)) == 0) THEN
             IF(opts%bader_opt == opts%bader_offgrid) THEN
-              CALL max_offgrid(bdr,chg,p)
+              CALL max_offgrid(bdr,chgtemp,p)
             ELSE IF(opts%bader_opt == opts%bader_ongrid) THEN
-              CALL max_ongrid(bdr,chg,p)
+              CALL max_ongrid(bdr,chgtemp,p)
             ELSE 
-              CALL max_neargrid(bdr,chg,opts,p)
+              CALL max_neargrid(bdr,chgtemp,opts,p)
             END IF
             path_volnum=bdr%volnum(p(1),p(2),p(3))
             IF (path_volnum == 0) THEN
@@ -118,18 +124,18 @@ MODULE bader_mod
                 CALL reallocate_volpos(bdr,bdr%bdim*2)
               END IF
               bdr%bnum=bdr%bnum+1
-!              write(*,*) '   new max',bdr%bnum
               path_volnum=bdr%bnum
               bdr%volpos_lat(bdr%bnum,:) = REAL(p,q2)
-!              write(*,*) '   new max',bdr%bnum,' ',bdr%volpos_lat(bdr%bnum,:)
             END IF
             DO i=1,bdr%pnum
                  ptemp=(/bdr%path(i,1),bdr%path(i,2),bdr%path(i,3)/)
                  bdr%volnum(ptemp(1),ptemp(2),ptemp(3)) = path_volnum
-                 IF(bdr%known(ptemp(1),ptemp(2),ptemp(3))/=2) bdr%known(ptemp(1),ptemp(2),ptemp(3))=0
-                 IF(opts%quit_opt == opts%quit_known)CALL assign_surrounding_pts(bdr,chg,ptemp)
-!             bdr%volnum(bdr%path(1,1),bdr%path(1,2),bdr%path(1,3)) = path_volnum
-!             bdr%volnum(bdr%path(bdr%pnum,1),bdr%path(bdr%pnum,2),bdr%path(bdr%pnum,3)) = path_volnum
+                 IF(opts%bader_opt /= opts%bader_ongrid) THEN
+                   IF(bdr%known(ptemp(1),ptemp(2),ptemp(3))/=2) bdr%known(ptemp(1),ptemp(2),ptemp(3))=0
+                END IF  
+                IF(opts%quit_opt == opts%quit_known.AND.opts%bader_opt /= opts%bader_ongrid) THEN
+                   CALL assign_surrounding_pts(bdr,chgtemp,ptemp)
+                END IF
             END DO
           END IF
         END DO
@@ -142,7 +148,7 @@ MODULE bader_mod
       WRITE(*,'(/,2x,A)') 'REFINING AUTOMATICALLY'
       DO
        WRITE(*,'(2x,A,I2)') 'ITERATION:',ref_itrs
-       CALL refine_edge(bdr,chg,opts)
+       CALL refine_edge(bdr,chgtemp,opts,ions,ref_itrs)
        IF(opts%refine_edge_itrs==0) EXIT
        ref_itrs=ref_itrs+1
       END DO
@@ -150,7 +156,7 @@ MODULE bader_mod
       WRITE(*,'(/,2x,A)') 'REFINING EDGE'
       DO i=1,opts%refine_edge_itrs
         WRITE(*,'(2x,A,I2)') 'ITERATION:',i
-        CALL refine_edge(bdr,chg,opts)
+        CALL refine_edge(bdr,chgtemp,opts,ions,i)
       END DO
     ENDIF
  
@@ -160,32 +166,30 @@ MODULE bader_mod
     ALLOCATE(bdr%volpos_dir(bdr%nvols,3))
     ALLOCATE(bdr%volpos_car(bdr%nvols,3))
     DO i=1,bdr%nvols
-      bdr%volpos_dir(i,:)=lat2dir(chg,bdr%volpos_lat(i,:))
-      bdr%volpos_car(i,:)=lat2car(chg,bdr%volpos_lat(i,:))
+      bdr%volpos_dir(i,:)=lat2dir(chgtemp,bdr%volpos_lat(i,:))
+      bdr%volpos_car(i,:)=lat2car(chgtemp,bdr%volpos_lat(i,:))
     END DO
 
     ! Sum up the charge included in each volume
     ALLOCATE(bdr%volchg(bdr%nvols))
     bdr%volchg=0.0_q2
-    DO n1=1,chg%npts(1)
-      DO n2=1,chg%npts(2)
-        DO n3=1,chg%npts(3)
+    DO n1=1,chgval%npts(1)
+      DO n2=1,chgval%npts(2)
+        DO n3=1,chgval%npts(3)
           bdr%volchg(bdr%volnum(n1,n2,n3)) = &
-          &  bdr%volchg(bdr%volnum(n1,n2,n3)) + chg%rho(n1,n2,n3)
+          &  bdr%volchg(bdr%volnum(n1,n2,n3)) + chgval%rho(n1,n2,n3)
         END DO
       END DO
     END DO
-    bdr%volchg=bdr%volchg/REAL(chg%nrho,q2)
+    bdr%volchg=bdr%volchg/REAL(chgval%nrho,q2)
 
     ALLOCATE(bdr%nnion(bdr%nvols),bdr%iondist(bdr%nvols),bdr%ionchg(ions%nions))
-    CALL assign_chg2atom(bdr,ions,chg)
-
-   ! CALL write_max(bdr,chg,ions)
+    CALL assign_chg2atom(bdr,ions,chgval)
 
     DEALLOCATE(bdr%path)
 
     CALL system_clock(t2,cr,count_max)
-    WRITE(*,'(/,1A12,1F7.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
+    WRITE(*,'(/,1A12,1F10.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
 
   RETURN
   END SUBROUTINE bader_calc
@@ -408,8 +412,18 @@ MODULE bader_mod
       gradrl=coeff*gradrl
       pm=p+ANINT(gradrl)
       dr=dr+gradrl-ANINT(gradrl)
+      DO i=1,3
+       IF(dr(i) > 1 .OR. dr(i) < -1) THEN
+        print*,'dr',dr,'p',p
+       END IF
+      END DO
       pm=pm+ANINT(dr)
       dr=dr-ANINT(dr)
+      DO i=1,3
+       IF(dr(i) > 0.5 .OR. dr(i) < -0.5) THEN
+        print*,'dr',dr,'p',p
+       END IF
+      END DO
     END IF
     bdr%known(p(1),p(2),p(3))=1
 
@@ -425,115 +439,26 @@ MODULE bader_mod
 
   RETURN
   END SUBROUTINE step_neargrid
-!-----------------------------------------------------------------------------------!
-! max_neargrid:  From the point p do a maximization on the charge density grid and
-!   assign the maximum found to the volnum array.
-!-----------------------------------------------------------------------------------!
-
-  SUBROUTINE max_neargrid2(bdr,chg,p)
-
-    TYPE(bader_obj) :: bdr
-    TYPE(charge_obj) :: chg
-    INTEGER,DIMENSION(3),INTENT(INOUT) :: p
-
-    bdr%pnum=1
-    bdr%path(bdr%pnum,:)=p
-!    write(*,*) p
-    DO
-      CALL step_neargrid2(bdr,chg,p)
-      ! if we didn't move, we're at a maximum
-      IF (ALL(p == bdr%path(bdr%pnum,:))) EXIT
-      ! otherwise, add point to path
-      IF (bdr%pnum >= bdr%pdim) THEN
-        CALL reallocate_path(bdr,bdr%pdim*2)
-      ENDIF
-      bdr%pnum=bdr%pnum+1
-      bdr%path(bdr%pnum,:)=p
-!      IF(bdr%volnum(p(1),p(2),p(3)) > 0) EXIT
-!      IF(bdr%volnum(p(1),p(2),p(3)) > 0.AND.bdr%pnum > 25) EXIT
-!
-!GH: change this to be a known point (all neighbor points assigned)
-!
-      IF(bdr%known(p(1),p(2),p(3))==2) EXIT
-!
-    END DO
-
-  RETURN
-  END SUBROUTINE max_neargrid2
-
-!-----------------------------------------------------------------------------------!
-!  step_neargrid:  Do a single iteration of a maximization on the charge density
-!    grid from the point (px,py,pz).  Return a logical indicating if the current
-!-----------------------------------------------------------------------------------!
-  SUBROUTINE step_neargrid2(bdr,chg,p)
-  
-    TYPE(bader_obj) :: bdr
-    TYPE(charge_obj) :: chg
-    INTEGER,DIMENSION(3),INTENT(INOUT) :: p
-    INTEGER,DIMENSION(3) :: pm,pt,pp=(/0,0,0/)
-    INTEGER :: d1,d2,d3,i
-    LOGICAL :: ismax
-    
-    REAL(q2),DIMENSION(3) :: gradrl,dr=(/0.0_q2,0.0_q2,0.0_q2/)
-    REAL(q2) :: cx,cy,cz,coeff,cp,cm,drp
-    SAVE dr
-    
-    IF(bdr%pnum==1) THEN
-       dr=(/0.0_q2,0.0_q2,0.0_q2/)
-    END IF
-    
-    print*,'p initial:',p
-    gradrl=rho_grad_dir(chg,p)
-    IF(MAXVAL(ABS(gradrl)) < 1E-30) THEN
-      IF(is_max(chg,p)) THEN 
-        print*, '    is_max:', p
-        dr=(/0.0_q2,0.0_q2,0.0_q2/)
-        RETURN
-      ELSE
-       pm=p
-       CALL step_ongrid(chg,pm)
-       dr=(/0.0_q2,0.0_q2,0.0_q2/)
-      END IF 
-    ELSE
-      coeff=1.0_q2/MAXVAL(ABS(gradrl))
-      gradrl=coeff*gradrl
-      pm=p+ANINT(gradrl)
-      dr=dr+gradrl-ANINT(gradrl)
-      pm=pm+ANINT(dr)
-      dr=dr-ANINT(dr)
-    END IF
-    bdr%known(p(1),p(2),p(3))=1
-    
-    CALL pbc(pm,chg%npts)
-    IF (bdr%known(pm(1),pm(2),pm(3)) == 1) THEN
-         print*, '    oscillating:', p 
-         pm=p
-         CALL step_ongrid(chg,pm)
-         dr=(/0.0_q2,0.0_q2,0.0_q2/)
-    END IF 
-    
-    p=pm
-    print*,'p end',p
-    print*,' '
-!stop
-  RETURN
-  END SUBROUTINE step_neargrid2
 
 !-----------------------------------------------------------------------------------!
 ! refine_edge: refine the grid points on the edge of the Bader volumes.
 !-----------------------------------------------------------------------------------!
 
-  SUBROUTINE refine_edge(bdr,chg,opts)
+  SUBROUTINE refine_edge(bdr,chg,opts,ions,itrs)
 
     TYPE(bader_obj) :: bdr
     TYPE(charge_obj) :: chg
     TYPE(options_obj) :: opts
+    TYPE(ions_obj) :: ions
+    INTEGER :: itrs
 
     INTEGER,DIMENSION(3) :: p,ptemp
     INTEGER :: n1,n2,n3,path_volnum,bvolnum,i
     INTEGER :: num_edge,num_reassign,numsign
+    CHARACTER(LEN=128) :: atomfilename
 
-!    print*,'begin refine_edge subroutine'
+!    TYPE(charge_obj) :: tmp
+
      num_edge=0
      DO n1=1,chg%npts(1)
       DO n2=1,chg%npts(2)
@@ -552,7 +477,9 @@ MODULE bader_mod
     END DO
     WRITE(*,'(2x,A,6x,1I8)') 'EDGE POINTS:',num_edge
 
-!    WRITE(*,*)'bdr%bnum in the begining of refine_edge',bdr%bnum
+!   tmp=chg
+!   tmp%rho=0.0_q2
+
     num_reassign=0
     DO n1=1,chg%npts(1)
       DO n2=1,chg%npts(2)
@@ -574,7 +501,8 @@ MODULE bader_mod
             END IF
             IF (ABS(bvolnum)/=path_volnum) THEN
               num_reassign=num_reassign+1
-            END IF
+!             tmp%rho(n1,n2,n3)=1000
+           END IF
             bdr%volnum(n1,n2,n3)=path_volnum
             DO i=1,bdr%pnum
               ptemp=(/bdr%path(i,1),bdr%path(i,2),bdr%path(i,3)/)
@@ -586,6 +514,9 @@ MODULE bader_mod
     END DO
     WRITE(*,'(2x,A,1I8)') 'REASSIGNED POINTS:',num_reassign
     IF(opts%refine_edge_itrs==-1 .AND. num_reassign==0)opts%refine_edge_itrs=0
+
+!   WRITE(atomfilename,'(A8,I4.4)') "reassign",itrs
+!   CALL write_charge_chgcar(ions,tmp,atomfilename)
 
   RETURN
   END SUBROUTINE refine_edge
@@ -937,6 +868,7 @@ MODULE bader_mod
     DO i=1,ions%nions
       WRITE(100,'(1I5,6F12.4)') i,ions%r_car(i,:),bdr%ionchg(i),bdr%minsurfdist(i)
     END DO
+    WRITE(100,'(2x,A,2X,1F12.5)')  '         NUMBER OF ELECTRONS: ',SUM(bdr%volchg(1:bdr%nvols))
     CLOSE(100)
 
     bdimsig=0
@@ -1351,267 +1283,6 @@ MODULE bader_mod
     DEALLOCATE(tmppath)
 
   END SUBROUTINE reallocate_path
-
-!-----------------------------------------------------------------------------------!
-! write points volnum:
-!-----------------------------------------------------------------------------------!
-
-  SUBROUTINE write_error3d(bdr,chg,ions)
-    TYPE(bader_obj) :: bdr
-    TYPE(ions_obj) :: ions
-    TYPE(charge_obj) :: chg
-
-    REAL(q2):: unit=0.01
-    REAL(q2):: x,y,z,gradx,grady,gradz
-    INTEGER:: n1,n2,n3,enum,max
-    CHARACTER(LEN=128) :: atomfilename
-
-    REAL(q2):: x1=0.384089,y1=0.318942,z1=0.35
-    REAL(q2):: x2=0.615911,y2=0.381058,z2=0.35
-!    REAL(q2):: x3=0.5,y3=0.35,z3=0.35
-!    REAL(q2):: x4=0.603093,y4=0.361612
-    REAL(q2):: xm1=0.431013,ym1=0.331515,zm1=0.35
-    REAL(q2):: xm2=0.568987,ym2=0.368485,zm2=0.35
-!    REAL(q2):: xm3=0.493,ym3=0.377,zm3=0.35
-!    REAL(q2):: xm4=0.559,ym4=0.387,zm4=0.35
-
-    enum=0
-    DO n1 =1, chg%npts(1)
-     DO n2 =1, chg%npts(2)
-      DO n3 =1, chg%npts(3)
-!       print*,'point',n1,n2,n3
-       x=(n1-1)*unit
-       y=(n2-1)*unit
-       z=(n3-1)*unit        
-       DO 
-        gradx=-80*(x-x1)*DEXP(-40*(x-x1)**2-40*(y-y1)**2-40*(z-z1)**2)&
-             &-80*(x-x2)*DEXP(-40*(x-x2)**2-40*(y-y2)**2-40*(z-z2)**2)
-        grady=-80*(y-y1)*DEXP(-40*(x-x1)**2-40*(y-y1)**2-40*(z-z1)**2)&
-             &-80*(y-y2)*DEXP(-40*(x-x2)**2-40*(y-y2)**2-40*(z-z2)**2)
-        gradz=-80*(z-z1)*DEXP(-40*(x-x1)**2-40*(y-y1)**2-40*(z-z1)**2)&
-             &-80*(z-z2)*DEXP(-40*(x-x2)**2-40*(y-y2)**2-40*(z-z2)**2)
-        IF(ABS(gradx) < 1E-10 .AND. ABS(grady) < 1E-10 .AND.  ABS(gradz) < 1E-10) EXIT
-        x=x+gradx*unit
-        y=y+grady*unit
-        z=z+gradz*unit
-       END DO
-!       print*,'end point',x,y,z
-       IF(ABS(x-xm1) < 0.01 .AND. ABS(y-ym1) < 0.01 .AND. ABS(z-zm1) < 0.01) THEN
-        max=1
-       ELSE IF(ABS(x-xm2) < 0.01 .AND. ABS(y-ym2) < 0.01.AND. ABS(z-zm2) < 0.01) THEN
-        max=2
-!       ELSE IF(ABS(x-xm3) < 0.01 .AND. ABS(y-ym3) < 0.01.AND. ABS(z-zm3) < 0.01) THEN
-!        max=3
-!       ELSE IF(ABS(x-xm4) < 0.01 .AND. ABS(y-ym4) < 0.01.AND. ABS(z-zm4) < 0.01) THEN
-!        max=4
-       ELSE
-        PRINT*,'ERROR',x,y,z
-       END IF
-       IF(bdr%volnum(n1,n2,n3) == 1.AND.max==1) THEN
-          chg%rho(n1,n2,n3)=0
-       ELSE IF(bdr%volnum(n1,n2,n3) == 2.AND.max==2) THEN
-          chg%rho(n1,n2,n3)=0
-!       ELSE IF(bdr%volnum(n1,n2,n3) == 3.AND.max==3) THEN
-!          chg%rho(n1,n2,n3)=0
-!       ELSE IF(bdr%volnum(n1,n2,n3) == 4.AND.max==4) THEN
-!          chg%rho(n1,n2,n3)=0
-       ELSE
-          chg%rho(n1,n2,n3)=1
-          enum=enum+1
-          print*,'not match',(n1-1)*0.01,(n2-1)*0.01,(n3-1)*0.01,'max',max,'vol',bdr%volnum(n1,n2,n3)
-       END IF
-!       stop
-      END DO  
-     END DO
-    END DO
-    WRITE(atomfilename,'(A5)') "error"
-    CALL write_charge_chgcar(ions,chg,atomfilename)
-    print*,'error points',enum
-
-  END SUBROUTINE write_error3d   
-!-----------------------------------------------------------------------------------!
-! write points volnum:
-!-----------------------------------------------------------------------------------!
-
-  SUBROUTINE write_error2d(bdr,chg,ions)
-    TYPE(bader_obj) :: bdr
-    TYPE(ions_obj) :: ions
-    TYPE(charge_obj) :: chg
-
-    REAL(q2):: unit=0.01
-    REAL(q2):: x,y,z,gradx,grady,gradz
-
-    REAL(q2):: x1=0.384089,y1=0.318942
-    REAL(q2):: x2=0.615911,y2=0.381058
-!    REAL(q2):: x3=0.5,y3=0.35
-!    REAL(q2):: x4=0.603093,y4=0.361612
-    REAL(q2):: xm1=0.431013,ym1=0.331515
-    REAL(q2):: xm2=0.568987,ym2=0.368485
-!    REAL(q2):: xm3=0.493,ym3=0.377
-!    REAL(q2):: xm4=0.559,ym4=0.387
-
-    INTEGER:: n1,n2,n3,enum,max
-    CHARACTER(LEN=128) :: atomfilename
-
-    enum=0
-    DO n1 =1, chg%npts(1)
-     DO n2 =1, chg%npts(2)
-      DO n3 =1, chg%npts(3)
-       x=(n1-1)*unit
-       y=(n2-1)*unit
-       DO
-        gradx=-80*(x-x1)*DEXP(-40*(x-x1)**2-40*(y-y1)**2)&
-             &-80*(x-x2)*DEXP(-40*(x-x2)**2-40*(y-y2)**2)
-        grady=-80*(y-y1)*DEXP(-40*(x-x1)**2-40*(y-y1)**2)&
-             &-80*(y-y2)*DEXP(-40*(x-x2)**2-40*(y-y2)**2)
-        IF(ABS(gradx) < 1E-10 .AND. ABS(grady) < 1E-10) EXIT
-        x=x+gradx*unit
-        y=y+grady*unit
-       END DO
-!       print*,'end point',x,y,z
-       IF(ABS(x-xm1) < 0.01 .AND. ABS(y-ym1) < 0.01) THEN
-        max=1
-       ELSE IF(ABS(x-xm2) < 0.01 .AND. ABS(y-ym2) < 0.01) THEN
-        max=2
-!       ELSE IF(ABS(x-xm3) < 0.01 .AND. ABS(y-ym3) < 0.01) THEN
-!        max=3
-!       ELSE IF(ABS(x-xm4) < 0.01 .AND. ABS(y-ym4) < 0.01) THEN
-!        max=4
-       ELSE
-        PRINT*,'ERROR',x,y
-       END IF
-       IF(bdr%volnum(n1,n2,n3) == 1.AND.max==1) THEN
-          chg%rho(n1,n2,n3)=0
-       ELSE IF(bdr%volnum(n1,n2,n3) == 2.AND.max==2) THEN
-          chg%rho(n1,n2,n3)=0
-!       ELSE IF(bdr%volnum(n1,n2,n3) == 3.AND.max==3) THEN
-!          chg%rho(n1,n2,n3)=0
-!       ELSE IF(bdr%volnum(n1,n2,n3) == 4.AND.max==4) THEN
-!          chg%rho(n1,n2,n3)=0
-       ELSE
-          chg%rho(n1,n2,n3)=1
-          enum=enum+1
-          print*,'not match',(n1-1)*0.01,(n2-1)*0.01,'max',max,'vol',bdr%volnum(n1,n2,n3)
-       END IF
-!       stop
-      END DO
-     END DO
-    END DO
-    WRITE(atomfilename,'(A5)') "error"
-    CALL write_charge_chgcar(ions,chg,atomfilename)
-    print*,'error points',enum
-
-  END SUBROUTINE write_error2d
-
-!-----------------------------------------------------------------------------------!
-! write significant maximum:
-!-----------------------------------------------------------------------------------!
-
-  SUBROUTINE write_max(bdr,chg,ions)
-
-    TYPE(bader_obj) :: bdr
-    TYPE(ions_obj) :: ions
-    TYPE(charge_obj) :: chg
-
-    INTEGER:: i,index
-
-    index=0
-    DO i=1,bdr%nvols
-        IF(bdr%volchg(i) > bdr%tol) THEN
-           index=index+1
-           CALL write_max_sub(i,index,bdr,chg,ions)
-        END IF
-    END DO
-
-  END SUBROUTINE write_max
-
-!-----------------------------------------------------------------------------------!
-! write significant maximum:
-!-----------------------------------------------------------------------------------!
-
-  SUBROUTINE write_max_sub(volnum,index,bdr,chg,ions)
-
-    INTEGER:: volnum,index
-    TYPE(bader_obj) :: bdr
-    TYPE(ions_obj) :: ions
-    TYPE(charge_obj) :: chg
-
-    TYPE(charge_obj) :: tmp
-
-    INTEGER:: n1,n2,n3
-    CHARACTER(LEN=128) :: atomfilename
-
-    tmp=chg
-    tmp%rho=0.0_q2
-
-    DO n1=1,chg%npts(1)
-     DO n2=1,chg%npts(2)
-      DO n3=1,chg%npts(3)
-        IF(bdr%volnum(n1,n2,n3)==volnum) THEN
-          tmp%rho(n1,n2,n3)=chg%rho(n1,n2,n3)
-         END IF
-       END DO
-      END DO
-     END DO
-     WRITE(atomfilename,'(A3,I4.4,A4)') "max",index,".dat"
-     CALL write_charge_chgcar(ions,tmp,atomfilename)
-
-  END SUBROUTINE write_max_sub
-
-!-----------------------------------------------------------------------------------!
-! write significant maximum:
-!-----------------------------------------------------------------------------------!
-
-  SUBROUTINE write_surface(chg,ions)
-
-    INTEGER:: volnum,index
-    TYPE(ions_obj) :: ions
-    TYPE(charge_obj) :: chg
-
-    REAL(q2),ALLOCATABLE,DIMENSION(:,:,:) :: tmp
-
-    INTEGER:: n1,n2,n3
-    CHARACTER(LEN=128) :: atomfilename
-
-    ALLOCATE(tmp(1,chg%npts(2),chg%npts(3)))
-    OPEN(100,FILE='SURFACE.dat',STATUS='replace',ACTION='write')
-
-    WRITE(100,'(5E19.11)')(((chg%rho(n1,n2,n3), &
-    &n1=128,128),n2=1,chg%npts(2)),n3=1,chg%npts(3))
-    CLOSE(100)
-
-  END SUBROUTINE write_surface
-
-!-----------------------------------------------------------------------------------!
-! write significant maximum:
-!-----------------------------------------------------------------------------------!
-
-  SUBROUTINE write_newchg(bdr,chg,ions)
-
-    INTEGER:: volnum,index
-    TYPE(ions_obj) :: ions
-    TYPE(charge_obj) :: chg
-    TYPE(bader_obj) :: bdr
-
-    INTEGER:: n1,n2,n3
-    CHARACTER(LEN=128) :: atomfilename
-
-     DO n1=1,chg%npts(1)
-      DO n2=1,chg%npts(2)
-        DO n3=1,chg%npts(3)
-!          IF(bdr%volnum(n1,n2,n3)==2.AND.chg%rho(n1,n2,n3)>1) THEN
-          IF(chg%rho(n1,n2,n3)>1) THEN
-            chg%rho(n1,n2,n3)=LOG(chg%rho(n1,n2,n3))
-          END IF
-        END DO
-      END DO
-    END DO
-
-    WRITE(atomfilename,'(A6)') "newchg"
-    CALL write_charge_chgcar(ions,chg,atomfilename)
-  
-  END SUBROUTINE write_newchg
-
 !-----------------------------------------------------------------------------------!
 
 END MODULE bader_mod

@@ -35,10 +35,9 @@
      ! Variables
      TYPE(options_obj) :: opts
      TYPE(ions_obj) :: ions
-     TYPE(charge_obj) :: chg
+     TYPE(charge_obj) :: chgval
      TYPE(bader_obj) :: bdr
      TYPE(voronoi_obj) :: vor
-     CHARACTER(LEN=128) :: atomfilename
  
     ! Write the version number
      WRITE(*,'(/,2X,A)') 'GRID BASED BADER ANALYSIS  (v0.21 11/08/06)'
@@ -47,22 +46,20 @@
      CALL get_options(opts)
 
      ! Call the read routines from io_mod
-     CALL read_charge(ions,chg,opts)
+     CALL read_charge(ions,chgval,opts)
 
-!     CALL write_surface(chg,ions)
-!     stop
      IF (opts%bader_flag) THEN
-       CALL bader_calc(bdr,ions,chg,opts)
-       CALL bader_mindist(bdr,ions,chg)
-       CALL bader_output(bdr,ions,chg)
+       CALL bader_calc(bdr,ions,chgval,opts)
+       CALL bader_mindist(bdr,ions,chgval)
+       CALL bader_output(bdr,ions,chgval)
        IF (opts%print_opt==opts%print_all_bader) THEN
-         CALL write_all_bader(bdr,opts,ions,chg)
+         CALL write_all_bader(bdr,opts,ions,chgval)
        ELSEIF (opts%print_opt==opts%print_all_atom) THEN
-         CALL write_all_atom(bdr,opts,ions,chg)
+         CALL write_all_atom(bdr,opts,ions,chgval)
        ENDIF
      ENDIF
 !     IF (opts%dipole_flag) CALL multipole()
-     IF (opts%voronoi_flag) CALL voronoi(vor,ions,chg)
+     IF (opts%voronoi_flag) CALL voronoi(vor,ions,chgval)
 
     WRITE(*,*)
   END PROGRAM Charge
