@@ -40,7 +40,7 @@ MODULE cube_mod
     ALLOCATE(ions%r_car(ions%nions,3),ions%r_dir(ions%nions,3), &
     &        ions%ion_chg(ions%nions))
     DO i=1,3
-      READ(100,*) chg%npts(i),chg%lat2car(i,:)
+      READ(100,*) chg%npts(i),chg%lat2car(i,1:3)
     END DO
     ! This should really indicate the units (Bohr/Ang)
     IF(chg%npts(1)<0) chg%npts(1)=(-1)*chg%npts(1)
@@ -69,7 +69,15 @@ MODULE cube_mod
     ALLOCATE(chg%rho(chg%npts(1),chg%npts(2),chg%npts(3)))
     READ(100,*) (((chg%rho(n1,n2,n3),  &
     &            n3=1,chg%npts(3)),n2=1,chg%npts(2)),n1=1,chg%npts(1))
-    chg%rho=chg%rho*vol 
+! GH: for some reason this is not working; replace with loop
+!    chg%rho=chg%rho*vol
+    DO n1=1,chg%npts(1)
+      DO n2=1,chg%npts(1)
+        DO n3=1,chg%npts(1)
+          chg%rho(n1,n2,n3)=vol*chg%rho(n1,n2,n3)
+        END DO
+      END DO
+    END DO
 
     WRITE(*,'(1A12,1I5,1A2,1I4,1A2,1I4)') 'FFT-grid: ',  &
     &         chg%npts(1),'x',chg%npts(2),'x',chg%npts(3)

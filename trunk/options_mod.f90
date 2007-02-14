@@ -289,6 +289,7 @@
 !      WRITE(*,*) '         [ -b offgrid | ongrid | neargrid ] [ -s stepsize ]'
       WRITE(*,*) '         [ -b neargrid | ongrid ]'
       WRITE(*,*) '         [ -r refine_edge_iterations ]'
+      WRITE(*,*) '         [ -ref reference_charge ]'
 !      WRITE(*,*) '         [ -p none | all_atom | all_bader ] [ -h ] [ -v ]'
       WRITE(*,*) '         [ -p none | all_atom | all_bader ] [ -h ]'
       WRITE(*,*) '         [ -i cube | chgcar ]'
