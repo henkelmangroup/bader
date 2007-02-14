@@ -833,10 +833,9 @@ MODULE bader_mod
     mab=MAXVAL(bdr%nnion)
     mib=MINVAL(bdr%nnion)
     OPEN(100,FILE='AVF.dat',STATUS='replace',ACTION='write')
-    WRITE(100,'(A)') '   Atom                     Volume(s)   '
-    WRITE(100,'(A,A)') '----------------------------------------------------------',&
-    &                  '--------------'
-
+    WRITE(100,'(A)') '   Atom                     Volume(s)'
+    WRITE(100,'(A,A)') '  --------------------------------------------------------',&
+    &                  '----------------'
     DO i=mib,mab
       cc=0
       rck=0
@@ -853,6 +852,8 @@ MODULE bader_mod
       IF (cc == 0) CYCLE
       WRITE(100,'(2X,1I4,2X,A,2X,10000I5)') i,' ... ',rck(1:cc)
     END DO
+    WRITE(100,'(A,A)') '  --------------------------------------------------------',&
+    &                  '----------------'
     CLOSE(100)
     
     WRITE(*,'(/,A41)') 'WRITING BADER ATOMIC CHARGES TO ACF.dat'
@@ -861,14 +862,13 @@ MODULE bader_mod
     OPEN(100,FILE='ACF.dat',STATUS='replace',ACTION='write')
     WRITE(100,555) '#','X','Y','Z','CHARGE','MIN DIST'
     555 FORMAT(4X,1A,9X,1A1,2(11X,1A1),8X,1A6,5X,1A8)
-    WRITE(100,666) '----------------------------------------------------------------'
-    666 FORMAT(1A66)
-    
+    WRITE(100,*) ' ----------------------------------------------------------------'
     sum_ionchg=SUM(bdr%ionchg)
     DO i=1,ions%nions
       WRITE(100,'(1I5,6F12.4)') i,ions%r_car(i,:),bdr%ionchg(i),bdr%minsurfdist(i)
     END DO
-    WRITE(100,'(2x,A,2X,1F12.5)')  '         NUMBER OF ELECTRONS: ',SUM(bdr%volchg(1:bdr%nvols))
+    WRITE(100,*) ' ----------------------------------------------------------------'
+    WRITE(100,'(2x,A,2X,1F12.5)')  ' NUMBER OF ELECTRONS: ',SUM(bdr%volchg(1:bdr%nvols))
     CLOSE(100)
 
     bdimsig=0
@@ -877,10 +877,8 @@ MODULE bader_mod
     WRITE(200,556) '#','X','Y','Z','CHARGE','ATOM','DISTANCE'
     556 FORMAT(4X,1A1,9X,1A1,2(11X,1A1),8X,1A6,5X,1A4,4X,1A8)
     
-    WRITE(200,668) '--------------------------------------------------------------',&
-    &              '-----------'
-    668 FORMAT(1A65,1A10)
-   
+    WRITE(200,'(A,A)') '  ----------------------------------------------------------',&
+    &              '---------------'
     DO i=1,bdr%nvols
         IF(bdr%volchg(i) > bdr%tol) THEN
            bdimsig=bdimsig+1
@@ -889,6 +887,8 @@ MODULE bader_mod
            777 FORMAT(1I5,4F12.4,3X,1I5,1F12.4)
         END IF
     END DO
+    WRITE(200,'(A,A)') '  ----------------------------------------------------------',&
+    &              '---------------'
     CLOSE(200)
 
     WRITE(*,'(2x,A,6X,1I8)')       'NUMBER OF BADER MAXIMA FOUND: ',bdr%nvols
