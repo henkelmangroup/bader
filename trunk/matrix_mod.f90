@@ -33,7 +33,7 @@ MODULE matrix_mod
 !    END IF
 
     DO j=1,n
-      C(:,j)=0.0_q2
+      C(:,j)=0._q2
       DO k=1,m
         C(:,j)=C(:,j)+B(k,j)*A(:,k)
       END DO
@@ -61,7 +61,7 @@ MODULE matrix_mod
 !      STOP
 !    END IF
 
-    Vp=0.0_q2
+    Vp=0._q2
     DO i=1,n
       Vp=Vp+V(i)*M(:,i)
     END DO
@@ -88,7 +88,7 @@ MODULE matrix_mod
 !      STOP
 !    END IF
 
-    Vp=0.0_q2
+    Vp=0._q2
     DO i=1,n
       Vp=Vp+V(i)*M(i,:)
     END DO

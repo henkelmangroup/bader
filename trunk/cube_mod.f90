@@ -44,7 +44,7 @@ MODULE cube_mod
     END DO
     ! This should really indicate the units (Bohr/Ang)
     IF(chg%npts(1)<0) chg%npts(1)=(-1)*chg%npts(1)
-    chg%i_npts=1.0_q2/REAL(chg%npts,q2)
+    chg%i_npts=1._q2/REAL(chg%npts,q2)
     ! The -1 is to account for having points at the edge of the cube
     DO i=1,3
 !test      ions%lattice(:,i)=chg%lat2car(i,:)*REAL(chg%npts(i)-1,q2)
@@ -89,7 +89,7 @@ MODULE cube_mod
 
     ! origin of the lattice is at chg(0.5,0.5,0.5)
 !    chg%org_lat=(/0.5_q2,0.5_q2,0.5_q2/)
-    chg%org_lat=(/1.0_q2,1.0_q2,1.0_q2/)
+    chg%org_lat=(/1._q2,1._q2,1._q2/)
     CALL matrix_vector(ions%car2dir,chg%org_car,chg%org_dir)
 
     ! distance between neighboring points
@@ -102,9 +102,9 @@ MODULE cube_mod
           CALL matrix_vector(chg%lat2car,dlat,dcar)
           chg%lat_dist(d1,d2,d3)=SQRT(SUM(dcar*dcar))
          IF ((d1 == 0).AND.(d2 == 0).AND.(d3 == 0)) THEN
-            chg%lat_i_dist(d1,d2,d3)=0.0_q2       
+            chg%lat_i_dist(d1,d2,d3)=0._q2
           ELSE
-            chg%lat_i_dist(d1,d2,d3)=1.0_q2/chg%lat_dist(d1,d2,d3)
+            chg%lat_i_dist(d1,d2,d3)=1._q2/chg%lat_dist(d1,d2,d3)
           END IF
         END DO
       END DO
@@ -146,3 +146,4 @@ MODULE cube_mod
   END SUBROUTINE write_charge_cube
 
 END MODULE cube_mod
+

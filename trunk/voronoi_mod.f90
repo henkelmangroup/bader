@@ -45,9 +45,9 @@ MODULE voronoi_mod
     ALLOCATE(vor%vorchg(ions%nions))
 
     ngf=REAL(chg%npts,q2)
-    ngf_2=ngf/2.0_q2
+    ngf_2=ngf/2._q2
 
-    vor%vorchg=0.0_q2
+    vor%vorchg=0._q2
     tenths_done=0
     DO n1=1,chg%npts(1)
       r_lat(1)=REAL(n1,q2)

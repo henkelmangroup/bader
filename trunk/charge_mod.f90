@@ -118,9 +118,9 @@ MODULE charge_mod
     f2=r(2)-REAL(p2,q2)
     f3=r(3)-REAL(p3,q2)
 
-    g1=1.0_q2-f1
-    g2=1.0_q2-f2
-    g3=1.0_q2-f3
+    g1=1._q2-f1
+    g2=1._q2-f2
+    g3=1._q2-f3
 
     rho000=rho_val(chg,p1,p2,p3)
     rho001=rho_val(chg,p1,p2,p3+1)
@@ -368,7 +368,7 @@ MODULE charge_mod
     p0=FLOOR(r)
     pmin=(/0,0,0/)
     f=r-REAL(p0,q2)
-    dsq_min=0.0_q2
+    dsq_min=0._q2
 
 !    write(*,*) 'into to_lat'
     DO p1=0,1

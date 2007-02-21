@@ -71,9 +71,9 @@ MODULE chgcar_mod
     END DO
 
     ! origin of the lattice is at chg(1,1,1)
-    chg%org_lat=(/1.0_q2,1.0_q2,1.0_q2/)
-    chg%org_dir=(/0.0_q2,0.0_q2,0.0_q2/)
-    chg%org_car=(/0.0_q2,0.0_q2,0.0_q2/)
+    chg%org_lat=(/1._q2,1._q2,1._q2/)
+    chg%org_dir=(/0._q2,0._q2,0._q2/)
+    chg%org_car=(/0._q2,0._q2,0._q2/)
 
     ! ion positions in grid points
     ALLOCATE(ions%r_lat(ions%nions,3))
@@ -91,9 +91,9 @@ MODULE chgcar_mod
           CALL matrix_vector(chg%lat2car,dlat,dcar)
           chg%lat_dist(d1,d2,d3)=SQRT(SUM(dcar*dcar))
           IF ((d1 == 0).AND.(d2 == 0).AND.(d3 == 0)) THEN
-            chg%lat_i_dist(d1,d2,d3)=0.0_q2
+            chg%lat_i_dist(d1,d2,d3)=0._q2
           ELSE
-            chg%lat_i_dist(d1,d2,d3)=1.0_q2/chg%lat_dist(d1,d2,d3)
+            chg%lat_i_dist(d1,d2,d3)=1._q2/chg%lat_dist(d1,d2,d3)
           END IF
         END DO
       END DO
