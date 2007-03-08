@@ -1,6 +1,6 @@
 !-----------------------------------------------------------------------------------!
 ! Bader charge density analysis program
-! Version 0.2, 09/28/26 near-grid algorithm 
+! Version 0.22, 03/07 neargrid and reference charge
 !
 ! Authors:
 !   Andri Arnaldsson, Wenjie Tang, and Graeme Henkelman
@@ -13,7 +13,7 @@
 !
 !   An improved grid-based algorithm for Bader charge allocation
 !   E. Sanville, S. Kenny, R. Smith, and G. Henkelman
-!   (submitted)
+!   J. Comput. Chem. 28 899-908 (2007).
 !
 !   (no title yet, but this will describe the default near-grid algorithm used here)
 !   W. Tang, E. Sanville, and G. Henkelman
@@ -40,7 +40,7 @@
      TYPE(voronoi_obj) :: vor
  
     ! Write the version number
-     WRITE(*,'(/,2X,A)') 'GRID BASED BADER ANALYSIS  (v0.21 11/08/06)'
+     WRITE(*,'(/,2X,A)') 'GRID BASED BADER ANALYSIS  (v0.22 03/07)'
 
      ! Get the control variables
      CALL get_options(opts)
