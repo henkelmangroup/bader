@@ -118,13 +118,6 @@ MODULE bader_mod
             END IF
             path_volnum = bdr%volnum(p(1),p(2),p(3))
 
-!            IF (n1==25.and.n2==22.and.n3==7) THEN
-!              write(*,*) ''
-!              DO i=1,bdr%pnum
-!                write(*,'(3I4)') bdr%path(i,:)
-!              END DO
-!            END IF
-
             ! final point has not been assigned, assign new maximum
             IF (path_volnum == 0) THEN
 !              print*,'new max:',p
@@ -148,8 +141,8 @@ MODULE bader_mod
                 END IF
               END IF  
               IF (opts%quit_opt==opts%quit_known.AND.opts%bader_opt/=opts%bader_ongrid) THEN
-!                CALL assign_surrounding_pts(bdr,chgtemp,ptemp)
-                CALL assign_surrounding_pts2(bdr,chgtemp,ptemp)
+                CALL assign_surrounding_pts(bdr,chgtemp,ptemp)
+!                CALL assign_surrounding_pts2(bdr,chgtemp,ptemp)
               END IF
             END DO
 
@@ -159,12 +152,7 @@ MODULE bader_mod
     END DO
     WRITE(*,*) ''
 
-<<<<<<< bader_mod.f90
     IF(opts%refine_edge_itrs==-1) THEN
-=======
-!    print*,'opts%refine_edge_itrs',opts%refine_edge_itrs
-    IF (opts%refine_edge_itrs == -1) THEN
->>>>>>> 1.45
       WRITE(*,'(/,2x,A)') 'REFINING AUTOMATICALLY'
       DO
         WRITE(*,'(2x,A,I2)') 'ITERATION:',ref_itrs
@@ -419,11 +407,7 @@ MODULE bader_mod
     INTEGER :: d1,d2,d3,i
     LOGICAL :: ismax
 
-<<<<<<< bader_mod.f90
-    REAL(q2),DIMENSION(3) :: unita, gradrl,dr=(/0.0_q2,0.0_q2,0.0_q2/)
-=======
     REAL(q2),DIMENSION(3) :: gradrl,dr=(/0._q2,0._q2,0._q2/)
->>>>>>> 1.45
     REAL(q2) :: cx,cy,cz,coeff,cp,cm,drp
     SAVE dr
 
@@ -444,41 +428,12 @@ MODULE bader_mod
         dr = (/0._q2,0._q2,0._q2/)
       END IF 
     ELSE
-<<<<<<< bader_mod.f90
-      unita=(/1.0_q2,1.0_q2,1.0_q2/)
-      unita=SIGN(unita,gradrl)
-      coeff=MINVAL(ABS((unita-dr)/gradrl))
-      gradrl=coeff*gradrl
-      dr=dr+gradrl
-=======
       coeff = 1._q2/MAXVAL(ABS(gradrl))
       gradrl = coeff*gradrl
       pm = p+ANINT(gradrl)
       dr = dr+gradrl-ANINT(gradrl)
->>>>>>> 1.45
-      DO i=1,3
-<<<<<<< bader_mod.f90
-       IF(dr(i) > 1.001 .OR. dr(i) < -1.001) THEN
-        print*,'dr',dr,'p',p
-       END IF
-=======
-        IF(dr(i) > 1._q2 .OR. dr(i) < -1._q2) THEN
-          print*,'dr',dr,'p',p
-        END IF
->>>>>>> 1.45
-      END DO
-<<<<<<< bader_mod.f90
-      pm=p+ANINT(dr)
-      dr=dr-ANINT(dr)
-=======
       pm = pm+ANINT(dr)
       dr = dr-ANINT(dr)
-      DO i=1,3
-        IF(dr(i)>0.5_q2 .OR. dr(i)<-0.5_q2) THEN
-          print*,'dr',dr,'p',p
-        END IF
-      END DO
->>>>>>> 1.45
     END IF
     bdr%known(p(1),p(2),p(3)) = 1
 
@@ -579,12 +534,9 @@ MODULE bader_mod
       opts%refine_edge_itrs = 0
     END IF
 
-<<<<<<< bader_mod.f90
-=======
 !GH
 !   WRITE(atomfilename,'(A8,I4.4)') "reassign",itrs
 !   CALL write_charge_chgcar(ions,tmp,atomfilename)
->>>>>>> 1.45
 
   RETURN
   END SUBROUTINE refine_edge
@@ -673,20 +625,18 @@ MODULE bader_mod
 !            CALL dpbc_dir_org(dv_dir)
             CALL matrix_vector(ions%dir2car,dv_dir,dv_car)
             CALL dpbc_car(ions,dv_car)
-<<<<<<< bader_mod.f90
             dist=DOT_PRODUCT(dv_car,dv_car)
             IF ((bdr%minsurfdist(atom) == 0.0_q2) .OR.  &
             &   (bdr%minsurfdist(atom) > dist)) THEN
-              bdr%minsurfdist(atom)=SQRT(dist)
-=======
-            dist = DOT_PRODUCT(dv_car,dv_car)
-            IF (bdr%minsurfdist(atom)==0._q2 .OR. bdr%minsurfdist(atom)>dist) THEN
-              bdr%minsurfdist(atom) = dist
->>>>>>> 1.45
+              bdr%minsurfdist(atom)=dist
             END IF
           END IF
         END DO
       END DO
+    END DO
+
+    DO i=1,ions%nions
+      bdr%minsurfdist(i)=SQRT(bdr%minsurfdist(i))
     END DO
 
     CALL system_clock(t2,cr,count_max)
