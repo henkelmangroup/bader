@@ -15,7 +15,7 @@
       INTEGER :: in_opt, in_auto = 0, in_cube = 1, in_chgcar = 2
       INTEGER :: bader_opt, bader_offgrid = 0, bader_ongrid = 1, bader_neargrid = 2
       INTEGER :: quit_opt, quit_max = 0, quit_known = 1
-      INTEGER :: reassign_edge_itrs,refine_edge_itrs
+      INTEGER :: refine_edge_itrs
       LOGICAL :: bader_flag, voronoi_flag, dipole_flag, ldos_flag
       LOGICAL :: verbose_flag,ref_flag
     END TYPE options_obj
