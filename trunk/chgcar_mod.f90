@@ -72,7 +72,7 @@ MODULE chgcar_mod
 
     ! origin of the lattice is at chg(1,1,1)
     chg%org_lat=(/1._q2,1._q2,1._q2/)
-    chg%org_dir=(/0._q2,0._q2,0._q2/)
+!    chg%org_dir=(/0._q2,0._q2,0._q2/)
     chg%org_car=(/0._q2,0._q2,0._q2/)
 
     ! ion positions in grid points

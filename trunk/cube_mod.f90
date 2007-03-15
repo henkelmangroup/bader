@@ -63,21 +63,21 @@ MODULE cube_mod
     DO i=1,ions%nions
       READ(100,*) tmp,ions%ion_chg(i),ions%r_car(i,:)
 !      ions%r_car(i,:)=ions%r_car(i,:)-chg%org_car(:)
-      CALL matrix_vector(ions%car2dir,ions%r_car(i,:),ions%r_dir(i,:))
+      CALL matrix_vector(ions%car2dir,ions%r_car(i,:)-chg%org_car(:),ions%r_dir(i,:))
     END DO
     chg%nrho=PRODUCT(chg%npts(:))
     ALLOCATE(chg%rho(chg%npts(1),chg%npts(2),chg%npts(3)))
     READ(100,*) (((chg%rho(n1,n2,n3),  &
     &            n3=1,chg%npts(3)),n2=1,chg%npts(2)),n1=1,chg%npts(1))
 ! GH: for some reason this is not working; replace with loop
-    chg%rho=chg%rho*vol
-!    DO n1=1,chg%npts(1)
-!      DO n2=1,chg%npts(2)
-!        DO n3=1,chg%npts(3)
-!          chg%rho(n1,n2,n3)=vol*chg%rho(n1,n2,n3)
-!        END DO
-!      END DO
-!    END DO
+!    chg%rho=chg%rho*vol
+    DO n1=1,chg%npts(1)
+      DO n2=1,chg%npts(2)
+        DO n3=1,chg%npts(3)
+          chg%rho(n1,n2,n3)=vol*chg%rho(n1,n2,n3)
+        END DO
+      END DO
+    END DO
 
     WRITE(*,'(1A12,1I5,1A2,1I4,1A2,1I4)') 'FFT-grid: ',  &
     &         chg%npts(1),'x',chg%npts(2),'x',chg%npts(3)
@@ -90,7 +90,7 @@ MODULE cube_mod
     ! origin of the lattice is at chg(0.5,0.5,0.5)
 !    chg%org_lat=(/0.5_q2,0.5_q2,0.5_q2/)
     chg%org_lat=(/1._q2,1._q2,1._q2/)
-    CALL matrix_vector(ions%car2dir,chg%org_car,chg%org_dir)
+!    CALL matrix_vector(ions%car2dir,chg%org_car,chg%org_dir)
 
     ! distance between neighboring points
     DO d1=-1,1
@@ -134,9 +134,8 @@ MODULE cube_mod
       WRITE(100,'(1I5,3(3X,1F9.6))') chg%npts(i),chg%lat2car(i,:)
     END DO
     DO i=1,ions%nions
-    WRITE(100,'(1I5,3X,1F9.6,3(3X,1F9.6))') & 
+      WRITE(100,'(1I5,3X,1F9.6,3(3X,1F9.6))') & 
     &     INT(ions%ion_chg(i)),ions%ion_chg(i),ions%r_car(i,:)
-!    &     INT(ions%ion_chg(i)),ions%ion_chg(i),ions%r_car(i,:)+chg%origin
     END DO
     WRITE(100,'(6E13.5)') (((chg%rho(n1,n2,n3), &
     &  n1=1,chg%npts(1)),n2=1,chg%npts(2)),n3=1,chg%npts(3))
