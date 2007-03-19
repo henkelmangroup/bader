@@ -1,9 +1,9 @@
 !-----------------------------------------------------------------------------------!
 ! Bader charge density analysis program
-! Version 0.22a, 03/07 neargrid and reference charge
+! Version 0.22b, 03/07 neargrid and reference charge
 !
 ! Authors:
-!   Andri Arnaldsson, Wenjie Tang, and Graeme Henkelman
+!   Wenjie Tang, Andri Arnaldsson, and Graeme Henkelman
 !
 ! Based on algorithms described in the following publications:
 !
@@ -40,7 +40,7 @@
      TYPE(voronoi_obj) :: vor
  
     ! Write the version number
-     WRITE(*,'(/,2X,A)') 'GRID BASED BADER ANALYSIS  (v0.22a 03/07)'
+     WRITE(*,'(/,2X,A)') 'GRID BASED BADER ANALYSIS  (v0.22b 03/07)'
 
      ! Get the control variables
      CALL get_options(opts)
