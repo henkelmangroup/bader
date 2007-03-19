@@ -24,5 +24,9 @@ bader: $(OBJS) main.o
 	rm -f bader
 	$(FC) $(LINK) main.o -o $@ $(OBJS) 
 
+dist: bader
+	tar -cf bader_osx_intel.tar bader
+	gzip -9 bader_osx_intel.tar
+
 clean:
 	rm -f *.o *.mod bader

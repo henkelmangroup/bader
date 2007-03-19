@@ -25,8 +25,8 @@ bader: $(OBJS) main.o
 	$(FC) $(LINK) main.o -o $@ $(OBJS)
 
 dist: bader
-	tar -cf bader_osx.tar bader
-	gzip -9 bader_osx.tar
+	tar -cf bader_osx_ppc.tar bader
+	gzip -9 bader_osx_ppc.tar
 
 clean:
-	rm -f *.o *.mod bader bader_osx.tar.gz
+	rm -f *.o *.mod bader bader_osx_ppc.tar.gz
