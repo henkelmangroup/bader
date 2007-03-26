@@ -119,11 +119,11 @@ MODULE chgcar_mod
     WRITE(100,*)'1.00'
     WRITE(100,'(3F13.6)') (ions%lattice(i,1:3) , i=1,3)
     WRITE(100,'(110I4)') ions%num_ion
-    WRITE(100,*)'DIRECT'
+    WRITE(100,*)'Direct'
     WRITE(100,'(3(2X,1F8.6))') (ions%r_dir(i,:) , i=1,ions%nions)
     WRITE(100,*)
     WRITE(100,*) chg%npts(1),chg%npts(2),chg%npts(3)
-    WRITE(100,'(5E18.11)') (((chg%rho(n1,n2,n3), &
+    WRITE(100,'(5(1X,E17.11))') (((chg%rho(n1,n2,n3), &
     &  n1=1,chg%npts(1)),n2=1,chg%npts(2)),n3=1,chg%npts(3))
     CLOSE(100)
 
