@@ -28,8 +28,11 @@ OBJS = kind_mod.obj       \
 	$(FC) $(FFLAGS) -c $*.f90
 
 bader: $(OBJS)
-	$(FC) $(FFLAGS) $(LINK) -out $@ $(OBJS) 
+	$(FC) $(FFLAGS) $(LINK) -out $@ $(OBJS)
+
+dist: bader
+	zip bader_win.zip bader.exe
 
 clean:
-	rm -f *.obj *.mod bader
+	rm -f *.obj *.mod bader.exe bader_win.zip
 

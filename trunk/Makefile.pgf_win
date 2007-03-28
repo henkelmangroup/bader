@@ -5,7 +5,7 @@ FC = pgf90
 FFLAGS = -O3 -fast
 
 #LINK = -Bstatic
-LINK =
+LINK = -pgf90libs
 
 OBJS = kind_mod.obj       \
        matrix_mod.obj     \
