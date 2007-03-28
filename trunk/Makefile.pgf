@@ -4,9 +4,9 @@ DIST=bader_lnx_64
 
 FC = pgf90
 
-FFLAGS = -O3 -fast
+FFLAGS = -O3 -fast -tp x64
 
-LINK = -Bstatic
+LINK = -Bstatic -tp x64
 
 OBJS = kind_mod.o       \
        matrix_mod.o     \
