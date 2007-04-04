@@ -31,7 +31,7 @@
 
     SUBROUTINE get_options(opts)
 
-      EXTERNAL GETARG
+!      EXTERNAL GETARG
       TYPE(options_obj) :: opts
       LOGICAL :: existflag
       LOGICAL :: readchgflag
@@ -59,7 +59,8 @@
       opts%stepsize = 0.0_q2
       opts%ref_flag=.FALSE.
 
-      n=IARGC()
+!      n=IARGC()
+      n=COMMAND_ARGUMENT_COUNT()
       IF (n == 0) THEN
         call write_options()
         STOP
@@ -70,7 +71,8 @@
       readchgflag = .FALSE.
       DO WHILE(m<n)
         m=m+1
-        CALL GETARG(m,p)
+!        CALL GETARG(m,p)
+        CALL GET_COMMAND_ARGUMENT(m,p)
         p=ADJUSTL(p)
         ip=LEN_TRIM(p)
         i=INDEX(p,'-')
@@ -98,7 +100,8 @@
         ! Bader options
         ELSEIF (p(1:ip) == '-b') THEN
           m=m+1
-          CALL GETARG(m,inc)
+!          CALL GETARG(m,inc)
+          CALL GET_COMMAND_ARGUMENT(m,inc)
           inc=ADJUSTL(inc)
           it=LEN_TRIM(inc)
           IF (inc(1:it) == 'OFFGRID' .OR. inc(1:it) == 'offgrid') THEN
@@ -114,7 +117,8 @@
         ! Quit options
         ELSEIF (p(1:ip) == '-m') THEN
           m=m+1
-          CALL GETARG(m,inc)
+!          CALL GETARG(m,inc)
+          CALL GET_COMMAND_ARGUMENT(m,inc)
           inc=ADJUSTL(inc)
           it=LEN_TRIM(inc)
           IF (inc(1:it) == 'MAX' .OR. inc(1:it) == 'max') THEN
@@ -128,7 +132,8 @@
         ! Print options
         ELSEIF (p(1:ip) == '-p') THEN
           m=m+1
-          CALL GETARG(m,inc)
+!          CALL GETARG(m,inc)
+          CALL GET_COMMAND_ARGUMENT(m,inc)
           inc=ADJUSTL(inc)
           it=LEN_TRIM(inc)
           IF (inc(1:it) == 'NONE' .OR. inc(1:it) == 'none') THEN
@@ -148,7 +153,8 @@
         ! Output file type
         ELSEIF (p(1:ip) == '-o') THEN
           m=m+1
-          CALL GETARG(m,inc)
+!          CALL GETARG(m,inc)
+          CALL GET_COMMAND_ARGUMENT(m,inc)
           inc=ADJUSTL(inc)
           it=LEN_TRIM(inc)
           IF (inc(1:it) == 'CUBE' .OR. inc(1:it) == 'cube') THEN
@@ -162,7 +168,8 @@
         ! Calculation options
         ELSEIF (p(1:ip) == '-c') THEN
           m=m+1
-          CALL GETARG(m,inc)
+!          CALL GETARG(m,inc)
+          CALL GET_COMMAND_ARGUMENT(m,inc)
           inc=ADJUSTL(inc)
           it=LEN_TRIM(inc)
           IF (inc(1:it) == 'ALL' .OR. inc(1:it) == 'all') THEN
@@ -184,7 +191,8 @@
           END IF
         ELSEIF (p(1:ip) == '-n') THEN
           m=m+1
-          CALL GETARG(m,inc)
+!          CALL GETARG(m,inc)
+          CALL GET_COMMAND_ARGUMENT(m,inc)
           inc=ADJUSTL(inc)
           it=LEN_TRIM(inc)
           IF (inc(1:it) == 'ALL' .OR. inc(1:it) == 'all') THEN
@@ -207,7 +215,8 @@
         ! Input file type
         ELSEIF (p(1:ip) == '-i') THEN
           m=m+1
-          CALL GETARG(m,inc)
+!          CALL GETARG(m,inc)
+          CALL GET_COMMAND_ARGUMENT(m,inc)
           inc=ADJUSTL(inc)
           it=LEN_TRIM(inc)
           IF (inc(1:it) == 'CUBE' .OR. inc(1:it) == 'cube') THEN
@@ -221,12 +230,14 @@
         ! Bader tolerance
         ELSEIF (p(1:ip) == '-t') THEN
           m=m+1
-          CALL GETARG(m,inc)
+!          CALL GETARG(m,inc)
+          CALL GET_COMMAND_ARGUMENT(m,inc)
           read(inc,*) opts%badertol
         ! Refine edge iterations  -- change this to a flag once working
         ELSEIF (p(1:ip) == '-r') THEN
           m=m+1
-          CALL GETARG(m,inc)
+!          CALL GETARG(m,inc)
+          CALL GET_COMMAND_ARGUMENT(m,inc)
           inc=ADJUSTL(inc)
           it=LEN_TRIM(inc) 
           IF (inc(1:it) == 'AUTO' .OR. inc(1:it) == 'auto') THEN
@@ -237,12 +248,14 @@
         ! Step size
         ELSEIF (p(1:ip) == '-s') THEN
           m=m+1
-          CALL GETARG(m,inc)
+!          CALL GETARG(m,inc)
+          CALL GET_COMMAND_ARGUMENT(m,inc)
           read(inc,*) opts%stepsize
         !doing analysis with ref charge
         ELSEIF (p(1:ip) == '-ref') THEN
           m=m+1
-          CALL GETARG(m,inc)
+!          CALL GETARG(m,inc)
+          CALL GET_COMMAND_ARGUMENT(m,inc)
           inc=ADJUSTL(inc)
           it=LEN_TRIM(inc)
           IF (inc(1:it) == 'NONE' .OR. inc(1:it) == 'none') THEN
