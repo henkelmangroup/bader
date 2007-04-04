@@ -25,7 +25,7 @@ MODULE multipole
     INTEGER :: cr,count_max,t1,t2
     TYPE(ions_obj) :: ions
 
-    CALL system_clock(t1,cr,count_max)
+    CALL SYSTEM_CLOCK(t1,cr,count_max)
 
     WRITE(*,'(/,2x,A)') 'CALCULATING DIPOLE MOMENTS'
     WRITE(*,'(2x,A)')   '               0  10  25  50  75  100'
@@ -62,7 +62,7 @@ MODULE multipole
     END DO
     WRITE(*,*)
 
-    CALL system_clock(t2,cr,count_max)
+    CALL SYSTEM_CLOCK(t2,cr,count_max)
     WRITE(*,'(1A12,1F7.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
 
   RETURN

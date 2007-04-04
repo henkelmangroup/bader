@@ -33,7 +33,7 @@ MODULE io_mod
     CHARACTER(LEN=7) :: text
     INTEGER :: cr,count_max,t1,t2
 
-    CALL system_clock(t1,cr,count_max)
+    CALL SYSTEM_CLOCK(t1,cr,count_max)
 
     chargefile=opts%chargefile
     IF ( opts%in_opt == opts%in_auto ) THEN
@@ -54,7 +54,7 @@ MODULE io_mod
       CALL read_charge_cube(ions,chg,chargefile)
     ENDIF
 
-    CALL system_clock(t2,cr,count_max)
+    CALL SYSTEM_CLOCK(t2,cr,count_max)
     WRITE(*,'(/,1A12,1F7.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
    
   RETURN

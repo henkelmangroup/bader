@@ -36,7 +36,7 @@ MODULE voronoi_mod
     REAL(q2) :: dist,min_dist,shift
     INTEGER :: i,n1,n2,n3,closest,tenths_done,cr,count_max,t1,t2
 
-    CALL system_clock(t1,cr,count_max)
+    CALL SYSTEM_CLOCK(t1,cr,count_max)
 
     WRITE(*,'(/,2x,A)') 'CALCULATING VORONOI CHARGE DISTRIBUTION'
     WRITE(*,'(2x,A)')   '               0  10  25  50  75  100'
@@ -82,7 +82,7 @@ MODULE voronoi_mod
     ! Don't have this normalization for MONDO
     vor%vorchg(:)=vor%vorchg(:)/REAL(chg%nrho,q2)
 
-    CALL system_clock(t2,cr,count_max)
+    CALL SYSTEM_CLOCK(t2,cr,count_max)
     WRITE(*,'(/,A12,F7.2,A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
 
   RETURN
