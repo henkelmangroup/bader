@@ -71,7 +71,7 @@ MODULE bader_mod
       chgtemp = chgval
     END IF
 
-    CALL system_clock(t1,cr,count_max)
+    CALL SYSTEM_CLOCK(t1,cr,count_max)
     
     WRITE(*,'(/,2x,A)')   'CALCULATING BADER CHARGE DISTRIBUTION'
     WRITE(*,'(2x,A)')   '               0  10  25  50  75  100'
@@ -93,7 +93,7 @@ MODULE bader_mod
     ALLOCATE(bdr%path(bdr%pdim,3))
     ALLOCATE(bdr%volnum(chgval%npts(1),chgval%npts(2),chgval%npts(3)))
     ALLOCATE(bdr%known(chgval%npts(1),chgval%npts(2),chgval%npts(3)))
-    bdr%volchg=0._q2
+!    bdr%volchg=0._q2
     bdr%volnum=0
     bdr%known=0
     bdr%bnum=0
@@ -196,7 +196,7 @@ MODULE bader_mod
 
     DEALLOCATE(bdr%path)
 
-    CALL system_clock(t2,cr,count_max)
+    CALL SYSTEM_CLOCK(t2,cr,count_max)
     WRITE(*,'(/,1A12,1F10.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
 
   RETURN
@@ -597,7 +597,7 @@ MODULE bader_mod
     INTEGER :: i,atom,n1,n2,n3,d1,d2,d3
     INTEGER :: cr,count_max,t1,t2,tenths_done
 
-    CALL system_clock(t1,cr,count_max)
+    CALL SYSTEM_CLOCK(t1,cr,count_max)
 
     WRITE(*,'(/,2x,A)') 'CALCULATING MINIMUM DISTANCES TO ATOMS'
     WRITE(*,'(2x,A)')   '               0  10  25  50  75  100'
@@ -639,7 +639,7 @@ MODULE bader_mod
       bdr%minsurfdist(i)=SQRT(bdr%minsurfdist(i))
     END DO
 
-    CALL system_clock(t2,cr,count_max)
+    CALL SYSTEM_CLOCK(t2,cr,count_max)
     WRITE(*,'(2/,1A12,1F7.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
   
   RETURN
@@ -684,7 +684,7 @@ MODULE bader_mod
     INTEGER :: nx,ny,nz,i,atomnum,badercur,tenths_done,t1,t2,cr,count_max
     CHARACTER(LEN=128) :: atomfilename
     
-    CALL system_clock(t1,cr,count_max)
+    CALL SYSTEM_CLOCK(t1,cr,count_max)
 
     WRITE(*,'(/,2x,A)') 'WRITING BADER VOLUMES'
     WRITE(*,'(2x,A)')   '               0  10  25  50  75  100'
@@ -710,7 +710,7 @@ MODULE bader_mod
 
     DEALLOCATE(tmp%rho)
 
-    CALL system_clock(t2,cr,count_max)
+    CALL SYSTEM_CLOCK(t2,cr,count_max)
     WRITE(*,'(2/,1A12,1F7.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
 
   RETURN
@@ -735,7 +735,7 @@ MODULE bader_mod
     INTEGER,DIMENSION(bdr%nvols) :: rck
     CHARACTER(LEN=128) :: atomfilename
 
-    CALL system_clock(t1,cr,count_max)
+    CALL SYSTEM_CLOCK(t1,cr,count_max)
 
     tmp=chg
 
@@ -774,7 +774,7 @@ MODULE bader_mod
     END DO
     DEALLOCATE(tmp%rho)
 
-    CALL system_clock(t2,cr,count_max)
+    CALL SYSTEM_CLOCK(t2,cr,count_max)
     WRITE(*,'(2/,1A12,1F7.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
 
   RETURN
@@ -798,7 +798,7 @@ MODULE bader_mod
 !    INTEGER,DIMENSION(na) :: vols
     INTEGER :: cr,count_max,t1,t2,i,bdimsig
 
-    CALL system_clock(t1,cr,count_max)
+    CALL SYSTEM_CLOCK(t1,cr,count_max)
 
     tmp=chg
 
@@ -826,7 +826,7 @@ MODULE bader_mod
 
     DEALLOCATE(tmp%rho)
 
-    CALL system_clock(t2,cr,count_max)
+    CALL SYSTEM_CLOCK(t2,cr,count_max)
     WRITE(*,'(2/,1A12,1F7.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
 
   RETURN
