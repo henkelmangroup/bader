@@ -40,7 +40,7 @@
      TYPE(voronoi_obj) :: vor
  
     ! Write the version number
-     WRITE(*,'(/,2X,A)') 'GRID BASED BADER ANALYSIS  (v0.22d 04/03)'
+     WRITE(*,'(/,2X,A)') 'GRID BASED BADER ANALYSIS  (v0.22d 04/03/07)'
 
      ! Get the control variables
      CALL get_options(opts)
