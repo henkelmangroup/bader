@@ -31,17 +31,13 @@
 
     SUBROUTINE get_options(opts)
 
-!      EXTERNAL GETARG
       TYPE(options_obj) :: opts
       LOGICAL :: existflag
       LOGICAL :: readchgflag
       INTEGER :: n,iargc,i,ip,m,it,ini
       REAL(q2) :: temp
       CHARACTER(LEN=128) :: p
-!      CHARACTER(LEN=128) :: inc
       CHARACTER*128 :: inc
-!      CHARACTER :: inc(128)
-!      CHARACTER,ALLOCATABLE :: inc(:)
 
 ! Default values
       opts%out_opt = opts%out_chgcar
