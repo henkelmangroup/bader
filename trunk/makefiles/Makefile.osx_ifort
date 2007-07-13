@@ -4,7 +4,7 @@ FC = ifort
 
 FFLAGS = -O2
 
-LINK = 
+LINK = -i-static
 
 OBJS = kind_mod.o       \
        matrix_mod.o     \
