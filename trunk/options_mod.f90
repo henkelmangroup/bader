@@ -38,6 +38,7 @@
       REAL(q2) :: temp
       CHARACTER(LEN=128) :: p
       CHARACTER*128 :: inc
+      INTEGER :: COMMAND_ARGUMENT_COUNT
 
 ! Default values
       opts%out_opt = opts%out_chgcar
