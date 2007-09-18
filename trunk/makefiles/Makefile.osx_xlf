@@ -2,9 +2,12 @@
 
 FC = xlf90
 
-FFLAGS = -O2 -qarch=auto -qsuffix=f=f90 -qmaxmem=-1
+#FFLAGS = -O2 -qarch=auto -qsuffix=f=f90 -qmaxmem=-1
+FFLAGS = -O2 -qsuffix=f=f90 -qmaxmem=-1 -F:xlf90_s
 
-LINK = 
+#LINK =
+#LINK = -F:xlf90_s -brename:COMMAND_ARGUMENT_COUNT,IARGC -b:GET_COMMAND_ARGUMENT,GETARG
+LINK = -F:xlf90_s
 
 OBJS = kind_mod.o       \
        matrix_mod.o     \
@@ -15,7 +18,8 @@ OBJS = kind_mod.o       \
        cube_mod.o       \
        io_mod.o         \
        bader_mod.o      \
-       voronoi_mod.o
+       voronoi_mod.o    \
+       command_arg.o
 
 %.o %.mod : %.f90
 	$(FC) $(FFLAGS) -c $*.f90
