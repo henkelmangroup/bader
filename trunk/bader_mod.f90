@@ -66,7 +66,7 @@ MODULE bader_mod
     TYPE(ions_obj) :: ionstemp
 
     IF (opts%ref_flag) THEN
-      CALL read_charge_chgcar(ionstemp,chgtemp,opts%refchgfile)
+      CALL read_charge_ref(ionstemp,chgtemp,opts)
     ELSE
       chgtemp = chgval
     END IF
