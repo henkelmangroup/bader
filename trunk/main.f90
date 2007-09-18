@@ -1,9 +1,12 @@
 !-----------------------------------------------------------------------------------!
 ! Bader charge density analysis program
-! Version 0.22 neargrid and reference charge
+! Version 0.23
 !
 ! Authors:
 !   Wenjie Tang, Andri Arnaldsson, and Graeme Henkelman
+!
+! Contributers:
+!   Johannes Voss (DTU)
 !
 ! Based on algorithms described in the following publications:
 !
