@@ -396,7 +396,7 @@ MODULE bader_mod
 
 !-----------------------------------------------------------------------------------!
 !  step_neargrid:  Do a single iteration of a maximization on the charge density 
-!    grid from the point (px,py,pz).  Return a logical indicating if the current
+!    grid from the point (px,py,pz).
 !-----------------------------------------------------------------------------------!
 
   SUBROUTINE step_neargrid(bdr,chg,p)
