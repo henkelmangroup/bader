@@ -704,7 +704,15 @@ MODULE bader_mod
         atomnum = atomnum+1
         WRITE(atomfilename,'(A4,I4.4,A4)') "Bvol",atomnum,".dat"
         tmp%rho = 0._q2
-        WHERE (bdr%volnum == badercur) tmp%rho = chg%rho
+!        WHERE (bdr%volnum == badercur) tmp%rho = chg%rho
+        ! Change that seems to be needed on fri
+        DO n1=1,chg%npts(1)
+          DO n2=1,chg%npts(2)
+            DO n3=1,chg%npts(3)
+              IF (bdr%volnum(n1,n2,n3) == badercur) tmp%rho(n1,n2,n3) = chg%rho(n1,n2,n3)
+            END DO
+          END DO
+        END DO
         CALL write_charge(ions,tmp,opts,atomfilename)
       END IF
     END DO
@@ -768,7 +776,15 @@ MODULE bader_mod
 
       tmp%rho = 0._q2
       DO b=1,cc
-        WHERE (bdr%volnum == rck(b)) tmp%rho = chg%rho
+!        WHERE (bdr%volnum == rck(b)) tmp%rho = chg%rho
+        ! this change is needed on fri - intel compiler
+        DO n1=1,chg%npts(1)
+          DO n2=1,chg%npts(2)
+            DO n3=1,chg%npts(3)
+              IF (bdr%volnum(n1,n2,n3) == rck(b)) tmp%rho(n1,n2,n3) = chg%rho(n1,n2,n3)
+            END DO
+          END DO
+        END DO
       END DO 
       CALL write_charge(ions,tmp,opts,atomfilename)
 
