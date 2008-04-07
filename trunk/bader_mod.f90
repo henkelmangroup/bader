@@ -683,6 +683,7 @@ MODULE bader_mod
 
     TYPE(charge_obj) :: tmp
     INTEGER :: nx,ny,nz,i,atomnum,badercur,tenths_done,t1,t2,cr,count_max
+    INTEGER :: n1,n2,n3
     CHARACTER(LEN=128) :: atomfilename
     
     CALL SYSTEM_CLOCK(t1,cr,count_max)
@@ -741,6 +742,7 @@ MODULE bader_mod
     TYPE(charge_obj) :: tmp
 
     INTEGER :: nx,ny,nz,i,j,b,mab,mib,ik,sc,cc,tenths_done,t1,t2,cr,count_max
+    INTEGER :: n1,n2,n3
     INTEGER,DIMENSION(bdr%nvols) :: rck
     CHARACTER(LEN=128) :: atomfilename
 
