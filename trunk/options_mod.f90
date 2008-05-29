@@ -285,7 +285,7 @@
    
     IF (opts%print_opt==opts%print_sel_atom) THEN
       WRITE(*,*)
-      WRITE(*,*) 'YOU CHOOSE TO WRITE SPECIFIC ATOMIC VOLUMES:'
+      WRITE(*,*) 'YOU CHOOSE TO WRITE SELECTED ATOMIC VOLUMES:'
       WRITE(*,'(2X,A,$)') 'NUMBER OF ATOMIC VOLUMES YOU WANT TO WRITE: '
       READ(*,*) opts%sel_atom_num
       ALLOCATE(opts%sel_atom_array(opts%sel_atom_num))
@@ -295,7 +295,7 @@
 
     IF (opts%print_opt==opts%print_sel_bader) THEN
       WRITE(*,*)
-      WRITE(*,*) 'YOU CHOOSE TO WRITE THE SPECIFIC BADER VOLUMES:'
+      WRITE(*,*) 'YOU CHOOSE TO WRITE THE SELECTED BADER VOLUMES:'
       WRITE(*,'(2X,A,$)') 'NUMBER OF BADER VOLUMES YOU WANT TO WRITE: '
       READ(*,*) opts%sel_bader_num
       ALLOCATE(opts%sel_bader_array(opts%sel_bader_num))
