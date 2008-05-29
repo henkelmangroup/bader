@@ -18,6 +18,8 @@
       INTEGER :: refine_edge_itrs
       LOGICAL :: bader_flag, voronoi_flag, dipole_flag, ldos_flag
       LOGICAL :: verbose_flag,ref_flag
+      INTEGER :: sel_atom_num, sel_bader_num
+      INTEGER,ALLOCATABLE,DIMENSION(:) :: sel_atom_array, sel_bader_array
     END TYPE options_obj
 
     PRIVATE
@@ -280,7 +282,27 @@
     IF (opts%bader_opt==opts%bader_ongrid) THEN
       opts%refine_edge_itrs=0
     END IF
- 
+   
+    IF (opts%print_opt==opts%print_sel_atom) THEN
+      WRITE(*,*)
+      WRITE(*,*) 'YOU CHOOSE TO WRITE SPECIFIC ATOMIC VOLUMES:'
+      WRITE(*,'(2X,A,$)') 'NUMBER OF ATOMIC VOLUMES YOU WANT TO WRITE: '
+      READ(*,*) opts%sel_atom_num
+      ALLOCATE(opts%sel_atom_array(opts%sel_atom_num))
+      WRITE(*,'(2X,A,$)') 'INPUT THE ATOMIC VOLUMES TO WRITE OUT: '
+      READ(*,*) opts%sel_atom_array
+    END IF
+
+    IF (opts%print_opt==opts%print_sel_bader) THEN
+      WRITE(*,*)
+      WRITE(*,*) 'YOU CHOOSE TO WRITE THE SPECIFIC BADER VOLUMES:'
+      WRITE(*,'(2X,A,$)') 'NUMBER OF BADER VOLUMES YOU WANT TO WRITE: '
+      READ(*,*) opts%sel_bader_num
+      ALLOCATE(opts%sel_bader_array(opts%sel_bader_num))
+      WRITE(*,'(2X,A,$)') 'INPUT THE BADER VOLUMES TO WRITE OUT: '
+      READ(*,*) opts%sel_bader_array
+    END IF
+
     RETURN
     END SUBROUTINE get_options
 

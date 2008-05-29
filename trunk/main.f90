@@ -59,8 +59,13 @@
          CALL write_all_bader(bdr,opts,ions,chgval)
        ELSEIF (opts%print_opt==opts%print_all_atom) THEN
          CALL write_all_atom(bdr,opts,ions,chgval)
+       ELSEIF (opts%print_opt==opts%print_sel_atom) THEN
+         CALL write_sel_atom(bdr,opts,ions,chgval)
+       ELSEIF (opts%print_opt==opts%print_sel_bader) THEN
+         CALL write_sel_bader(bdr,opts,ions,chgval)
        ENDIF
      ENDIF
+
 !     IF (opts%dipole_flag) CALL multipole()
      IF (opts%voronoi_flag) CALL voronoi(vor,ions,chgval)
 

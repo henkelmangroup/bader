@@ -39,6 +39,7 @@ MODULE bader_mod
   PRIVATE
   PUBLIC :: bader_obj
   PUBLIC :: bader_calc,bader_mindist,bader_output,write_all_atom,write_all_bader
+  PUBLIC :: write_sel_atom,write_sel_bader
 
   CONTAINS
 
@@ -800,6 +801,67 @@ MODULE bader_mod
   END SUBROUTINE write_all_atom
 
 !-----------------------------------------------------------------------------------!
+! write_sel_atom: Write out a CHGCAR type file for the user specified atomic volumes.
+!-----------------------------------------------------------------------------------!
+
+  SUBROUTINE write_sel_atom(bdr,opts,ions,chg)
+
+    TYPE(bader_obj) :: bdr
+    TYPE(options_obj) :: opts
+    TYPE(ions_obj) :: ions
+    TYPE(charge_obj) :: chg
+
+    TYPE(charge_obj) :: tmp
+
+    INTEGER :: nx,ny,nz,i,j,b,mab,mib,ik,sc,cc,tenths_done,t1,t2,cr,count_max
+    INTEGER,DIMENSION(bdr%nvols) :: rck
+    CHARACTER(LEN=128) :: atomfilename
+
+    CALL SYSTEM_CLOCK(t1,cr,count_max)
+
+    tmp=chg
+
+    WRITE(*,'(/,2x,A)') 'WRITING ATOMIC VOLUMES '
+    WRITE(*,'(2x,A)')   '               0  10  25  50  75  100'
+    WRITE(*,'(2x,A,$)') 'PERCENT DONE:  **'
+    tenths_done=0
+    sc=0
+
+    DO i=1,opts%sel_atom_num
+      ik=opts%sel_atom_array(i)
+      cc=0
+      rck=0
+      DO j=1,bdr%nvols
+        IF (bdr%volchg(j) < bdr%tol) CYCLE
+        IF (bdr%nnion(j) == ik) THEN
+          cc = cc+1
+          rck(cc) = j
+        END IF
+      END DO
+      sc = sc+cc
+      DO WHILE ((i*10/opts%sel_atom_num) > tenths_done)
+        tenths_done = tenths_done+1
+        WRITE(*,'(A,$)') '**'
+      END DO
+      IF (cc == 0) CYCLE
+      WRITE(atomfilename,'(A4,I4.4,A4)') "BvAt",ik,".dat"
+
+      tmp%rho = 0._q2
+      DO b=1,cc
+        WHERE (bdr%volnum == rck(b)) tmp%rho = chg%rho
+      END DO 
+      CALL write_charge(ions,tmp,opts,atomfilename)
+
+    END DO
+    DEALLOCATE(tmp%rho)
+
+    CALL SYSTEM_CLOCK(t2,cr,count_max)
+    WRITE(*,'(2/,1A12,1F7.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
+
+  RETURN
+  END SUBROUTINE write_sel_atom
+
+!-----------------------------------------------------------------------------------!
 ! write_sel_bader: Write out a CHGCAR type file for the user specified Bader volumes.
 !              Volumes associated with a atom can be read from AtomVolumes.dat
 !-----------------------------------------------------------------------------------!
@@ -815,7 +877,7 @@ MODULE bader_mod
     CHARACTER(LEN=128) :: atomfilename
     INTEGER,DIMENSION(bdr%nvols,2) :: volsig
 !    INTEGER,DIMENSION(na) :: vols
-    INTEGER :: cr,count_max,t1,t2,i,bdimsig
+    INTEGER :: cr,count_max,t1,t2,i,bdimsig,bvolnum
 
     CALL SYSTEM_CLOCK(t1,cr,count_max)
 
@@ -832,16 +894,18 @@ MODULE bader_mod
         volsig(bdimsig,2) = i
       END IF
     END DO
-!    vols=volsig(addup,2)
+
     WRITE(*,'(/,2x,A)') 'WRITING SPECIFIED BADER VOLUMES '
-    atomfilename = "Bvsm.dat"
 
     tmp%rho = 0._q2
-! fix this when we get na input through options
-!    DO b=1,na
-!      WHERE(bdr%volnum == vols(b)) tmp%rho=chg%rho
-!    END DO
-    CALL write_charge(ions,chg,opts,atomfilename)
+
+    DO i=1,opts%sel_bader_num
+      bvolnum=opts%sel_bader_array(i)
+      WRITE(atomfilename,'(A4,I4.4,A4)') "Bvol",bvolnum,".dat"
+      tmp%rho = 0._q2
+      WHERE (bdr%volnum == volsig(bvolnum,2)) tmp%rho = chg%rho
+      CALL write_charge(ions,tmp,opts,atomfilename)
+    END DO
 
     DEALLOCATE(tmp%rho)
 
