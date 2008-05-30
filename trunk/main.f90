@@ -1,6 +1,6 @@
 !-----------------------------------------------------------------------------------!
 ! Bader charge density analysis program
-! Version 0.23
+! Version 0.24 (05/30/08)
 !
 ! Authors:
 !   Wenjie Tang, Andri Arnaldsson, and Graeme Henkelman
@@ -18,8 +18,9 @@
 !   E. Sanville, S. Kenny, R. Smith, and G. Henkelman
 !   J. Comput. Chem. 28 899-908 (2007).
 !
-!   (no title yet, but this will describe the default near-grid algorithm used here)
+!   A grid-based Bader analysis algorithm without lattice bias
 !   W. Tang, E. Sanville, and G. Henkelman
+!   J. Phys.: Condens. Matter (in press, 2008)
 !
 !-----------------------------------------------------------------------------------!
 
@@ -43,7 +44,7 @@
      TYPE(voronoi_obj) :: vor
  
     ! Write the version number
-     WRITE(*,'(/,2X,A)') 'GRID BASED BADER ANALYSIS  (v0.22d 04/03/07)'
+     WRITE(*,'(/,2X,A)') 'GRID BASED BADER ANALYSIS  (v0.24 05/30/08)'
 
      ! Get the control variables
      CALL get_options(opts)

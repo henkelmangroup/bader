@@ -308,14 +308,12 @@
     END IF
    
     IF (opts%print_opt==opts%print_sel_atom .AND. opts%selan==0) THEN
-      WRITE(*,*)
-      WRITE(*,*) 'NOT INDICATE WHICH ATOM IS SELECTED'
+      WRITE(*,'(/,A)') 'NO ATOMIC VOLUMES SELECTED'
       STOP
     END IF
 
     IF (opts%print_opt==opts%print_sel_bader .AND. opts%selbn==0) THEN
-      WRITE(*,*) 
-      WRITE(*,*) 'NOT INDICATE WHICH ATOM IS SELECTED'
+      WRITE(*,'(/,A)') 'NO BADER VOLUMES SELECTED'
       STOP
     END IF
 
@@ -330,19 +328,16 @@
 
       WRITE(*,*) ''
       WRITE(*,*) 'Usage:'
-!      WRITE(*,*) '   bader [ -c bader | voronoi | dipole | ldos ]'
-!      WRITE(*,*) '         [ -n bader | voronoi | dipole | ldos ]'
       WRITE(*,*) '   bader [ -c bader | voronoi ]'
       WRITE(*,*) '         [ -n bader | voronoi ]'
-!      WRITE(*,*) '         [ -b offgrid | ongrid | neargrid ] [ -s stepsize ]'
       WRITE(*,*) '         [ -b neargrid | ongrid ]'
       WRITE(*,*) '         [ -r refine_edge_iterations ]'
       WRITE(*,*) '         [ -ref reference_charge ]'
-!      WRITE(*,*) '         [ -p none | all_atom | all_bader ] [ -h ] [ -v ]'
       WRITE(*,*) '         [ -m known | max ]'
-      WRITE(*,*) '         [ -p none | all_atom | all_bader ] [ -h ]'
+      WRITE(*,*) '         [ -p none | all_atom | all_bader | sel_atom | sel_bader ] [ volume list]'
       WRITE(*,*) '         [ -i cube | chgcar ]'
       WRITE(*,*) '         [ -o cube | chgcar ]'
+      WRITE(*,*) '         [ -h ] [ -v ]'
       WRITE(*,*) '         chargefile'
       WRITE(*,*) ''
 
@@ -389,11 +384,13 @@
       WRITE(*,*) '           known: stop when a point is surrounded by known points' 
       WRITE(*,*) '           max: stop only when a charge density maximum is reached '
       WRITE(*,*) ''
-      WRITE(*,*) '   -p < none | all_atom | all_bader >'
+      WRITE(*,*) '   -p < none | all_atom | all_bader | sel_atom | sel_bader > <volume list>'
       WRITE(*,*) '        Print options for calculated Bader volumes'
       WRITE(*,*) '           none: do not output any Bader volumes'
-      WRITE(*,*) '           all_atom: all Bader volumes around the specified atom(s)'
+      WRITE(*,*) '           all_atom: all atomic volumes'
       WRITE(*,*) '           all_bader: all Bader volumes'
+      WRITE(*,*) '           sel_atom: atomic volume(s) around the selected atom(s)'
+      WRITE(*,*) '           sel_bader: selected Bader volumes'
       WRITE(*,*) ''
       WRITE(*,*) '   -i < cube | chgcar >'
       WRITE(*,*) '        Input charge density file type.  If not specified, the'
@@ -402,6 +399,12 @@
       WRITE(*,*) ''
       WRITE(*,*) '   -o < cube | chgcar >'
       WRITE(*,*) '        Output charge density file type.'
+      WRITE(*,*) ''
+      WRITE(*,*) '   -h'
+      WRITE(*,*) '        Help.'
+      WRITE(*,*) ''
+      WRITE(*,*) '   -v'
+      WRITE(*,*) '        Verbose output.'
       WRITE(*,*) ''
     
     END SUBROUTINE write_help
