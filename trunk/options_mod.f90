@@ -18,8 +18,8 @@
       INTEGER :: refine_edge_itrs
       LOGICAL :: bader_flag, voronoi_flag, dipole_flag, ldos_flag
       LOGICAL :: verbose_flag,ref_flag
-      INTEGER :: sel_atom_num, sel_bader_num
-      INTEGER,ALLOCATABLE,DIMENSION(:) :: sel_atom_array, sel_bader_array
+      INTEGER :: selan,selbn
+      INTEGER,DIMENSION(110) :: sel_a,sel_b
     END TYPE options_obj
 
     PRIVATE
@@ -37,6 +37,7 @@
       LOGICAL :: existflag
       LOGICAL :: readchgflag
       INTEGER :: n,iargc,i,ip,m,it,ini
+      INTEGER :: j, sel
       REAL(q2) :: temp
       CHARACTER(LEN=128) :: p
       CHARACTER*128 :: inc
@@ -69,6 +70,7 @@
       m=0
       readchgflag = .FALSE.
       DO WHILE(m<n)
+10001   CONTINUE
         m=m+1
 !        CALL GETARG(m,p)
         CALL GET_COMMAND_ARGUMENT(m,p)
@@ -143,8 +145,30 @@
             opts%print_opt = opts%print_all_atom
           ELSEIF (inc(1:it) == 'SEL_BADER' .OR. inc(1:it) == 'sel_bader') THEN
             opts%print_opt = opts%print_sel_bader
+            opts%selbn=0
+            DO
+              m=m+1
+              CALL GET_COMMAND_ARGUMENT(m,inc)
+              inc=ADJUSTL(inc)
+              it=LEN_TRIM(inc)
+              READ (inc(1:it),'(I10)',ERR=110) sel
+              opts%selbn=opts%selbn+1
+              opts%sel_b(opts%selbn)=sel
+            END DO
           ELSEIF (inc(1:it) == 'SEL_ATOM' .OR. inc(1:it) == 'sel_atom') THEN
             opts%print_opt = opts%print_sel_atom
+            opts%selan=0
+            DO
+              m=m+1
+              CALL GET_COMMAND_ARGUMENT(m,inc)
+              inc=ADJUSTL(inc)
+              it=LEN_TRIM(inc)
+              READ (inc(1:it),'(I10)',ERR=110) sel
+              opts%selan=opts%selan+1
+              opts%sel_a(opts%selan)=sel
+            END DO
+   110      m=m-1
+            GOTO 10001
           ELSE
             WRITE(*,'(A,A,A)') ' Unknown option "',inc(1:it),'"'
             STOP
@@ -262,7 +286,7 @@
           ELSE
             opts%ref_flag = .TRUE.
             opts%refchgfile = inc(1:it)
-          END IF           
+          END IF
         ! Unknown flag
         ELSE
           WRITE(*,'(A,A,A)') ' Unknown option flag "',p(1:ip),'"'
@@ -283,24 +307,16 @@
       opts%refine_edge_itrs=0
     END IF
    
-    IF (opts%print_opt==opts%print_sel_atom) THEN
+    IF (opts%print_opt==opts%print_sel_atom .AND. opts%selan==0) THEN
       WRITE(*,*)
-      WRITE(*,*) 'YOU CHOOSE TO WRITE SELECTED ATOMIC VOLUMES:'
-      WRITE(*,'(2X,A,$)') 'NUMBER OF ATOMIC VOLUMES YOU WANT TO WRITE: '
-      READ(*,*) opts%sel_atom_num
-      ALLOCATE(opts%sel_atom_array(opts%sel_atom_num))
-      WRITE(*,'(2X,A,$)') 'INPUT THE ATOMIC VOLUMES TO WRITE OUT: '
-      READ(*,*) opts%sel_atom_array
+      WRITE(*,*) 'NOT INDICATE WHICH ATOM IS SELECTED'
+      STOP
     END IF
 
-    IF (opts%print_opt==opts%print_sel_bader) THEN
-      WRITE(*,*)
-      WRITE(*,*) 'YOU CHOOSE TO WRITE THE SELECTED BADER VOLUMES:'
-      WRITE(*,'(2X,A,$)') 'NUMBER OF BADER VOLUMES YOU WANT TO WRITE: '
-      READ(*,*) opts%sel_bader_num
-      ALLOCATE(opts%sel_bader_array(opts%sel_bader_num))
-      WRITE(*,'(2X,A,$)') 'INPUT THE BADER VOLUMES TO WRITE OUT: '
-      READ(*,*) opts%sel_bader_array
+    IF (opts%print_opt==opts%print_sel_bader .AND. opts%selbn==0) THEN
+      WRITE(*,*) 
+      WRITE(*,*) 'NOT INDICATE WHICH ATOM IS SELECTED'
+      STOP
     END IF
 
     RETURN

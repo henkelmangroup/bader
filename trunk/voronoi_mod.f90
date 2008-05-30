@@ -49,6 +49,7 @@ MODULE voronoi_mod
 
     vor%vorchg=0._q2
     tenths_done=0
+
     DO n1=1,chg%npts(1)
       r_lat(1)=REAL(n1,q2)
       IF ((n1*10/chg%npts(1)) > tenths_done) THEN

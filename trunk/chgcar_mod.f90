@@ -78,7 +78,9 @@ MODULE chgcar_mod
     ! ion positions in grid points
     ALLOCATE(ions%r_lat(ions%nions,3))
     DO i=1,ions%nions
-      ions%r_lat(i,:)=dir2lat(chg,ions%r_dir(i,:))
+!      ions%r_lat(i,:)=dir2lat(chg,ions%r_dir(i,:))
+      CALL matrix_vector(chg%car2lat,ions%r_car(i,:),ions%r_lat(i,:))
+      ions%r_lat(i,:)=ions%r_lat(i,:)+chg%org_lat
     END DO
 
     ! distance between neighboring points

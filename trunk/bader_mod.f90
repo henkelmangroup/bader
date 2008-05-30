@@ -821,14 +821,14 @@ MODULE bader_mod
 
     tmp=chg
 
-    WRITE(*,'(/,2x,A)') 'WRITING ATOMIC VOLUMES '
+    WRITE(*,'(/,2x,A)') 'WRITING SELECTED ATOMIC VOLUMES '
     WRITE(*,'(2x,A)')   '               0  10  25  50  75  100'
     WRITE(*,'(2x,A,$)') 'PERCENT DONE:  **'
     tenths_done=0
     sc=0
 
-    DO i=1,opts%sel_atom_num
-      ik=opts%sel_atom_array(i)
+    DO i=1,opts%selan
+      ik=opts%sel_a(i)
       cc=0
       rck=0
       DO j=1,bdr%nvols
@@ -839,7 +839,7 @@ MODULE bader_mod
         END IF
       END DO
       sc = sc+cc
-      DO WHILE ((i*10/opts%sel_atom_num) > tenths_done)
+      DO WHILE ((i*10/opts%selan) > tenths_done)
         tenths_done = tenths_done+1
         WRITE(*,'(A,$)') '**'
       END DO
@@ -877,7 +877,7 @@ MODULE bader_mod
     CHARACTER(LEN=128) :: atomfilename
     INTEGER,DIMENSION(bdr%nvols,2) :: volsig
 !    INTEGER,DIMENSION(na) :: vols
-    INTEGER :: cr,count_max,t1,t2,i,bdimsig,bvolnum
+    INTEGER :: cr,count_max,t1,t2,tenths_done,i,bdimsig,bvolnum
 
     CALL SYSTEM_CLOCK(t1,cr,count_max)
 
@@ -895,12 +895,20 @@ MODULE bader_mod
       END IF
     END DO
 
-    WRITE(*,'(/,2x,A)') 'WRITING SPECIFIED BADER VOLUMES '
+    WRITE(*,'(/,2x,A)') 'WRITING SELECTED BADER VOLUMES '
+    WRITE(*,'(2x,A)')   '               0  10  25  50  75  100'
+    WRITE(*,'(2x,A,$)') 'PERCENT DONE:  **'
+    tenths_done=0
 
     tmp%rho = 0._q2
 
-    DO i=1,opts%sel_bader_num
-      bvolnum=opts%sel_bader_array(i)
+    DO i=1,opts%selbn
+      DO WHILE ((i*10/opts%selbn) > tenths_done)
+        tenths_done = tenths_done+1
+        WRITE(*,'(A,$)') '**'
+      END DO
+
+      bvolnum=opts%sel_b(i)
       WRITE(atomfilename,'(A4,I4.4,A4)') "Bvol",bvolnum,".dat"
       tmp%rho = 0._q2
       WHERE (bdr%volnum == volsig(bvolnum,2)) tmp%rho = chg%rho
