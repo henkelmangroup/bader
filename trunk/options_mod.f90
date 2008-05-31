@@ -65,17 +65,16 @@
         call write_options()
         STOP
       END IF
-print*, 'n',n
+
+      ALLOCATE(opts%sel_a(n),opts%sel_b(n))
 
       ! Loop over all arguments
       m=0
       readchgflag = .FALSE.
-rdopts: DO WHILE(m<n)
+rdopts:DO WHILE(m<n)
         m=m+1
-print*, 'm',m
 !        CALL GETARG(m,p)
         CALL GET_COMMAND_ARGUMENT(m,p)
-print*, 'p',p
         p=ADJUSTL(p)
         ip=LEN_TRIM(p)
         i=INDEX(p,'-')
@@ -87,7 +86,6 @@ print*, 'p',p
             STOP
           END IF
           opts%chargefile=p
-print*,'opts%chargefile',opts%chargefile
           INQUIRE(FILE=opts%chargefile,EXIST=existflag)
           IF (.NOT. existflag) THEN
             WRITE(*,'(2X,A,A)') opts%chargefile(1:ip),' does not exist'
@@ -149,55 +147,31 @@ print*,'opts%chargefile',opts%chargefile
           ELSEIF (inc(1:it) == 'SEL_BADER' .OR. inc(1:it) == 'sel_bader') THEN
             opts%print_opt = opts%print_sel_bader
             opts%selbn=0
-            j=m
             DO
-              j=j+1
-              CALL GET_COMMAND_ARGUMENT(j,inc)
+              m=m+1
+              CALL GET_COMMAND_ARGUMENT(m,inc)
               inc=ADJUSTL(inc)
               it=LEN_TRIM(inc)
               READ (inc(1:it),'(I10)',ERR=110) sel
               opts%selbn=opts%selbn+1
-              IF(j==n) GOTO 110
-            END DO
-   110      IF(opts%selbn==0) THEN 
-              WRITE(*,*) 'NOT INDICATE WHICH BADER VOLUME IS SELECTED'
-              STOP
-            END IF 
-            ALLOCATE(opts%sel_b(opts%selbn))
-            DO j=1,opts%selbn
-              m=m+1
-              CALL GET_COMMAND_ARGUMENT(m,inc)
-              inc=ADJUSTL(inc)
-              it=LEN_TRIM(inc)
-              READ (inc(1:it),'(I10)') sel
-              opts%sel_b(j)=sel
+              opts%sel_b(opts%selbn)=sel
+              IF(m==n) EXIT rdopts
             END DO
           ELSEIF (inc(1:it) == 'SEL_ATOM' .OR. inc(1:it) == 'sel_atom') THEN
             opts%print_opt = opts%print_sel_atom
             opts%selan=0
-            j=m
             DO
-              j=j+1
-              CALL GET_COMMAND_ARGUMENT(j,inc)
-              inc=ADJUSTL(inc)
-              it=LEN_TRIM(inc)
-              READ (inc(1:it),'(I10)',ERR=120) sel
-              opts%selan=opts%selan+1
-              IF(j==n) GOTO 120
-            END DO
-   120      IF(opts%selan==0) THEN       
-              WRITE(*,*) 'NOT INDICATE WHICH ATOM IS SELECTED'
-              STOP
-            END IF          
-            ALLOCATE(opts%sel_a(opts%selan))
-            DO j=1,opts%selan
               m=m+1
               CALL GET_COMMAND_ARGUMENT(m,inc)
               inc=ADJUSTL(inc)
-              it=LEN_TRIM(inc) 
-              READ (inc(1:it),'(I10)') sel
-              opts%sel_a(j)=sel
+              it=LEN_TRIM(inc)
+              READ (inc(1:it),'(I10)',ERR=110) sel
+              opts%selan=opts%selan+1
+              opts%sel_a(opts%selan)=sel
+              IF(m==n) EXIT rdopts
             END DO
+    110     m=m-1
+            CYCLE
           ELSE
             WRITE(*,'(A,A,A)') ' Unknown option "',inc(1:it),'"'
             STOP
@@ -316,7 +290,6 @@ print*,'opts%chargefile',opts%chargefile
             opts%ref_flag = .TRUE.
             opts%refchgfile = inc(1:it)
           END IF
-print*,'ref:',opts%refchgfile
         ! Unknown flag
         ELSE
           WRITE(*,'(A,A,A)') ' Unknown option flag "',p(1:ip),'"'
