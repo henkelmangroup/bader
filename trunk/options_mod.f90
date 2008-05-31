@@ -16,10 +16,10 @@
       INTEGER :: bader_opt, bader_offgrid = 0, bader_ongrid = 1, bader_neargrid = 2
       INTEGER :: quit_opt, quit_max = 0, quit_known = 1
       INTEGER :: refine_edge_itrs
+      INTEGER :: selnum
+      INTEGER,ALLOCATABLE,DIMENSION(:) :: selvol
       LOGICAL :: bader_flag, voronoi_flag, dipole_flag, ldos_flag
       LOGICAL :: verbose_flag,ref_flag
-      INTEGER :: selan,selbn
-      INTEGER,ALLOCATABLE,DIMENSION(:) :: sel_a,sel_b
     END TYPE options_obj
 
     PRIVATE
@@ -66,12 +66,10 @@
         STOP
       END IF
 
-      ALLOCATE(opts%sel_a(n),opts%sel_b(n))
-
       ! Loop over all arguments
       m=0
       readchgflag = .FALSE.
-rdopts:DO WHILE(m<n)
+      readopts: DO WHILE(m<n)
         m=m+1
 !        CALL GETARG(m,p)
         CALL GET_COMMAND_ARGUMENT(m,p)
@@ -146,35 +144,28 @@ rdopts:DO WHILE(m<n)
             opts%print_opt = opts%print_all_atom
           ELSEIF (inc(1:it) == 'SEL_BADER' .OR. inc(1:it) == 'sel_bader') THEN
             opts%print_opt = opts%print_sel_bader
-            opts%selbn=0
-            DO
-              m=m+1
-              CALL GET_COMMAND_ARGUMENT(m,inc)
-              inc=ADJUSTL(inc)
-              it=LEN_TRIM(inc)
-              READ (inc(1:it),'(I10)',ERR=110) sel
-              opts%selbn=opts%selbn+1
-              opts%sel_b(opts%selbn)=sel
-              IF(m==n) EXIT rdopts
-            END DO
           ELSEIF (inc(1:it) == 'SEL_ATOM' .OR. inc(1:it) == 'sel_atom') THEN
             opts%print_opt = opts%print_sel_atom
-            opts%selan=0
-            DO
-              m=m+1
-              CALL GET_COMMAND_ARGUMENT(m,inc)
-              inc=ADJUSTL(inc)
-              it=LEN_TRIM(inc)
-              READ (inc(1:it),'(I10)',ERR=110) sel
-              opts%selan=opts%selan+1
-              opts%sel_a(opts%selan)=sel
-              IF(m==n) EXIT rdopts
-            END DO
-    110     m=m-1
-            CYCLE
           ELSE
             WRITE(*,'(A,A,A)') ' Unknown option "',inc(1:it),'"'
             STOP
+          END IF
+          IF (opts%print_opt == opts%print_sel_bader .OR. opts.print_opt == opts%print_sel_atom) THEN
+            ALLOCATE(opts%selvol(n))
+            opts%selnum=0
+            DO
+              m=m+1
+              CALL GET_COMMAND_ARGUMENT(m,inc)
+              inc=ADJUSTL(inc)
+              it=LEN_TRIM(inc)
+              READ (inc(1:it),'(I10)',ERR=110) sel
+              opts%selnum=opts%selnum+1
+              opts%selvol(opts%selnum)=sel
+              IF(m==n) EXIT readopts
+              CYCLE
+   110        m=m-1
+              EXIT
+            END DO
           END IF
         ! Output file type
         ELSEIF (p(1:ip) == '-o') THEN
@@ -296,7 +287,7 @@ rdopts:DO WHILE(m<n)
           STOP
         END IF
 
-      END DO rdopts
+      END DO readopts
 
     ! If no file name, we die
     IF (.NOT. readchgflag) THEN
@@ -310,12 +301,12 @@ rdopts:DO WHILE(m<n)
       opts%refine_edge_itrs=0
     END IF
    
-    IF (opts%print_opt==opts%print_sel_atom .AND. opts%selan==0) THEN
+    IF (opts%print_opt==opts%print_sel_atom .AND. opts%selnum==0) THEN
       WRITE(*,'(/,A)') 'NO ATOMIC VOLUMES SELECTED'
       STOP
     END IF
 
-    IF (opts%print_opt==opts%print_sel_bader .AND. opts%selbn==0) THEN
+    IF (opts%print_opt==opts%print_sel_bader .AND. opts%selnum==0) THEN
       WRITE(*,'(/,A)') 'NO BADER VOLUMES SELECTED'
       STOP
     END IF

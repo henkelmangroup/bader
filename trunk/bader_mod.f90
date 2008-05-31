@@ -1,4 +1,3 @@
-!ononon
 !-----------------------------------------------------------------------------------!
 ! Bader charge density analysis program
 !  Module for analyzing the charge with the Bader atom in molecules approach
@@ -827,8 +826,8 @@ MODULE bader_mod
     tenths_done=0
     sc=0
 
-    DO i=1,opts%selan
-      ik=opts%sel_a(i)
+    DO i=1,opts%selnum
+      ik=opts%selvol(i)
       cc=0
       rck=0
       DO j=1,bdr%nvols
@@ -839,7 +838,7 @@ MODULE bader_mod
         END IF
       END DO
       sc = sc+cc
-      DO WHILE ((i*10/opts%selan) > tenths_done)
+      DO WHILE ((i*10/opts%selnum) > tenths_done)
         tenths_done = tenths_done+1
         WRITE(*,'(A,$)') '**'
       END DO
@@ -902,13 +901,13 @@ MODULE bader_mod
 
     tmp%rho = 0._q2
 
-    DO i=1,opts%selbn
-      DO WHILE ((i*10/opts%selbn) > tenths_done)
+    DO i=1,opts%selnum
+      DO WHILE ((i*10/opts%selnum) > tenths_done)
         tenths_done = tenths_done+1
         WRITE(*,'(A,$)') '**'
       END DO
 
-      bvolnum=opts%sel_b(i)
+      bvolnum=opts%selvol(i)
       WRITE(atomfilename,'(A4,I4.4,A4)') "Bvol",bvolnum,".dat"
       tmp%rho = 0._q2
       WHERE (bdr%volnum == volsig(bvolnum,2)) tmp%rho = chg%rho
