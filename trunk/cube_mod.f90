@@ -109,6 +109,11 @@ MODULE cube_mod
         END DO
       END DO
     END DO
+ 
+    !add ions%num_ion as the total atom number in case some want to write 
+    !a chgcar file from a cube file
+    ALLOCATE(ions%num_ion(1))
+    ions%num_ion(1)=ions%nions
 
   RETURN
   END SUBROUTINE read_charge_cube
@@ -124,6 +129,7 @@ MODULE cube_mod
     CHARACTER(LEN=128) :: chargefile
     
     INTEGER :: i,n1,n2,n3
+    REAL(q2) :: vol
 
     OPEN(100,FILE=chargefile(1:LEN_TRIM(ADJUSTL(chargefile))),STATUS='replace')
 
@@ -137,8 +143,18 @@ MODULE cube_mod
       WRITE(100,'(1I5,3X,1F9.6,3(3X,1F9.6))') & 
     &     INT(ions%ion_chg(i)),ions%ion_chg(i),ions%r_car(i,:)
     END DO
+
+    vol=matrix_volume(ions%lattice)
+    DO n1=1,chg%npts(1)
+      DO n2=1,chg%npts(2)
+        DO n3=1,chg%npts(3)
+          chg%rho(n1,n2,n3)=chg%rho(n1,n2,n3)/vol
+        END DO
+      END DO
+    END DO
+
     WRITE(100,'(6E13.5)') (((chg%rho(n1,n2,n3), &
-    &  n1=1,chg%npts(1)),n2=1,chg%npts(2)),n3=1,chg%npts(3))
+    &  n3=1,chg%npts(3)),n2=1,chg%npts(2)),n1=1,chg%npts(1))
     CLOSE(100)
  
   RETURN

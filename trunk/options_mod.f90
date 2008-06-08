@@ -9,15 +9,16 @@
     TYPE :: options_obj
       CHARACTER(LEN=128) :: chargefile,refchgfile
       REAL(q2) :: badertol, stepsize
-      INTEGER :: print_opt, print_none = 0, print_all_bader = 1, print_all_atom = 2, &
-                 &  print_sel_bader = 3, print_sel_atom = 4
+      INTEGER :: print_opt, print_none = 0, print_all_bader = 0, print_all_atom = 0, &
+                 &  print_sel_bader = 0, print_sel_atom = 0, print_bader_index = 0, &
+                 &  print_atom_index = 0
       INTEGER :: out_opt, out_auto = 0, out_cube = 1, out_chgcar = 2
       INTEGER :: in_opt, in_auto = 0, in_cube = 1, in_chgcar = 2
       INTEGER :: bader_opt, bader_offgrid = 0, bader_ongrid = 1, bader_neargrid = 2
       INTEGER :: quit_opt, quit_max = 0, quit_known = 1
       INTEGER :: refine_edge_itrs
-      INTEGER :: selnum
-      INTEGER,ALLOCATABLE,DIMENSION(:) :: selvol
+      INTEGER :: selanum, selbnum
+      INTEGER,ALLOCATABLE,DIMENSION(:) :: selavol, selbvol
       LOGICAL :: bader_flag, voronoi_flag, dipole_flag, ldos_flag
       LOGICAL :: verbose_flag,ref_flag
     END TYPE options_obj
@@ -46,7 +47,14 @@
 ! Default values
       opts%out_opt = opts%out_chgcar
       opts%in_opt = opts%in_auto
-      opts%print_opt = opts%print_none
+      ! print options
+      opts%print_all_atom = opts%print_none
+      opts%print_all_bader = opts%print_none
+      opts%print_sel_atom = opts%print_none
+      opts%print_sel_bader = opts%print_none
+      opts%print_bader_index = opts%print_none
+      opts%print_atom_index = opts%print_none
+      ! end of print options
       opts%bader_opt = opts%bader_neargrid
       opts%quit_opt = opts%quit_known
       opts%refine_edge_itrs = -1
@@ -136,36 +144,51 @@
           CALL GET_COMMAND_ARGUMENT(m,inc)
           inc=ADJUSTL(inc)
           it=LEN_TRIM(inc)
-          IF (inc(1:it) == 'NONE' .OR. inc(1:it) == 'none') THEN
-            opts%print_opt = opts%print_none
+          IF (inc(1:it) == 'BADER_INDEX' .OR. inc(1:it) == 'bader_index') THEN
+            opts%print_bader_index = 1
+          ELSEIF (inc(1:it) == 'ATOM_INDEX' .OR. inc(1:it) == 'atom_index') THEN
+            opts%print_atom_index = 1
           ELSEIF (inc(1:it) == 'ALL_BADER' .OR. inc(1:it) == 'all_bader') THEN
-            opts%print_opt = opts%print_all_bader
+            opts%print_all_bader = 1
           ELSEIF (inc(1:it) == 'ALL_ATOM' .OR. inc(1:it) == 'all_atom') THEN
-            opts%print_opt = opts%print_all_atom
+            opts%print_all_atom = 1
           ELSEIF (inc(1:it) == 'SEL_BADER' .OR. inc(1:it) == 'sel_bader') THEN
-            opts%print_opt = opts%print_sel_bader
-          ELSEIF (inc(1:it) == 'SEL_ATOM' .OR. inc(1:it) == 'sel_atom') THEN
-            opts%print_opt = opts%print_sel_atom
-          ELSE
-            WRITE(*,'(A,A,A)') ' Unknown option "',inc(1:it),'"'
-            STOP
-          END IF
-          IF (opts%print_opt == opts%print_sel_bader .OR. opts.print_opt == opts%print_sel_atom) THEN
-            ALLOCATE(opts%selvol(n))
-            opts%selnum=0
+            opts%print_sel_bader = 1
+            ALLOCATE(opts%selbvol(n))
+            opts%selbnum=0
             DO
               m=m+1
               CALL GET_COMMAND_ARGUMENT(m,inc)
               inc=ADJUSTL(inc)
               it=LEN_TRIM(inc)
               READ (inc(1:it),'(I10)',ERR=110) sel
-              opts%selnum=opts%selnum+1
-              opts%selvol(opts%selnum)=sel
+              opts%selbnum=opts%selbnum+1
+              opts%selbvol(opts%selbnum)=sel
               IF(m==n) EXIT readopts
               CYCLE
    110        m=m-1
               EXIT
             END DO
+          ELSEIF (inc(1:it) == 'SEL_ATOM' .OR. inc(1:it) == 'sel_atom') THEN
+            opts%print_sel_atom = 1
+            ALLOCATE(opts%selavol(n))
+            opts%selanum=0
+            DO
+              m=m+1
+              CALL GET_COMMAND_ARGUMENT(m,inc)
+              inc=ADJUSTL(inc)
+              it=LEN_TRIM(inc)
+              READ (inc(1:it),'(I10)',ERR=120) sel
+              opts%selanum=opts%selanum+1
+              opts%selavol(opts%selanum)=sel
+              IF(m==n) EXIT readopts
+              CYCLE
+   120        m=m-1
+              EXIT
+            END DO
+          ELSE
+            WRITE(*,'(A,A,A)') ' Unknown option "',inc(1:it),'"'
+            STOP
           END IF
         ! Output file type
         ELSEIF (p(1:ip) == '-o') THEN
@@ -301,12 +324,12 @@
       opts%refine_edge_itrs=0
     END IF
    
-    IF (opts%print_opt==opts%print_sel_atom .AND. opts%selnum==0) THEN
+    IF (opts%print_sel_atom==1 .AND. opts%selanum==0) THEN
       WRITE(*,'(/,A)') 'NO ATOMIC VOLUMES SELECTED'
       STOP
     END IF
 
-    IF (opts%print_opt==opts%print_sel_bader .AND. opts%selnum==0) THEN
+    IF (opts%print_sel_bader==1 .AND. opts%selbnum==0) THEN
       WRITE(*,'(/,A)') 'NO BADER VOLUMES SELECTED'
       STOP
     END IF

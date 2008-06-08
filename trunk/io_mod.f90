@@ -31,7 +31,7 @@ MODULE io_mod
 
     CHARACTER(LEN=128) :: chargefile
     CHARACTER(LEN=7) :: text
-    INTEGER :: cr,count_max,t1,t2
+    INTEGER :: cr,count_max,t1,t2,it
 
     CALL SYSTEM_CLOCK(t1,cr,count_max)
 
@@ -41,7 +41,9 @@ MODULE io_mod
       OPEN(100,FILE=chargefile,STATUS='old',ACTION='read',BLANK='null',PAD='yes')
       READ(100,'(6/,1A7)') text
       CLOSE(100)
-      IF (text == 'Direct') THEN
+      text=ADJUSTL(text)
+      it=LEN_TRIM(text)
+      IF (text(1:it) == 'Direct') THEN
         opts%in_opt=opts%in_chgcar
       ELSE 
         opts%in_opt=opts%in_cube

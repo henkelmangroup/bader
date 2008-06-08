@@ -38,7 +38,7 @@ MODULE bader_mod
   PRIVATE
   PUBLIC :: bader_obj
   PUBLIC :: bader_calc,bader_mindist,bader_output,write_all_atom,write_all_bader
-  PUBLIC :: write_sel_atom,write_sel_bader
+  PUBLIC :: write_sel_atom,write_sel_bader,write_atom_index,write_bader_index
 
   CONTAINS
 
@@ -361,14 +361,6 @@ MODULE bader_mod
 
     INTEGER,DIMENSION(3),INTENT(INOUT) :: p
 
-!GH
-!    LOGICAL pout
-!    pout=.FALSE.
-!    IF(p(1)==25.and.p(2)==22.and.p(3)==7) THEN
-!      pout=.TRUE.
-!      write(*,*) 'neargrid: 25, 22, 7'
-!    END IF
-
     bdr%pnum=1
     bdr%path(bdr%pnum,:)=p
 !    write(*,*) p 
@@ -416,11 +408,9 @@ MODULE bader_mod
       dr = (/0._q2,0._q2,0._q2/)
     END IF
 
-!    print*,'p initial:',p
     gradrl = rho_grad_dir(chg,p) 
     IF (MAXVAL(ABS(gradrl)) < 1E-30) THEN
       IF (is_max(chg,p)) THEN
-!        print*, '    is_max:', p
         dr = (/0._q2,0._q2,0._q2/)
         RETURN
       ELSE
@@ -440,7 +430,6 @@ MODULE bader_mod
 
     CALL pbc(pm,chg%npts)
     IF (bdr%known(pm(1),pm(2),pm(3)) == 1) THEN
-!      print*, '    oscillating:', p
       pm=p
       CALL step_ongrid(chg,pm)
       dr = (/0._q2,0._q2,0._q2/)
@@ -510,7 +499,6 @@ MODULE bader_mod
             path_volnum = bdr%volnum(p(1),p(2),p(3))
             IF (path_volnum<0 .OR. path_volnum>bdr%bnum) THEN
               write(*,*) 'ERROR: should be no new maxima in edge refinement'
-              print*,p,'volnum',path_volnum
             END IF
             IF (ABS(bvolnum) /= path_volnum) THEN
 !              write(*,'(3I4,A,3I4)') n1,n2,n3,'  to ',p
@@ -645,30 +633,6 @@ MODULE bader_mod
   
   RETURN
   END SUBROUTINE bader_mindist
-
-!-----------------------------------------------------------------------------------!
-! write_volnum: Write out a CHGCAR type file with each entry containing an integer
-!    indicating the associated Bader maximum.
-!-----------------------------------------------------------------------------------!
-
-  SUBROUTINE write_volnum(bdr,opts,ions,chg)
-
-     TYPE(bader_obj) :: bdr
-     TYPE(options_obj) :: opts
-     TYPE(ions_obj) :: ions
-     TYPE(charge_obj) :: chg
-
-     TYPE(charge_obj) :: tmp
-     INTEGER :: nx,ny,nz
-     CHARACTER(LEN=128) :: filename
-
-     tmp = chg
-     tmp%rho = bdr%volnum
-     filename = 'VOLUME_INDEX'
-     CALL write_charge(ions,chg,opts,filename)
-
-  RETURN
-  END SUBROUTINE write_volnum
 
 !-----------------------------------------------------------------------------------!
 ! write_all_bader: Write out a CHGCAR type file for each of the Bader volumes found.
@@ -826,8 +790,8 @@ MODULE bader_mod
     tenths_done=0
     sc=0
 
-    DO i=1,opts%selnum
-      ik=opts%selvol(i)
+    DO i=1,opts%selanum
+      ik=opts%selavol(i)
       cc=0
       rck=0
       DO j=1,bdr%nvols
@@ -838,7 +802,7 @@ MODULE bader_mod
         END IF
       END DO
       sc = sc+cc
-      DO WHILE ((i*10/opts%selnum) > tenths_done)
+      DO WHILE ((i*10/opts%selanum) > tenths_done)
         tenths_done = tenths_done+1
         WRITE(*,'(A,$)') '**'
       END DO
@@ -875,7 +839,6 @@ MODULE bader_mod
     TYPE(charge_obj) :: tmp
     CHARACTER(LEN=128) :: atomfilename
     INTEGER,DIMENSION(bdr%nvols,2) :: volsig
-!    INTEGER,DIMENSION(na) :: vols
     INTEGER :: cr,count_max,t1,t2,tenths_done,i,bdimsig,bvolnum
 
     CALL SYSTEM_CLOCK(t1,cr,count_max)
@@ -901,13 +864,13 @@ MODULE bader_mod
 
     tmp%rho = 0._q2
 
-    DO i=1,opts%selnum
-      DO WHILE ((i*10/opts%selnum) > tenths_done)
+    DO i=1,opts%selbnum
+      DO WHILE ((i*10/opts%selbnum) > tenths_done)
         tenths_done = tenths_done+1
         WRITE(*,'(A,$)') '**'
       END DO
 
-      bvolnum=opts%selvol(i)
+      bvolnum=opts%selbvol(i)
       WRITE(atomfilename,'(A4,I4.4,A4)') "Bvol",bvolnum,".dat"
       tmp%rho = 0._q2
       WHERE (bdr%volnum == volsig(bvolnum,2)) tmp%rho = chg%rho
@@ -921,6 +884,74 @@ MODULE bader_mod
 
   RETURN
   END SUBROUTINE write_sel_bader
+
+!-----------------------------------------------------------------------------------!
+! write_bader_index: Write out a CHGCAR type file that the value at each point is
+!                     Bader volume number for that grid point.
+!-----------------------------------------------------------------------------------!
+
+  SUBROUTINE write_bader_index(bdr,opts,ions,chg)
+
+    TYPE(bader_obj) :: bdr
+    TYPE(options_obj) :: opts
+    TYPE(ions_obj) :: ions
+    TYPE(charge_obj) :: chg
+
+    TYPE(charge_obj) :: tmp
+    CHARACTER(LEN=128) :: filename
+    REAL(q2):: vol
+    INTEGER :: n1,n2,n3
+
+    tmp=chg
+    tmp%rho=bdr%volnum
+    filename='BvIndex.dat'
+    IF(opts%out_opt==opts%out_cube) THEN
+      vol=matrix_volume(ions%lattice)
+      tmp%rho=tmp%rho*vol
+    END IF
+
+    CALL write_charge(ions,tmp,opts,filename)
+    DEALLOCATE(tmp%rho)
+
+  END SUBROUTINE write_bader_index
+
+!-----------------------------------------------------------------------------------!
+! write_atom_index: Write out a CHGCAR type file that the value at each point is
+!                    associated atom number for that grid point.
+!-----------------------------------------------------------------------------------!
+
+  SUBROUTINE write_atom_index(bdr,opts,ions,chg)
+
+    TYPE(bader_obj) :: bdr
+    TYPE(options_obj) :: opts
+    TYPE(ions_obj) :: ions
+    TYPE(charge_obj) :: chg
+
+    TYPE(charge_obj) :: tmp
+    CHARACTER(LEN=128) :: filename
+    REAL(q2):: vol
+    INTEGER :: n1,n2,n3,bvolnum
+
+    tmp=chg
+    DO n1=1,chg%npts(1)
+      DO n2=1,chg%npts(2)
+        DO n3=1,chg%npts(3)
+          tmp%rho(n1,n2,n3)=bdr%nnion(bdr%volnum(n1,n2,n3))
+        END DO
+      END DO
+    END DO
+
+    filename='AtIndex.dat'
+    IF(opts%out_opt==opts%out_cube) THEN
+      vol=matrix_volume(ions%lattice)
+      tmp%rho=tmp%rho*vol
+    END IF
+
+    CALL write_charge(ions,tmp,opts,filename)
+    DEALLOCATE(tmp%rho)
+
+  RETURN
+  END SUBROUTINE write_atom_index
 
 !-----------------------------------------------------------------------------------!
 ! bader_output: Write out a summary of the bader analysis.
@@ -1210,10 +1241,6 @@ MODULE bader_mod
     volnum = volnum_val(bdr,chg,p1,p2,p3)
     IF (volnum <= 0) RETURN
 
-!    IF (p1==24.and.p2==21.and.p3==8) THEN
-!      print*,'known_volnum_ongrid2: 24, 21, 8'
-!    END IF
-      
     DO d1=-1,1
       DO d2=-1,1
         DO d3=-1,1
@@ -1223,10 +1250,6 @@ MODULE bader_mod
       END DO
     END DO
     bdr%known(p1,p2,p3) = 2
-
-!    IF (p1==24.and.p2==21.and.p3==8) THEN
-!      print*,'known_volnum_ongrid2: known=2'
-!    END IF
 
   RETURN
   END SUBROUTINE known_volnum_ongrid2

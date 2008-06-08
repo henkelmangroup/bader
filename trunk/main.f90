@@ -56,16 +56,13 @@
        CALL bader_calc(bdr,ions,chgval,opts)
        CALL bader_mindist(bdr,ions,chgval)
        CALL bader_output(bdr,ions,chgval)
-       IF (opts%print_opt==opts%print_all_bader) THEN
-         CALL write_all_bader(bdr,opts,ions,chgval)
-       ELSEIF (opts%print_opt==opts%print_all_atom) THEN
-         CALL write_all_atom(bdr,opts,ions,chgval)
-       ELSEIF (opts%print_opt==opts%print_sel_atom) THEN
-         CALL write_sel_atom(bdr,opts,ions,chgval)
-       ELSEIF (opts%print_opt==opts%print_sel_bader) THEN
-         CALL write_sel_bader(bdr,opts,ions,chgval)
-       ENDIF
-     ENDIF
+     END IF
+       IF (opts%print_all_bader==1)  CALL write_all_bader(bdr,opts,ions,chgval)
+       IF (opts%print_all_atom==1)   CALL write_all_atom(bdr,opts,ions,chgval)
+       IF (opts%print_sel_atom==1)   CALL write_sel_atom(bdr,opts,ions,chgval)
+       IF (opts%print_sel_bader==1)  CALL write_sel_bader(bdr,opts,ions,chgval)
+       IF (opts%print_bader_index==1) CALL write_bader_index(bdr,opts,ions,chgval)
+       IF ( opts%print_atom_index==1) CALL write_atom_index(bdr,opts,ions,chgval)
 
 !     IF (opts%dipole_flag) CALL multipole()
      IF (opts%voronoi_flag) CALL voronoi(vor,ions,chgval)
