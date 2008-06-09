@@ -191,20 +191,20 @@
             STOP
           END IF
         ! Output file type
-        ELSEIF (p(1:ip) == '-o') THEN
-          m=m+1
+!        ELSEIF (p(1:ip) == '-o') THEN
+!          m=m+1
 !          CALL GETARG(m,inc)
-          CALL GET_COMMAND_ARGUMENT(m,inc)
-          inc=ADJUSTL(inc)
-          it=LEN_TRIM(inc)
-          IF (inc(1:it) == 'CUBE' .OR. inc(1:it) == 'cube') THEN
-            opts%out_opt = opts%out_cube
-          ELSEIF (inc(1:it) == 'CHGCAR' .OR. inc(1:it) == 'chgcar') THEN
-            opts%out_opt = opts%out_chgcar
-          ELSE
-            WRITE(*,'(A,A,A)') ' Unknown option "',inc(1:it),'"'
-            STOP
-          END IF  
+!          CALL GET_COMMAND_ARGUMENT(m,inc)
+!          inc=ADJUSTL(inc)
+!          it=LEN_TRIM(inc)
+!          IF (inc(1:it) == 'CUBE' .OR. inc(1:it) == 'cube') THEN
+!            opts%out_opt = opts%out_cube
+!          ELSEIF (inc(1:it) == 'CHGCAR' .OR. inc(1:it) == 'chgcar') THEN
+!            opts%out_opt = opts%out_chgcar
+!          ELSE
+!            WRITE(*,'(A,A,A)') ' Unknown option "',inc(1:it),'"'
+!            STOP
+!          END IF  
         ! Calculation options
         ELSEIF (p(1:ip) == '-c') THEN
           m=m+1

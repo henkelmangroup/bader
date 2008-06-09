@@ -112,8 +112,8 @@ MODULE cube_mod
  
     !add ions%num_ion as the total atom number in case some want to write 
     !a chgcar file from a cube file
-    ALLOCATE(ions%num_ion(1))
-    ions%num_ion(1)=ions%nions
+!    ALLOCATE(ions%num_ion(1))
+!    ions%num_ion(1)=ions%nions
 
   RETURN
   END SUBROUTINE read_charge_cube

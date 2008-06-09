@@ -51,8 +51,11 @@ MODULE io_mod
     ENDIF
 
     IF (opts%in_opt == opts%in_chgcar) THEN
+      ! make the output in the same format as input
+      opts%out_opt=opts%out_chgcar
       CALL read_charge_chgcar(ions,chg,chargefile)
     ELSEIF (opts%in_opt == opts%in_cube) THEN
+      opts%out_opt=opts%out_cube
       CALL read_charge_cube(ions,chg,chargefile)
     ENDIF
 
@@ -92,6 +95,7 @@ MODULE io_mod
     ENDIF
 
     IF (opts%in_opt == opts%in_chgcar) THEN
+      ! make the output in the same format as input
       CALL read_charge_chgcar(ions,chg,chargefile)
     ELSEIF (opts%in_opt == opts%in_cube) THEN
       CALL read_charge_cube(ions,chg,chargefile)
