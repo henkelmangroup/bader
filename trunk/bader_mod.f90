@@ -933,7 +933,15 @@ MODULE bader_mod
     filename='BvIndex.dat'
     IF(opts%out_opt==opts%out_cube) THEN
       vol=matrix_volume(ions%lattice)
-      tmp%rho=tmp%rho*vol
+!      tmp%rho=tmp%rho*vol
+      DO n1=1,chg%npts(1)
+        DO n2=1,chg%npts(2)
+          DO n3=1,chg%npts(3)
+            tmp%rho(n1,n2,n3) = tmp%rho(n1,n2,n3)*vol
+          END DO
+        END DO
+      END DO
+
     END IF
 
     CALL write_charge(ions,tmp,opts,filename)
@@ -970,7 +978,15 @@ MODULE bader_mod
     filename='AtIndex.dat'
     IF(opts%out_opt==opts%out_cube) THEN
       vol=matrix_volume(ions%lattice)
-      tmp%rho=tmp%rho*vol
+!      tmp%rho=tmp%rho*vol
+      DO n1=1,chg%npts(1)
+        DO n2=1,chg%npts(2)
+          DO n3=1,chg%npts(3)
+            tmp%rho(n1,n2,n3) = tmp%rho(n1,n2,n3)*vol
+          END DO
+        END DO
+      END DO
+
     END IF
 
     CALL write_charge(ions,tmp,opts,filename)
