@@ -776,7 +776,7 @@ MODULE bader_mod
 
     TYPE(charge_obj) :: tmp
 
-    INTEGER :: nx,ny,nz,i,j,b,mab,mib,ik,sc,cc,tenths_done,t1,t2,cr,count_max
+    INTEGER :: n1,n2,n3,i,j,b,ik,sc,cc,tenths_done,t1,t2,cr,count_max
     INTEGER,DIMENSION(bdr%nvols) :: rck
     CHARACTER(LEN=128) :: atomfilename
 
@@ -811,7 +811,16 @@ MODULE bader_mod
 
       tmp%rho = 0._q2
       DO b=1,cc
-        WHERE (bdr%volnum == rck(b)) tmp%rho = chg%rho
+!        WHERE (bdr%volnum == rck(b)) tmp%rho = chg%rho
+        DO n1=1,chg%npts(1)
+          DO n2=1,chg%npts(2)
+            DO n3=1,chg%npts(3)
+              IF (bdr%volnum(n1,n2,n3) == rck(b))  &
+              &   tmp%rho(n1,n2,n3) = chg%rho(n1,n2,n3)
+            END DO
+          END DO
+        END DO
+
       END DO 
       CALL write_charge(ions,tmp,opts,atomfilename)
 
@@ -839,13 +848,13 @@ MODULE bader_mod
     TYPE(charge_obj) :: tmp
     CHARACTER(LEN=128) :: atomfilename
     INTEGER,DIMENSION(bdr%nvols,2) :: volsig
-    INTEGER :: cr,count_max,t1,t2,tenths_done,i,bdimsig,bvolnum
+    INTEGER :: n1,n2,n3,cr,count_max,t1,t2,tenths_done,i,bdimsig,bvolnum
 
     CALL SYSTEM_CLOCK(t1,cr,count_max)
 
     tmp=chg
 
-! Correlate the number for each 'significant' bader volume to its real number
+! Correlate the number for each significant bader volume to its real number
     bdimsig=0
     volsig=0
 
@@ -873,7 +882,16 @@ MODULE bader_mod
       bvolnum=opts%selbvol(i)
       WRITE(atomfilename,'(A4,I4.4,A4)') "Bvol",bvolnum,".dat"
       tmp%rho = 0._q2
-      WHERE (bdr%volnum == volsig(bvolnum,2)) tmp%rho = chg%rho
+!      WHERE (bdr%volnum == volsig(bvolnum,2)) tmp%rho = chg%rho
+      DO n1=1,chg%npts(1)
+        DO n2=1,chg%npts(2)
+          DO n3=1,chg%npts(3)
+            IF (bdr%volnum(n1,n2,n3) == volsig(bvolnum,2))  &
+            &  tmp%rho(n1,n2,n3) = chg%rho(n1,n2,n3)
+          END DO
+        END DO
+      END DO
+
       CALL write_charge(ions,tmp,opts,atomfilename)
     END DO
 
@@ -903,7 +921,15 @@ MODULE bader_mod
     INTEGER :: n1,n2,n3
 
     tmp=chg
-    tmp%rho=bdr%volnum
+!    tmp%rho=bdr%volnum
+    DO n1=1,chg%npts(1)
+      DO n2=1,chg%npts(2)
+        DO n3=1,chg%npts(3)
+          tmp%rho(n1,n2,n3) = bdr%volnum(n1,n2,n3)
+        END DO
+      END DO
+    END DO
+
     filename='BvIndex.dat'
     IF(opts%out_opt==opts%out_cube) THEN
       vol=matrix_volume(ions%lattice)
