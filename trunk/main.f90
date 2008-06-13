@@ -1,6 +1,6 @@
 !-----------------------------------------------------------------------------------!
 ! Bader charge density analysis program
-! Version 0.25 (06/09/08)
+! Version 0.25a (06/12/08)
 !
 ! Authors:
 !   Wenjie Tang, Andri Arnaldsson, and Graeme Henkelman
@@ -44,7 +44,7 @@
      TYPE(voronoi_obj) :: vor
  
     ! Write the version number
-     WRITE(*,'(/,2X,A)') 'GRID BASED BADER ANALYSIS  (v0.25 06/09/08)'
+     WRITE(*,'(/,2X,A)') 'GRID BASED BADER ANALYSIS  (v0.25a 06/12/08)'
 
      ! Get the control variables
      CALL get_options(opts)
@@ -57,12 +57,12 @@
        CALL bader_mindist(bdr,ions,chgval)
        CALL bader_output(bdr,ions,chgval)
      END IF
-       IF (opts%print_all_bader==1)  CALL write_all_bader(bdr,opts,ions,chgval)
-       IF (opts%print_all_atom==1)   CALL write_all_atom(bdr,opts,ions,chgval)
-       IF (opts%print_sel_atom==1)   CALL write_sel_atom(bdr,opts,ions,chgval)
-       IF (opts%print_sel_bader==1)  CALL write_sel_bader(bdr,opts,ions,chgval)
-       IF (opts%print_bader_index==1) CALL write_bader_index(bdr,opts,ions,chgval)
-       IF ( opts%print_atom_index==1) CALL write_atom_index(bdr,opts,ions,chgval)
+     IF (opts%print_all_bader) CALL write_all_bader(bdr,opts,ions,chgval)
+     IF (opts%print_all_atom) CALL write_all_atom(bdr,opts,ions,chgval)
+     IF (opts%print_sel_atom) CALL write_sel_atom(bdr,opts,ions,chgval)
+     IF (opts%print_sel_bader) CALL write_sel_bader(bdr,opts,ions,chgval)
+     IF (opts%print_bader_index) CALL write_bader_index(bdr,opts,ions,chgval)
+     IF (opts%print_atom_index) CALL write_atom_index(bdr,opts,ions,chgval)
 
 !     IF (opts%dipole_flag) CALL multipole()
      IF (opts%voronoi_flag) CALL voronoi(vor,ions,chgval)

@@ -457,9 +457,6 @@ MODULE bader_mod
     INTEGER :: num_edge,num_reassign,numsign
     CHARACTER(LEN=128) :: atomfilename
 
-!GH
-!    TYPE(charge_obj) :: tmp
-
      num_edge=0
      DO n1=1,chg%npts(1)
       DO n2=1,chg%npts(2)
@@ -477,10 +474,6 @@ MODULE bader_mod
       END DO
     END DO
     WRITE(*,'(2x,A,6x,1I8)') 'EDGE POINTS:',num_edge
-
-!GH
-!    tmp=chg
-!    tmp%rho=0._q2
 
     num_reassign=0
     DO n1=1,chg%npts(1)
@@ -501,10 +494,7 @@ MODULE bader_mod
               write(*,*) 'ERROR: should be no new maxima in edge refinement'
             END IF
             IF (ABS(bvolnum) /= path_volnum) THEN
-!              write(*,'(3I4,A,3I4)') n1,n2,n3,'  to ',p
               num_reassign = num_reassign+1
-!GH
-!              tmp%rho(n1,n2,n3)=1000
             END IF
             bdr%volnum(n1,n2,n3) = path_volnum
             DO i=1,bdr%pnum
@@ -522,10 +512,6 @@ MODULE bader_mod
     IF (opts%refine_edge_itrs==-1 .AND. num_reassign==0) THEN
       opts%refine_edge_itrs = 0
     END IF
-
-!GH
-!   WRITE(atomfilename,'(A8,I4.4)') "reassign",itrs
-!   CALL write_charge_chgcar(ions,tmp,atomfilename)
 
   RETURN
   END SUBROUTINE refine_edge
@@ -670,7 +656,7 @@ MODULE bader_mod
         WRITE(atomfilename,'(A4,I4.4,A4)') "Bvol",atomnum,".dat"
         tmp%rho = 0._q2
 !        WHERE (bdr%volnum == badercur) tmp%rho = chg%rho
-        ! Change that seems to be needed on fri
+        ! Replace for ifort/x86_32
         DO n1=1,chg%npts(1)
           DO n2=1,chg%npts(2)
             DO n3=1,chg%npts(3)
@@ -743,7 +729,7 @@ MODULE bader_mod
       tmp%rho = 0._q2
       DO b=1,cc
 !        WHERE (bdr%volnum == rck(b)) tmp%rho = chg%rho
-        ! this change is needed on fri - intel compiler
+        ! this change is needed for ifort/x86_32
         DO n1=1,chg%npts(1)
           DO n2=1,chg%npts(2)
             DO n3=1,chg%npts(3)
@@ -764,7 +750,7 @@ MODULE bader_mod
   END SUBROUTINE write_all_atom
 
 !-----------------------------------------------------------------------------------!
-! write_sel_atom: Write out a CHGCAR type file for the user specified atomic volumes.
+! write_sel_atom: Write a CHGCAR file for the user specified atomic volumes.
 !-----------------------------------------------------------------------------------!
 
   SUBROUTINE write_sel_atom(bdr,opts,ions,chg)
@@ -834,7 +820,7 @@ MODULE bader_mod
   END SUBROUTINE write_sel_atom
 
 !-----------------------------------------------------------------------------------!
-! write_sel_bader: Write out a CHGCAR type file for the user specified Bader volumes.
+! write_sel_bader: Write a CHGCAR file for the user specified Bader volumes.
 !              Volumes associated with a atom can be read from AtomVolumes.dat
 !-----------------------------------------------------------------------------------!
 
@@ -920,7 +906,10 @@ MODULE bader_mod
     REAL(q2):: vol
     INTEGER :: n1,n2,n3
 
+    WRITE(*,'(/,2x,A)') 'WRITING BADER VOLUME INDEX TO BvIndex.dat'
+
     tmp=chg
+!GH: to be compatible with ifort/x86_32
 !    tmp%rho=bdr%volnum
     DO n1=1,chg%npts(1)
       DO n2=1,chg%npts(2)
@@ -933,6 +922,7 @@ MODULE bader_mod
     filename='BvIndex.dat'
     IF(opts%out_opt==opts%out_cube) THEN
       vol=matrix_volume(ions%lattice)
+!GH: to be compatible with ifort/x86_32
 !      tmp%rho=tmp%rho*vol
       DO n1=1,chg%npts(1)
         DO n2=1,chg%npts(2)
@@ -964,7 +954,9 @@ MODULE bader_mod
     TYPE(charge_obj) :: tmp
     CHARACTER(LEN=128) :: filename
     REAL(q2):: vol
-    INTEGER :: n1,n2,n3,bvolnum
+    INTEGER :: n1,n2,n3
+
+    WRITE(*,'(/,2x,A)') 'WRITING BADER ATOMIC INDEX TO AtIndex.dat'
 
     tmp=chg
     DO n1=1,chg%npts(1)
