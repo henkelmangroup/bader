@@ -27,7 +27,7 @@ MODULE bader_mod
 
   TYPE bader_obj
     REAL(q2),ALLOCATABLE,DIMENSION(:,:) :: volpos_lat,volpos_car,volpos_dir
-    REAL(q2),ALLOCATABLE,DIMENSION(:) :: volchg,iondist,ionchg,minsurfdist
+    REAL(q2),ALLOCATABLE,DIMENSION(:) :: volchg,iondist,ionchg,minsurfdist,ionvol
     INTEGER,ALLOCATABLE,DIMENSION(:,:,:) :: volnum,known
     INTEGER,ALLOCATABLE,DIMENSION(:,:) :: path
     INTEGER,ALLOCATABLE,DIMENSION(:) :: nnion
@@ -194,6 +194,7 @@ MODULE bader_mod
 
     ALLOCATE(bdr%nnion(bdr%nvols),bdr%iondist(bdr%nvols),bdr%ionchg(ions%nions))
     CALL assign_chg2atom(bdr,ions,chgval)
+    CALL cal_atomic_vol(bdr,ions,chgval)
 
     DEALLOCATE(bdr%path)
 
@@ -988,6 +989,41 @@ MODULE bader_mod
   END SUBROUTINE write_atom_index
 
 !-----------------------------------------------------------------------------------!
+! cal_atomic_vol: Integrate the atomic volume for each atom
+!-----------------------------------------------------------------------------------!
+
+  SUBROUTINE cal_atomic_vol(bdr,ions,chg)
+
+    TYPE(bader_obj) :: bdr
+    TYPE(ions_obj) :: ions
+    TYPE(charge_obj) :: chg
+
+    REAL(q2):: vol
+    INTEGER :: n1,n2,n3,i,atom
+
+    ALLOCATE(bdr%ionvol(ions%nions))
+    bdr%ionvol=0.0
+
+    DO n1=1,chg%npts(1)
+      DO n2=1,chg%npts(2)
+        DO n3=1,chg%npts(3)
+          atom=bdr%nnion(bdr%volnum(n1,n2,n3))
+          bdr%ionvol(atom)=bdr%ionvol(atom)+1
+        END DO
+      END DO
+    END DO
+
+    vol=matrix_volume(ions%lattice)
+    vol=vol/chg%nrho
+
+    DO i=1,ions%nions
+      bdr%ionvol(i)=bdr%ionvol(i)*vol
+    END DO
+
+  RETURN
+  END SUBROUTINE cal_atomic_vol
+
+!-----------------------------------------------------------------------------------!
 ! bader_output: Write out a summary of the bader analysis.
 !         AtomVolumes.dat: Stores the 'significant' Bader volumes associated with
 !                          each atom.
@@ -1037,14 +1073,16 @@ MODULE bader_mod
     WRITE(*,'(A41,/)') 'WRITING BADER VOLUME CHARGES TO BCF.dat'
 
     OPEN(100,FILE='ACF.dat',STATUS='replace',ACTION='write')
-    WRITE(100,555) '#','X','Y','Z','CHARGE','MIN DIST'
-    555 FORMAT(4X,1A,9X,1A1,2(11X,1A1),8X,1A6,5X,1A8)
-    WRITE(100,*) ' ----------------------------------------------------------------'
+    WRITE(100,555) '#','X','Y','Z','CHARGE','MIN DIST','ATOMIC VOL'
+    555 FORMAT(4X,1A,9X,1A1,2(11X,1A1),8X,1A6,5X,1A8,4X,1A10)
+    WRITE(100,*) ' ----------------------------------------------------------------',&
+    &                  '----------------'
     sum_ionchg = SUM(bdr%ionchg)
     DO i=1,ions%nions
-      WRITE(100,'(1I5,6F12.4)') i,ions%r_car(i,:),bdr%ionchg(i),bdr%minsurfdist(i)
+      WRITE(100,'(1I5,7F12.4)') i,ions%r_car(i,:),bdr%ionchg(i),bdr%minsurfdist(i),bdr%ionvol(i)
     END DO
-    WRITE(100,*) ' ----------------------------------------------------------------'
+    WRITE(100,*) ' ----------------------------------------------------------------',&
+    &                  '----------------'
     WRITE(100,'(2x,A,2X,1F12.5)')  ' NUMBER OF ELECTRONS: ',SUM(bdr%volchg(1:bdr%nvols))
     CLOSE(100)
 

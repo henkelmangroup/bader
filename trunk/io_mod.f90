@@ -40,6 +40,7 @@ MODULE io_mod
       ! Try to guess the file type
       OPEN(100,FILE=chargefile,STATUS='old',ACTION='read',BLANK='null',PAD='yes')
       READ(100,'(6/,1A7)') text
+      !WRITE(*,*) text
       CLOSE(100)
       text=ADJUSTL(text)
       it=LEN_TRIM(text)
