@@ -127,34 +127,49 @@ MODULE cube_mod
     TYPE(ions_obj) :: ions
     TYPE(charge_obj) :: chg
     CHARACTER(LEN=128) :: chargefile
+    CHARACTER(LEN=128) :: cubefile
     
     INTEGER :: i,n1,n2,n3
     REAL(q2) :: vol
 
-    OPEN(100,FILE=chargefile(1:LEN_TRIM(ADJUSTL(chargefile))),STATUS='replace')
+!   EM: change the file extension to something more descriptive   
+    cubefile = chargefile(1:(index(chargefile,'.'))) // 'cube'
+
+!    OPEN(100,FILE=chargefile(1:LEN_TRIM(ADJUSTL(chargefile))),STATUS='replace')
+    OPEN(100,FILE=cubefile(1:LEN_TRIM(ADJUSTL(cubefile))),STATUS='replace')
 
     WRITE(100,*) 'Gaussian cube file'
     WRITE(100,*) 'Bader charge'
-    WRITE(100,'(1I5,3(3X,1F9.6))') ions%nions,chg%org_car
+
+!   EM: Formats changed to comply with G03 cube standard
+!    WRITE(100,'(1I5,3(3X,1F9.6))') ions%nions,chg%org_car
+    WRITE(100,'(I5,3(F12.6))') ions%nions,chg%org_car
     DO i=1,3
       WRITE(100,'(1I5,3(3X,1F9.6))') chg%npts(i),chg%lat2car(i,:)
     END DO
     DO i=1,ions%nions
-      WRITE(100,'(1I5,3X,1F9.6,3(3X,1F9.6))') & 
+!      WRITE(100,'(1I5,3X,1F9.6,3(3X,1F9.6))') & 
+      WRITE(100,'(I5,F12.6,3(F12.6))') & 
     &     INT(ions%ion_chg(i)),ions%ion_chg(i),ions%r_car(i,:)
     END DO
 
     vol=matrix_volume(ions%lattice)
     DO n1=1,chg%npts(1)
       DO n2=1,chg%npts(2)
-        DO n3=1,chg%npts(3)
-          chg%rho(n1,n2,n3)=chg%rho(n1,n2,n3)/vol
-        END DO
-      END DO
+!   EM: Voxel data is printed with newlines after inner z-loop
+!       (see ex. http://local.wasp.uwa.edu.au/~pbourke/dataformats/cube/
+!        DO n3=1,chg%npts(3)
+!          chg%rho(n1,n2,n3)=chg%rho(n1,n2,n3)/vol
+!        END DO
+        WRITE(100,'(6E13.5)') ((chg%rho(n1,n2,n3))/vol,n3=1,chg%npts(3))        
+      END DO  
     END DO
 
-    WRITE(100,'(6E13.5)') (((chg%rho(n1,n2,n3), &
-    &  n3=1,chg%npts(3)),n2=1,chg%npts(2)),n1=1,chg%npts(1))
+!GH: I notice that before the changes by EM we were dividing chg%rho by vol.  This seems
+!    to be a little dangerous -- what if it is used or written again later?
+
+!    WRITE(100,'(6E13.5)') (((chg%rho(n1,n2,n3), &
+!    &  n3=1,chg%npts(3)),n2=1,chg%npts(2)),n1=1,chg%npts(1))
     CLOSE(100)
  
   RETURN

@@ -1,12 +1,12 @@
 !-----------------------------------------------------------------------------------!
 ! Bader charge density analysis program
-! Version 0.25b (08/07/08)
+! Version 0.25c (09/25/08)
 !
 ! Authors:
 !   Wenjie Tang, Andri Arnaldsson, and Graeme Henkelman
 !
 ! Contributers:
-!   Johannes Voss (DTU)
+!   Johannes Voss (DTU), Erik McNellis (FHI)
 !
 ! Based on algorithms described in the following publications:
 !
@@ -44,7 +44,7 @@
      TYPE(voronoi_obj) :: vor
  
     ! Write the version number
-     WRITE(*,'(/,2X,A)') 'GRID BASED BADER ANALYSIS  (v0.25b 08/07/08)'
+     WRITE(*,'(/,2X,A)') 'GRID BASED BADER ANALYSIS  (v0.25c 09/25/08)'
 
      ! Get the control variables
      CALL get_options(opts)
