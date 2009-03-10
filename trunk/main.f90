@@ -61,6 +61,8 @@
      IF (opts%print_all_atom) CALL write_all_atom(bdr,opts,ions,chgval)
      IF (opts%print_sel_atom) CALL write_sel_atom(bdr,opts,ions,chgval)
      IF (opts%print_sel_bader) CALL write_sel_bader(bdr,opts,ions,chgval)
+     IF (opts%print_sum_atom) CALL write_sum_atom(bdr,opts,ions,chgval)
+     IF (opts%print_sum_bader) CALL write_sum_bader(bdr,opts,ions,chgval)
      IF (opts%print_bader_index) CALL write_bader_index(bdr,opts,ions,chgval)
      IF (opts%print_atom_index) CALL write_atom_index(bdr,opts,ions,chgval)
 

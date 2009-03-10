@@ -14,11 +14,12 @@
       INTEGER :: bader_opt, bader_offgrid = 0, bader_ongrid = 1, bader_neargrid = 2
       INTEGER :: quit_opt, quit_max = 0, quit_known = 1
       INTEGER :: refine_edge_itrs
-      INTEGER :: selanum, selbnum
-      INTEGER,ALLOCATABLE,DIMENSION(:) :: selavol, selbvol
+      INTEGER :: selanum, selbnum,sumanum,sumbnum
+      INTEGER,ALLOCATABLE,DIMENSION(:) :: selavol, selbvol,sumavol,sumbvol
       LOGICAL :: bader_flag, voronoi_flag, dipole_flag, ldos_flag
       LOGICAL :: print_all_bader, print_all_atom
       LOGICAL :: print_sel_bader, print_sel_atom
+      LOGICAL :: print_sum_bader, print_sum_atom
       LOGICAL :: print_bader_index, print_atom_index
       LOGICAL :: verbose_flag,ref_flag
     END TYPE options_obj
@@ -38,7 +39,7 @@
       LOGICAL :: existflag
       LOGICAL :: readchgflag
       INTEGER :: n,iargc,i,ip,m,it,ini
-      INTEGER :: j, sel
+      INTEGER :: j, sel,itmp,istart,iend
       REAL(q2) :: temp
       CHARACTER(LEN=128) :: p
       CHARACTER*128 :: inc
@@ -52,6 +53,8 @@
       opts%print_all_bader = .FALSE.
       opts%print_sel_atom = .FALSE.
       opts%print_sel_bader = .FALSE.
+      opts%print_sum_atom = .FALSE.
+      opts%print_sum_bader = .FALSE.
       opts%print_bader_index = .FALSE.
       opts%print_atom_index = .FALSE.
       ! end of print options
@@ -78,7 +81,7 @@
       m=0
       readchgflag = .FALSE.
       readopts: DO WHILE(m<n)
-        m=m+1
+210        m=m+1
 !        CALL GETARG(m,p)
         CALL GET_COMMAND_ARGUMENT(m,p)
         p=ADJUSTL(p)
@@ -154,38 +157,148 @@
             opts%print_all_atom = .TRUE.
           ELSEIF (inc(1:it) == 'SEL_BADER' .OR. inc(1:it) == 'sel_bader') THEN
             opts%print_sel_bader = .TRUE.
-            ALLOCATE(opts%selbvol(n))
             opts%selbnum=0
-            DO
-              m=m+1
-              CALL GET_COMMAND_ARGUMENT(m,inc)
-              inc=ADJUSTL(inc)
-              it=LEN_TRIM(inc)
-              READ (inc(1:it),'(I10)',ERR=110) sel
-              opts%selbnum=opts%selbnum+1
-              opts%selbvol(opts%selbnum)=sel
-              IF(m==n) EXIT readopts
-              CYCLE
+            m=m+1
+            CALL GET_COMMAND_ARGUMENT(m,inc)
+            inc=ADJUSTL(inc)
+            it=LEN_TRIM(inc)
+            itmp = INDEX(inc,"-")
+            IF (itmp .GT. 0) THEN
+              READ (inc(1:itmp-1),'(I10)',ERR=110) istart
+              READ (inc(itmp+1:it),'(I10)',ERR=110) iend
+              ALLOCATE(opts%selbvol(iend-istart+1))
+              DO sel = istart, iend
+                opts%selbnum=opts%selbnum+1
+                opts%selbvol(opts%selbnum)=sel
+              END DO
+              GO TO 210
    110        m=m-1
               EXIT
-            END DO
+            ELSE
+              m=m-1
+              ALLOCATE(opts%selbvol(n))
+              DO
+                m=m+1
+                CALL GET_COMMAND_ARGUMENT(m,inc)
+                inc=ADJUSTL(inc)
+                it=LEN_TRIM(inc)
+                READ (inc(1:it),'(I10)',ERR=120) sel
+                opts%selbnum=opts%selbnum+1
+                opts%selbvol(opts%selbnum)=sel
+                IF(m==n) EXIT readopts
+                CYCLE
+     120        m=m-1
+                EXIT
+              END DO
+            END IF
           ELSEIF (inc(1:it) == 'SEL_ATOM' .OR. inc(1:it) == 'sel_atom') THEN
             opts%print_sel_atom = .TRUE.
-            ALLOCATE(opts%selavol(n))
             opts%selanum=0
-            DO
-              m=m+1
-              CALL GET_COMMAND_ARGUMENT(m,inc)
-              inc=ADJUSTL(inc)
-              it=LEN_TRIM(inc)
-              READ (inc(1:it),'(I10)',ERR=120) sel
-              opts%selanum=opts%selanum+1
-              opts%selavol(opts%selanum)=sel
-              IF(m==n) EXIT readopts
-              CYCLE
-   120        m=m-1
+            m=m+1
+            CALL GET_COMMAND_ARGUMENT(m,inc)
+            inc=ADJUSTL(inc)
+            it=LEN_TRIM(inc)
+            itmp = INDEX(inc,"-")
+            IF (itmp .GT. 0) THEN
+              READ (inc(1:itmp-1),'(I10)',ERR=130) istart
+              READ (inc(itmp+1:it),'(I10)',ERR=130) iend
+              ALLOCATE(opts%selavol(iend-istart+1))
+              DO sel = istart, iend
+                opts%selanum=opts%selanum+1
+                opts%selavol(opts%selanum)=sel
+              END DO
+              GO TO 210
+   130        m=m-1
               EXIT
-            END DO
+            ELSE
+              m=m-1
+              ALLOCATE(opts%selavol(n))
+              DO
+                m=m+1
+                CALL GET_COMMAND_ARGUMENT(m,inc)
+                inc=ADJUSTL(inc)
+                it=LEN_TRIM(inc)
+                READ (inc(1:it),'(I10)',ERR=140) sel
+                opts%selanum=opts%selanum+1
+                opts%selavol(opts%selanum)=sel
+                IF(m==n) EXIT readopts
+                CYCLE
+     140        m=m-1
+                EXIT
+              END DO
+            END IF
+          ELSEIF (inc(1:it) == 'SUM_ATOM' .OR. inc(1:it) == 'sum_atom') THEN
+            opts%print_sum_atom = .TRUE.
+            opts%sumanum=0
+            m=m+1
+            CALL GET_COMMAND_ARGUMENT(m,inc)
+            inc=ADJUSTL(inc)
+            it=LEN_TRIM(inc)
+            itmp = INDEX(inc,"-")
+            IF (itmp .GT. 0) THEN
+              READ (inc(1:itmp-1),'(I10)',ERR=150) istart
+              READ (inc(itmp+1:it),'(I10)',ERR=150) iend
+              ALLOCATE(opts%sumavol(iend-istart+1))
+              DO sel = istart, iend
+                opts%sumanum=opts%sumanum+1
+                opts%sumavol(opts%sumanum)=sel
+              END DO
+              GO TO 210
+   150        m=m-1
+              EXIT
+            ELSE
+              m=m-1
+              ALLOCATE(opts%sumavol(n))
+              DO
+                m=m+1
+                CALL GET_COMMAND_ARGUMENT(m,inc)
+                inc=ADJUSTL(inc)
+                it=LEN_TRIM(inc)
+                READ (inc(1:it),'(I10)',ERR=160) sel
+                opts%sumanum=opts%sumanum+1
+                opts%sumavol(opts%sumanum)=sel
+                IF(m==n) EXIT readopts
+                CYCLE
+     160        m=m-1
+                EXIT
+              END DO
+            END IF
+          ELSEIF (inc(1:it) == 'SUM_BADER' .OR. inc(1:it) == 'sum_bader') THEN
+            opts%print_sum_bader = .TRUE.
+            opts%sumbnum=0
+            m=m+1
+            CALL GET_COMMAND_ARGUMENT(m,inc)
+            inc=ADJUSTL(inc)
+            it=LEN_TRIM(inc)
+            itmp = INDEX(inc,"-")
+            IF (itmp .GT. 0) THEN
+              READ (inc(1:itmp-1),'(I10)',ERR=170) istart
+              READ (inc(itmp+1:it),'(I10)',ERR=170) iend
+              ALLOCATE(opts%sumbvol(iend-istart+1))
+              DO sel = istart, iend
+                opts%sumbnum=opts%sumbnum+1
+                opts%sumbvol(opts%sumbnum)=sel
+              END DO
+              GO TO 210
+   170        m=m-1
+              EXIT
+            ELSE
+              m=m-1
+              ALLOCATE(opts%sumbvol(n))
+              DO
+                m=m+1
+                CALL GET_COMMAND_ARGUMENT(m,inc)
+                inc=ADJUSTL(inc)
+                it=LEN_TRIM(inc)
+                READ (inc(1:it),'(I10)',ERR=180) sel
+                opts%sumbnum=opts%sumbnum+1
+                opts%sumbvol(opts%sumbnum)=sel
+                IF(m==n) EXIT readopts
+                CYCLE
+     180        m=m-1
+                EXIT
+              END DO
+            END IF
           ELSE
             WRITE(*,'(A,A,A)') ' Unknown option "',inc(1:it),'"'
             STOP
@@ -334,6 +447,16 @@
       STOP
     END IF
 
+    IF (opts%print_sum_bader .AND. opts%sumbnum==0) THEN
+      WRITE(*,'(/,A)') 'NO BADER VOLUMES SELECTED'
+      STOP
+    END IF
+
+    IF (opts%print_sum_atom .AND. opts%sumanum==0) THEN
+      WRITE(*,'(/,A)') 'NO BADER VOLUMES SELECTED'
+      STOP
+    END IF
+
     RETURN
     END SUBROUTINE get_options
 
@@ -352,7 +475,8 @@
       WRITE(*,*) '         [ -ref reference_charge ]'
       WRITE(*,*) '         [ -m known | max ]'
       WRITE(*,*) '         [ -p all_atom | all_bader ]'
-      WRITE(*,*) '         [ -p sel_atom | sel_bader ] [ volume list ]'
+      WRITE(*,*) '         [ -p sel_atom | sel_bader ] [ volume list or range]'
+      WRITE(*,*) '         [ -p sum_atom | sum_bader ] [ volume list or range]'
       WRITE(*,*) '         [ -p atom_index | bader_index ]'
       WRITE(*,*) '         [ -i cube | chgcar ]'
       WRITE(*,*) '         [ -h ] [ -v ]'
@@ -407,10 +531,15 @@
       WRITE(*,*) '           all_atom: all atomic volumes'
       WRITE(*,*) '           all_bader: all Bader volumes'
       WRITE(*,*) ''
-      WRITE(*,*) '   -p < sel_atom | sel_bader > <volume list>'
+      WRITE(*,*) '   -p < sel_atom | sel_bader > <volume list or range>'
       WRITE(*,*) '        Print calculated Bader volumes'
       WRITE(*,*) '           sel_atom: atomic volume(s) around the selected atom(s)'
       WRITE(*,*) '           sel_bader: selected Bader volumes'
+      WRITE(*,*) ''
+      WRITE(*,*) '   -p < sum_atom | sum_bader > <volume list or range>'
+      WRITE(*,*) '        Print calculated Bader volumes'
+      WRITE(*,*) '           sum_atom: sum of atomic volume(s) around the selected atom(s)'
+      WRITE(*,*) '           sum_bader: sum of selected Bader volumes'
       WRITE(*,*) ''
       WRITE(*,*) '   -p < atom_index | bader_index >'
       WRITE(*,*) '        Print index of atomic or Bader volumes'

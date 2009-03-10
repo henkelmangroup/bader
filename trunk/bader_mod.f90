@@ -39,6 +39,7 @@ MODULE bader_mod
   PUBLIC :: bader_obj
   PUBLIC :: bader_calc,bader_mindist,bader_output,write_all_atom,write_all_bader
   PUBLIC :: write_sel_atom,write_sel_bader,write_atom_index,write_bader_index
+  PUBLIC :: write_sum_atom,write_sum_bader
 
   CONTAINS
 
@@ -819,6 +820,80 @@ MODULE bader_mod
 
   RETURN
   END SUBROUTINE write_sel_atom
+!-----------------------------------------------------------------------------------!
+! write_sum_atom: Write a CHGCAR file for the charge summed over the user specified 
+! atomic volumes.
+!-----------------------------------------------------------------------------------!
+
+  SUBROUTINE write_sum_atom(bdr,opts,ions,chg)
+  
+    TYPE(bader_obj) :: bdr
+    TYPE(options_obj) :: opts
+    TYPE(ions_obj) :: ions
+    TYPE(charge_obj) :: chg
+    
+    TYPE(charge_obj) :: tmp
+    
+    INTEGER :: n1,n2,n3,i,j,b,ik,sc,cc,tenths_done,t1,t2,cr,count_max
+    INTEGER,DIMENSION(bdr%nvols) :: rck
+    CHARACTER(LEN=128) :: atomfilename
+    
+    CALL SYSTEM_CLOCK(t1,cr,count_max)
+    
+    tmp=chg
+!   Set temporary density to zero at start
+    tmp%rho = 0._q2
+    
+    WRITE(*,'(/,2x,A)') 'WRITING SUM OVER SELECTED ATOMIC VOLUMES '
+    WRITE(*,'(2x,A)')   '               0  10  25  50  75  100'
+    WRITE(*,'(2x,A,$)') 'PERCENT DONE:  **'
+    tenths_done=0
+    sc=0
+    
+!   Here we only need name one file
+    WRITE(atomfilename,'(A)') "BvAt_summed.dat"
+    
+!   Loop over number of selected atoms (opts%selanum)
+    DO i=1,opts%sumanum
+      ik=opts%sumavol(i)
+      cc=0
+      rck=0
+      DO j=1,bdr%nvols
+        IF (bdr%volchg(j) < bdr%tol) CYCLE
+        IF (bdr%nnion(j) == ik) THEN
+          cc = cc+1
+          rck(cc) = j
+        END IF
+      END DO
+      sc = sc+cc
+      DO WHILE ((i*10/opts%sumanum) > tenths_done)
+        tenths_done = tenths_done+1
+        WRITE(*,'(A,$)') '**'
+      END DO
+      IF (cc == 0) CYCLE
+      DO b=1,cc
+!        WHERE (bdr%volnum == rck(b)) tmp%rho = chg%rho
+        DO n1=1,chg%npts(1)
+          DO n2=1,chg%npts(2)
+            DO n3=1,chg%npts(3)
+              IF (bdr%volnum(n1,n2,n3) == rck(b))  &
+              &   tmp%rho(n1,n2,n3) = chg%rho(n1,n2,n3)
+            END DO
+          END DO
+        END DO
+      END DO
+    
+    END DO
+
+!   Write out charge to file
+    CALL write_charge(ions,tmp,opts,atomfilename)
+    DEALLOCATE(tmp%rho)
+    
+    CALL SYSTEM_CLOCK(t2,cr,count_max)
+    WRITE(*,'(2/,1A12,1F7.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
+  
+  RETURN
+  END SUBROUTINE write_sum_atom
 
 !-----------------------------------------------------------------------------------!
 ! write_sel_bader: Write a CHGCAR file for the user specified Bader volumes.
@@ -889,6 +964,74 @@ MODULE bader_mod
 
   RETURN
   END SUBROUTINE write_sel_bader
+
+!-----------------------------------------------------------------------------------!
+! write_sum_bader: Write a CHGCAR file for the charge summed over the user specified 
+! bader volumes.
+!-----------------------------------------------------------------------------------!
+        
+  SUBROUTINE write_sum_bader(bdr,opts,ions,chg)
+
+    TYPE(bader_obj) :: bdr
+    TYPE(options_obj) :: opts
+    TYPE(ions_obj) :: ions
+    TYPE(charge_obj) :: chg
+
+    TYPE(charge_obj) :: tmp
+    CHARACTER(LEN=128) :: atomfilename
+    INTEGER,DIMENSION(bdr%nvols,2) :: volsig
+    INTEGER :: n1,n2,n3,cr,count_max,t1,t2,tenths_done,i,bdimsig,bvolnum
+  
+    CALL SYSTEM_CLOCK(t1,cr,count_max)
+
+    tmp=chg
+
+! Correlate the number for each significant bader volume to its real number
+    bdimsig=0
+    volsig=0 
+
+    DO i=1,bdr%nvols
+      IF (bdr%volchg(i) > bdr%tol) THEN
+        bdimsig = bdimsig+1
+        volsig(bdimsig,1) = bdimsig
+        volsig(bdimsig,2) = i
+      END IF
+    END DO
+    
+    WRITE(*,'(/,2x,A)') 'WRITING SELECTED BADER VOLUMES '
+    WRITE(*,'(2x,A)')   '               0  10  25  50  75  100'
+    WRITE(*,'(2x,A,$)') 'PERCENT DONE:  **'
+    tenths_done=0
+
+    tmp%rho = 0._q2
+    WRITE(atomfilename,'(A15)') "Bvol_summed.dat"
+
+    DO i=1,opts%sumbnum
+      DO WHILE ((i*10/opts%sumbnum) > tenths_done)
+        tenths_done = tenths_done+1
+        WRITE(*,'(A,$)') '**'
+      END DO
+
+      bvolnum=opts%sumbvol(i)
+!      WHERE (bdr%volnum == volsig(bvolnum,2)) tmp%rho = chg%rho
+      DO n1=1,chg%npts(1)
+        DO n2=1,chg%npts(2)
+          DO n3=1,chg%npts(3)
+            IF (bdr%volnum(n1,n2,n3) == volsig(bvolnum,2))  &
+            &  tmp%rho(n1,n2,n3) = chg%rho(n1,n2,n3)
+          END DO
+        END DO
+      END DO
+    END DO
+      
+    CALL write_charge(ions,tmp,opts,atomfilename)
+    DEALLOCATE(tmp%rho)
+    
+    CALL SYSTEM_CLOCK(t2,cr,count_max)
+    WRITE(*,'(2/,1A12,1F7.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
+  
+  RETURN
+  END SUBROUTINE write_sum_bader
 
 !-----------------------------------------------------------------------------------!
 ! write_bader_index: Write out a CHGCAR type file that the value at each point is
