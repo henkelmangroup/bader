@@ -9,8 +9,9 @@
     TYPE :: options_obj
       CHARACTER(LEN=128) :: chargefile,refchgfile
       REAL(q2) :: badertol, stepsize
-      INTEGER :: out_opt, out_auto = 0, out_cube = 1, out_chgcar = 2
-      INTEGER :: in_opt, in_auto = 0, in_cube = 1, in_chgcar = 2
+      INTEGER :: out_opt, out_auto = 0, out_cube = 1, out_chgcar4 = 2, out_chgcar5 = 3
+      INTEGER :: in_opt, in_auto = 0, in_cube = 1, in_chgcar=2, in_chgcar4 = 3,in_chgcar5 = 4
+      INTEGER :: ref_in_opt
       INTEGER :: bader_opt, bader_offgrid = 0, bader_ongrid = 1, bader_neargrid = 2
       INTEGER :: quit_opt, quit_max = 0, quit_known = 1
       INTEGER :: refine_edge_itrs
@@ -46,7 +47,7 @@
       INTEGER :: COMMAND_ARGUMENT_COUNT
 
 ! Default values
-      opts%out_opt = opts%out_chgcar
+      opts%out_opt = opts%out_chgcar4
       opts%in_opt = opts%in_auto
       ! print options
       opts%print_all_atom = .FALSE.
@@ -373,9 +374,9 @@
           inc=ADJUSTL(inc)
           it=LEN_TRIM(inc)
           IF (inc(1:it) == 'CUBE' .OR. inc(1:it) == 'cube') THEN
-            opts%out_opt=opts%out_cube
+            opts%in_opt=opts%in_cube
           ELSEIF (inc(1:it) == 'CHGCAR' .OR. inc(1:it) == 'chgcar') THEN
-            opts%out_opt=opts%out_chgcar
+            opts%in_opt=opts%in_chgcar
           ELSE
             WRITE(*,'(A,A,A)') ' Unknown option "',inc(1:it),'"'
             STOP

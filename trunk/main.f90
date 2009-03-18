@@ -57,6 +57,7 @@
        CALL bader_mindist(bdr,ions,chgval)
        CALL bader_output(bdr,ions,chgval)
      END IF
+
      IF (opts%print_all_bader) CALL write_all_bader(bdr,opts,ions,chgval)
      IF (opts%print_all_atom) CALL write_all_atom(bdr,opts,ions,chgval)
      IF (opts%print_sel_atom) CALL write_sel_atom(bdr,opts,ions,chgval)

@@ -8,6 +8,7 @@ MODULE chgcar_mod
   USE matrix_mod
   USE ions_mod 
   USE charge_mod 
+  USE options_mod
   IMPLICIT NONE
 
   PRIVATE
@@ -19,11 +20,12 @@ MODULE chgcar_mod
 ! read_charge_chgcar: Reads the charge density from a file in vasp format
 !-----------------------------------------------------------------------------------!
 
-  SUBROUTINE read_charge_chgcar(ions,chg,chargefile)
+  SUBROUTINE read_charge_chgcar(ions,chg,chargefile,opts)
 
     TYPE(ions_obj) :: ions
     TYPE(charge_obj) :: chg
     CHARACTER(LEN=128) :: chargefile
+    TYPE(options_obj) :: opts
 
     REAL(q2) :: scalefactor
     REAL(q2),DIMENSION(3) :: dlat,dcar
@@ -35,6 +37,10 @@ MODULE chgcar_mod
     WRITE(*,'(2x,A)') 'VASP-STYLE INPUT FILE'
     READ(100,'(/,1F20.16)') scalefactor
     READ(100,'(3F13.6)') (ions%lattice(i,1:3) , i=1,3)
+
+    IF(opts%in_opt == opts%in_chgcar5) THEN
+      READ(100,'(1X,330A)') ions%name_ion
+    END IF
     READ(100,'(110I4)') nionlist
     READ(100,*)
     DO i=1,110
@@ -112,18 +118,24 @@ MODULE chgcar_mod
 ! write_charge_chgcar: Write the charge density from a file in vasp format
 !-----------------------------------------------------------------------------------!
     
-  SUBROUTINE write_charge_chgcar(ions,chg,chargefile)
+  SUBROUTINE write_charge_chgcar(ions,chg,chargefile,opts)
     
     TYPE(ions_obj) :: ions
     TYPE(charge_obj) :: chg
     CHARACTER(128) :: chargefile
+    TYPE(options_obj) :: opts
 
-    INTEGER :: i,n1,n2,n3
+    INTEGER :: i,n1,n2,n3,it
 
     OPEN(100,FILE=chargefile(1:LEN_TRIM(ADJUSTL(chargefile))),STATUS='replace')
     WRITE(100,*)'Bader charge density file'
     WRITE(100,*)'1.00'
     WRITE(100,'(3F13.6)') (ions%lattice(i,1:3) , i=1,3)
+    IF(opts%in_opt == opts%in_chgcar5) THEN
+      ions%name_ion=ADJUSTL(ions%name_ion);
+      it=LEN_TRIM(ions%name_ion)
+      WRITE(100,'(3X,A)') ions%name_ion(1:it)
+    END IF
     WRITE(100,'(110I4)') ions%num_ion
     WRITE(100,*)'Direct'
     WRITE(100,'(3(2X,1F8.6))') (ions%r_dir(i,:) , i=1,ions%nions)
