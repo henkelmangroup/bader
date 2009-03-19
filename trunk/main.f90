@@ -1,26 +1,26 @@
 !-----------------------------------------------------------------------------------!
 ! Bader charge density analysis program
-! Version 0.25c (09/25/08)
+! Version 0.25d (03/19/09)
 !
 ! Authors:
 !   Wenjie Tang, Andri Arnaldsson, and Graeme Henkelman
 !
 ! Contributers:
-!   Johannes Voss (DTU), Erik McNellis (FHI)
+!   Johannes Voss (DTU), Erik McNellis (FHI), Matthew Dyer (Liverpool)
 !
 ! Based on algorithms described in the following publications:
 !
 !   A fast and robust algorithm for Bader decomposition of charge density,
 !   G. Henkelman, A. Arnaldsson, and H. Jonsson,
-!   Comput. Mater. Sci. 36 254-360 (2006).
+!   Comput. Mater. Sci. 36, 254-360 (2006).
 !
 !   An improved grid-based algorithm for Bader charge allocation
 !   E. Sanville, S. Kenny, R. Smith, and G. Henkelman
-!   J. Comput. Chem. 28 899-908 (2007).
+!   J. Comput. Chem. 28, 899-908 (2007).
 !
 !   A grid-based Bader analysis algorithm without lattice bias
 !   W. Tang, E. Sanville, and G. Henkelman
-!   J. Phys.: Condens. Matter (in press, 2008)
+!   J. Phys.: Condens. Matter 21, 084204 (2009)
 !
 !-----------------------------------------------------------------------------------!
 
@@ -44,7 +44,7 @@
      TYPE(voronoi_obj) :: vor
  
     ! Write the version number
-     WRITE(*,'(/,2X,A)') 'GRID BASED BADER ANALYSIS  (v0.25c 09/25/08)'
+     WRITE(*,'(/,2X,A)') 'GRID BASED BADER ANALYSIS  (v0.25d 03/13/09)'
 
      ! Get the control variables
      CALL get_options(opts)
