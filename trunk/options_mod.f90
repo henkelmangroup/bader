@@ -172,6 +172,7 @@
                 opts%selbnum=opts%selbnum+1
                 opts%selbvol(opts%selbnum)=sel
               END DO
+              IF(m==n) EXIT readopts
               GO TO 210
    110        m=m-1
               EXIT
@@ -208,6 +209,7 @@
                 opts%selanum=opts%selanum+1
                 opts%selavol(opts%selanum)=sel
               END DO
+              IF(m==n) EXIT readopts
               GO TO 210
    130        m=m-1
               EXIT
@@ -244,6 +246,7 @@
                 opts%sumanum=opts%sumanum+1
                 opts%sumavol(opts%sumanum)=sel
               END DO
+              IF(m==n) EXIT readopts
               GO TO 210
    150        m=m-1
               EXIT
@@ -280,6 +283,7 @@
                 opts%sumbnum=opts%sumbnum+1
                 opts%sumbvol(opts%sumbnum)=sel
               END DO
+              IF(m==n) EXIT readopts
               GO TO 210
    170        m=m-1
               EXIT
