@@ -10,8 +10,8 @@
 !
 ! Based on algorithms described in the following publications:
 !
-!   A fast and robust algorithm for Bader decomposition of charge density,
-!   G. Henkelman, A. Arnaldsson, and H. Jonsson,
+!   A fast and robust algorithm for Bader decomposition of charge density
+!   G. Henkelman, A. Arnaldsson, and H. Jonsson
 !   Comput. Mater. Sci. 36, 254-360 (2006).
 !
 !   An improved grid-based algorithm for Bader charge allocation
