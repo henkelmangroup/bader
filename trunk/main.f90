@@ -9,20 +9,6 @@
 ! A copy of the GNU General Public License is available at
 ! http://www.gnu.org/licenses/
 
-! Copyright (c) 2009 Graeme Henkelman <henkelman@mail.utexas.edu>
-! Copyright (c) 2009 Wenjie Tang <twj916@mail.utexas.edu>
-! Copyright (c) 2009 Andri Arnaldsson
-! Copyright (c) 2009 Samuel T. Chill <samchill@mail.utexas.edu>
-
-! This program is free software: you can redistribute it and/or modify
-! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation, either version 3 of the License, or
-! (at your option) any later version.
-
-! You should have received a copy of the GNU General Public License
-! along with this program. If not, see <http://www.gnu.org/licenses/>.
-
- 
 !-----------------------------------------------------------------------------------!
 ! Bader charge density analysis program
 ! Version 0.25d (03/19/09)
