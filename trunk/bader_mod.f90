@@ -527,6 +527,30 @@ MODULE bader_mod
         END DO
       END DO
       WRITE(*,'(2x,A,3x,1I8)') 'CHECKED POINTS:',num_check
+
+      ! make the surrounding points unkown
+      DO n1=1,chg%npts(1)
+        DO n2=1,chg%npts(2)
+          DO n3=1,chg%npts(3)
+            p = (/n1,n2,n3/)
+            bvolnum = bdr%volnum(n1,n2,n3)
+
+            IF (bvolnum<0) THEN
+              DO d1=-1,1
+               DO d2=-1,1
+                DO d3=-1,1
+                  pt=p+(/d1,d2,d3/)
+                  CALL pbc(pt,chg%npts)
+                  IF(bdr%known(pt(1),pt(2),pt(3))==2)bdr%known(pt(1),pt(2),pt(3))=0
+                END DO
+               END DO
+              END DO
+            END IF
+
+          END DO
+        END DO
+      END DO
+
     END IF
 
     num_reassign=0
