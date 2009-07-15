@@ -26,6 +26,8 @@
       INTEGER :: bader_opt, bader_offgrid = 0, bader_ongrid = 1, bader_neargrid = 2
       INTEGER :: quit_opt, quit_max = 0, quit_known = 1
       INTEGER :: refine_edge_itrs
+! refine_edge_itrs=-1 check points around the reassigned points during refinement
+! refine_edge_itrs=-2 check every edge point during refinement
       INTEGER :: selanum, selbnum,sumanum,sumbnum
       INTEGER,ALLOCATABLE,DIMENSION(:) :: selavol, selbvol,sumavol,sumbvol
       LOGICAL :: bader_flag, voronoi_flag, dipole_flag, ldos_flag

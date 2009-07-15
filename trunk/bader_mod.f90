@@ -165,7 +165,7 @@ MODULE bader_mod
     END DO
     WRITE(*,*) ''
 
-    IF(opts%refine_edge_itrs==-1) THEN
+    IF(opts%refine_edge_itrs ==-1 .OR. opts%refine_edge_itrs ==-2) THEN
       WRITE(*,'(/,2x,A)') 'REFINING AUTOMATICALLY'
       DO
         WRITE(*,'(2x,A,I2)') 'ITERATION:',ref_itrs
@@ -457,36 +457,77 @@ MODULE bader_mod
 ! refine_edge: refine the grid points on the edge of the Bader volumes.
 !-----------------------------------------------------------------------------------!
 
-  SUBROUTINE refine_edge(bdr,chg,opts,ions,itrs)
+  SUBROUTINE refine_edge(bdr,chg,opts,ions,ref_itrs)
 
     TYPE(bader_obj) :: bdr
     TYPE(charge_obj) :: chg
     TYPE(options_obj) :: opts
     TYPE(ions_obj) :: ions
-    INTEGER :: itrs
+    INTEGER :: ref_itrs
 
-    INTEGER,DIMENSION(3) :: p,ptemp
+    INTEGER,DIMENSION(3) :: p,pt
     INTEGER :: n1,n2,n3,path_volnum,bvolnum,i
-    INTEGER :: num_edge,num_reassign,numsign
-    CHARACTER(LEN=128) :: atomfilename
+    INTEGER :: num_edge,num_reassign,num_check
+    INTEGER :: d1,d2,d3
 
-     num_edge=0
-     DO n1=1,chg%npts(1)
-      DO n2=1,chg%npts(2)
-        DO n3=1,chg%npts(3)
-          p = (/n1,n2,n3/)
-          IF (is_vol_edge(bdr,chg,p).AND.(.NOT.is_max(chg,p))) THEN
-            num_edge = num_edge+1
-            bdr%volnum(p(1),p(2),p(3)) = -bdr%volnum(p(1),p(2),p(3))
-            IF (opts%quit_opt == opts%quit_known) THEN
-              bdr%known(p(1),p(2),p(3)) = 0
-              CALL reassign_volnum_ongrid2(bdr,chg,p)
-            END IF 
-          END IF
+     IF(opts%refine_edge_itrs==-2 .OR. ref_itrs==1) THEN
+       num_edge=0
+       DO n1=1,chg%npts(1)
+        DO n2=1,chg%npts(2)
+          DO n3=1,chg%npts(3)
+            p = (/n1,n2,n3/)
+            IF (is_vol_edge(bdr,chg,p).AND.(.NOT.is_max(chg,p))) THEN
+              num_edge = num_edge+1
+              bdr%volnum(p(1),p(2),p(3)) = -bdr%volnum(p(1),p(2),p(3))
+              IF (opts%quit_opt == opts%quit_known) THEN
+                bdr%known(p(1),p(2),p(3)) = 0
+                CALL reassign_volnum_ongrid2(bdr,chg,p)
+              END IF 
+            END IF
+          END DO
         END DO
       END DO
-    END DO
-    WRITE(*,'(2x,A,6x,1I8)') 'EDGE POINTS:',num_edge
+      WRITE(*,'(2x,A,6x,1I8)') 'EDGE POINTS:',num_edge
+    END IF
+
+    IF(opts%refine_edge_itrs==-1 .AND. ref_itrs>1) THEN
+      num_check=0
+      DO n1=1,chg%npts(1)
+        DO n2=1,chg%npts(2)
+          DO n3=1,chg%npts(3)
+            p = (/n1,n2,n3/)
+
+            IF(bdr%volnum(n1,n2,n3) < 0 .AND. bdr%known(n1,n2,n3) /=-1) THEN
+              DO d1=-1,1
+               DO d2=-1,1
+                DO d3=-1,1
+                  pt=p+(/d1,d2,d3/)
+                  CALL pbc(pt,chg%npts)
+                  IF(.NOT.is_max(chg,pt)) THEN 
+                    IF(bdr%volnum(pt(1),pt(2),pt(3))>0) THEN
+                      bdr%volnum(pt(1),pt(2),pt(3)) = -bdr%volnum(pt(1),pt(2),pt(3))
+                      bdr%known(pt(1),pt(2),pt(3)) = -1
+                      num_check=num_check+1
+                    ELSE IF(bdr%volnum(pt(1),pt(2),pt(3))<0.AND.bdr%known(pt(1),pt(2),pt(3))==0)THEN
+                      bdr%known(pt(1),pt(2),pt(3)) = -2
+                      num_check=num_check+1
+                    END IF
+                  END IF
+                END DO
+               END DO
+              END DO
+              num_check=num_check-1
+              IF (bdr%known(pt(1),pt(2),pt(3))/=-2) THEN
+                bdr%volnum(p(1),p(2),p(3)) = ABS(bdr%volnum(p(1),p(2),p(3)))         
+              END IF
+              ! end of mark
+            END IF
+
+          END DO
+        END DO
+      END DO
+      WRITE(*,'(2x,A,3x,1I8)') 'CHECKED POINTS:',num_check
+    END IF
 
     num_reassign=0
     DO n1=1,chg%npts(1)
@@ -506,23 +547,27 @@ MODULE bader_mod
             IF (path_volnum<0 .OR. path_volnum>bdr%bnum) THEN
               write(*,*) 'ERROR: should be no new maxima in edge refinement'
             END IF
+            bdr%volnum(n1,n2,n3) = path_volnum
             IF (ABS(bvolnum) /= path_volnum) THEN
               num_reassign = num_reassign+1
+              IF(opts%refine_edge_itrs==-1) bdr%volnum(n1,n2,n3) = -path_volnum
             END IF
-            bdr%volnum(n1,n2,n3) = path_volnum
             DO i=1,bdr%pnum
-              ptemp = (/bdr%path(i,1),bdr%path(i,2),bdr%path(i,3)/)
-              IF (bdr%known(ptemp(1),ptemp(2),ptemp(3)) /= 2) THEN
-                bdr%known(ptemp(1),ptemp(2),ptemp(3)) = 0
+              pt = (/bdr%path(i,1),bdr%path(i,2),bdr%path(i,3)/)
+              IF (bdr%known(pt(1),pt(2),pt(3)) /= 2) THEN
+                bdr%known(pt(1),pt(2),pt(3)) = 0
               END IF
             END DO 
           END IF
         END DO
       END DO
     END DO
-
+ 
     WRITE(*,'(2x,A,1I8)') 'REASSIGNED POINTS:',num_reassign
     IF (opts%refine_edge_itrs==-1 .AND. num_reassign==0) THEN
+      opts%refine_edge_itrs = 0
+    END IF
+    IF (opts%refine_edge_itrs==-2 .AND. num_reassign==0) THEN
       opts%refine_edge_itrs = 0
     END IF
 
