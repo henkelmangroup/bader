@@ -22,6 +22,7 @@ OBJS = kind_mod.obj       \
        io_mod.obj         \
        bader_mod.obj      \
        voronoi_mod.obj    \
+       command_arg.obj    \
        main.obj
 
 %.obj %.mod : %.f90
@@ -34,5 +35,4 @@ dist: bader
 	zip bader_win.zip bader.exe
 
 clean:
-	rm -f *.obj *.mod bader.exe bader_win.zip
-
+	rm -f *.obj *.o *.mod *.map bader.exe bader_win.zip
