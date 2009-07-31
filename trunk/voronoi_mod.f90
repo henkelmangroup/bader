@@ -42,6 +42,7 @@ MODULE voronoi_mod
     TYPE(voronoi_obj) :: vor
     TYPE(ions_obj) :: ions
     TYPE(charge_obj) :: chg
+    CHARACTER(LEN=128) :: atomfilename
 
     REAL(q2),DIMENSION(3) :: r_lat,dr_lat,dr_car,ngf,ngf_2
     REAL(q2) :: dist,min_dist,shift
@@ -73,13 +74,14 @@ MODULE voronoi_mod
           r_lat(3)=REAL(n3,q2)
           closest=1
           dr_lat=r_lat-ions%r_lat(1,:)
-          CALL dpbc(dr_lat,ngf,ngf_2)
-          dr_car=lat2car(chg,dr_lat)
+          CALL matrix_vector(chg%lat2car,dr_lat,dr_car)
+          CALL dpbc_car(ions,dr_car)
           min_dist=DOT_PRODUCT(dr_car,dr_car)
+
           DO i=2,ions%nions
             dr_lat=r_lat-ions%r_lat(i,:)
-            CALL dpbc(dr_lat,ngf,ngf_2)
-            dr_car=lat2car(chg,dr_lat)
+            CALL matrix_vector(chg%lat2car,dr_lat,dr_car)
+            CALL dpbc_car(ions,dr_car)
             dist=DOT_PRODUCT(dr_car,dr_car)
             IF (dist < min_dist) THEN
               min_dist=dist
@@ -96,6 +98,18 @@ MODULE voronoi_mod
 
     CALL SYSTEM_CLOCK(t2,cr,count_max)
     WRITE(*,'(/,A12,F7.2,A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
+
+    WRITE(*,*) ''
+    WRITE(*,*) 'VORONOI ANALYSIS RESULT'
+    WRITE(*,556) '#','X','Y','Z','CHARGE'
+    556 FORMAT(4X,1A1,9X,1A1,2(11X,1A1),8X,1A6)
+
+    WRITE(*,'(A)') '  ----------------------------------------------------------'
+    DO i=1,ions%nions
+       WRITE(*,777) i,ions%r_car(i,:),vor%vorchg(i)
+       777 FORMAT(1I5,4F12.4)
+    END DO
+    WRITE(*,'(A)') '  ----------------------------------------------------------'
 
   RETURN
   END SUBROUTINE voronoi
