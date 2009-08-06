@@ -422,6 +422,7 @@ MODULE bader_mod
     END IF
 
     gradrl = rho_grad_dir(chg,p) 
+
     IF (MAXVAL(ABS(gradrl)) < 1E-30) THEN
       IF (is_max(chg,p)) THEN
         dr = (/0._q2,0._q2,0._q2/)

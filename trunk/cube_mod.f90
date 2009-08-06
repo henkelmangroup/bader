@@ -51,31 +51,44 @@ MODULE cube_mod
     ALLOCATE(ions%r_car(ions%nions,3),ions%r_dir(ions%nions,3), &
     &        ions%ion_chg(ions%nions))
     DO i=1,3
-      READ(100,*) chg%npts(i),chg%lat2car(i,1:3)
+      READ(100,*) chg%npts(i),ions%lattice(i,1:3)
     END DO
+    CALL matrix_transpose(ions%lattice,chg%lat2car)
     ! This should really indicate the units (Bohr/Ang)
     IF(chg%npts(1)<0) chg%npts(1)=(-1)*chg%npts(1)
     chg%i_npts=1._q2/REAL(chg%npts,q2)
     ! The -1 is to account for having points at the edge of the cube
     DO i=1,3
 !test      ions%lattice(:,i)=chg%lat2car(i,:)*REAL(chg%npts(i)-1,q2)
-      ions%lattice(:,i)=chg%lat2car(i,:)*REAL(chg%npts(i),q2)
+      ions%lattice(i,:)=ions%lattice(i,:)*REAL(chg%npts(i),q2)
     END DO
     ! GH: still not sure about this -1.  Should it factor into the
     !     conversion matricies between lat and dir/car, as it is now?
     !     What about the places in which we multiply by npts, or i_npts?
     CALL matrix_transpose(ions%lattice,ions%dir2car)
     CALL matrix_3x3_inverse(ions%dir2car,ions%car2dir)
-    DO i=1,3
-!test      chg%car2lat(:,i)=ions%car2dir(:,i)*REAL(chg%npts(i)-1,q2)
-      chg%car2lat(:,i)=ions%car2dir(:,i)*REAL(chg%npts(i),q2)
-    END DO
+    CALL matrix_3x3_inverse(chg%lat2car,chg%car2lat)
+
     vol=matrix_volume(ions%lattice)
     DO i=1,ions%nions
       READ(100,*) tmp,ions%ion_chg(i),ions%r_car(i,:)
 !      ions%r_car(i,:)=ions%r_car(i,:)-chg%org_car(:)
       CALL matrix_vector(ions%car2dir,ions%r_car(i,:)-chg%org_car(:),ions%r_dir(i,:))
     END DO
+
+    ! origin of the lattice is at chg(0.5,0.5,0.5)
+!    chg%org_lat=(/0.5_q2,0.5_q2,0.5_q2/)
+    chg%org_lat=(/1._q2,1._q2,1._q2/)
+!    CALL matrix_vector(ions%car2dir,chg%org_car,chg%org_dir)
+
+    ALLOCATE(ions%r_lat(ions%nions,3))
+    DO i=1,ions%nions
+!      ions%r_lat(i,:)=dir2lat(chg,ions%r_dir(i,:))
+      CALL matrix_vector(chg%car2lat,ions%r_car(i,:),ions%r_lat(i,:))
+      ions%r_lat(i,:)=ions%r_lat(i,:)+chg%org_lat
+      CALL pbc_r_lat(ions%r_lat(i,:),chg%npts)
+    END DO
+
     chg%nrho=PRODUCT(chg%npts(:))
     ALLOCATE(chg%rho(chg%npts(1),chg%npts(2),chg%npts(3)))
     READ(100,*) (((chg%rho(n1,n2,n3),  &
@@ -97,11 +110,6 @@ MODULE cube_mod
 
     ! Note: this is only for isolated atoms.  For periodic systems, this shift
     ! might not be appropriate
-
-    ! origin of the lattice is at chg(0.5,0.5,0.5)
-!    chg%org_lat=(/0.5_q2,0.5_q2,0.5_q2/)
-    chg%org_lat=(/1._q2,1._q2,1._q2/)
-!    CALL matrix_vector(ions%car2dir,chg%org_car,chg%org_dir)
 
     ! distance between neighboring points
     DO d1=-1,1

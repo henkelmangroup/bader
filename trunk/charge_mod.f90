@@ -34,7 +34,7 @@ MODULE charge_mod
   PRIVATE
   PUBLIC :: charge_obj
   PUBLIC :: rho_val,rho_grad,rho_grad_dir
-  PUBLIC :: pbc,dpbc_dir,dpbc,dpbc_dir_org,dpbc_car
+  PUBLIC :: pbc,dpbc_dir,dpbc,dpbc_dir_org,dpbc_car,pbc_r_lat
   PUBLIC :: to_lat,is_max,is_max_ongrid
   PUBLIC :: lat2car,car2lat,lat2dir,dir2lat
 
@@ -226,6 +226,30 @@ MODULE charge_mod
 
   RETURN
   END FUNCTION rho_grad_dir
+!-----------------------------------------------------------------------------------!
+! pbc: Wrap the point (p(1),p(2),p(3)) to the boundary conditions [0,pmax].
+!-----------------------------------------------------------------------------------!
+
+  SUBROUTINE pbc_r_lat(r_lat,pmax)
+
+    REAL(q2),DIMENSION(3),INTENT(INOUT) :: r_lat
+    INTEGER,DIMENSION(3),INTENT(IN) :: pmax
+
+    INTEGER :: i
+
+    DO i=1,3
+      DO
+        IF(r_lat(i) > 0) EXIT
+        r_lat(i)=r_lat(i)+pmax(i)
+      END DO
+      DO
+        IF(r_lat(i) <= REAL(pmax(i))) EXIT
+        r_lat(i)=r_lat(i)-pmax(i)
+      END DO
+    END DO
+
+  RETURN
+  END SUBROUTINE pbc_r_lat
 
 !-----------------------------------------------------------------------------------!
 ! pbc: Wrap the point (p(1),p(2),p(3)) to the boundary conditions [0,pmax].

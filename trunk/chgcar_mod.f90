@@ -84,8 +84,9 @@ MODULE chgcar_mod
     CLOSE(100)
     DO i=1,3
       chg%lat2car(:,i)=ions%dir2car(:,i)/REAL(chg%npts(i),q2)
-      chg%car2lat(:,i)=ions%car2dir(:,i)*REAL(chg%npts(i),q2)
+    !  chg%car2lat(:,i)=ions%car2dir(:,i)*REAL(chg%npts(i),q2)
     END DO
+    CALL matrix_3x3_inverse(chg%lat2car,chg%car2lat)
 
     ! origin of the lattice is at chg(1,1,1)
     chg%org_lat=(/1._q2,1._q2,1._q2/)
@@ -98,6 +99,7 @@ MODULE chgcar_mod
 !      ions%r_lat(i,:)=dir2lat(chg,ions%r_dir(i,:))
       CALL matrix_vector(chg%car2lat,ions%r_car(i,:),ions%r_lat(i,:))
       ions%r_lat(i,:)=ions%r_lat(i,:)+chg%org_lat
+      CALL pbc_r_lat(ions%r_lat(i,:),chg%npts)
     END DO
 
     ! distance between neighboring points
@@ -121,6 +123,8 @@ MODULE chgcar_mod
   !make all ions%ion_chg=1, in case someone is writing a cube file from chgcar
 !  ALLOCATE(ions%ion_chg(ions%nions))
 !  ions%ion_chg=1.0
+!write(*,*) "charge:",chg%rho(1,2,1)
+!stop
 
   RETURN
   END SUBROUTINE read_charge_chgcar

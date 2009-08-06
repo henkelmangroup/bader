@@ -18,6 +18,8 @@ MODULE voronoi_mod
   USE matrix_mod
   USE ions_mod
   USE charge_mod
+  USE options_mod
+  USE io_mod
   IMPLICIT NONE
 
 ! Public, allocatable variables
@@ -42,9 +44,10 @@ MODULE voronoi_mod
     TYPE(voronoi_obj) :: vor
     TYPE(ions_obj) :: ions
     TYPE(charge_obj) :: chg
+    TYPE(options_obj) :: opts
     CHARACTER(LEN=128) :: atomfilename
 
-    REAL(q2),DIMENSION(3) :: r_lat,dr_lat,dr_car,ngf,ngf_2
+    REAL(q2),DIMENSION(3) :: r_lat,r_car,dr_lat,dr_car
     REAL(q2) :: dist,min_dist,shift
     INTEGER :: i,n1,n2,n3,closest,tenths_done,cr,count_max,t1,t2
 
@@ -55,9 +58,6 @@ MODULE voronoi_mod
     WRITE(*,'(2x,A,$)') 'PERCENT DONE:  **'
 
     ALLOCATE(vor%vorchg(ions%nions))
-
-    ngf=REAL(chg%npts,q2)
-    ngf_2=ngf/2._q2
 
     vor%vorchg=0._q2
     tenths_done=0
@@ -73,12 +73,13 @@ MODULE voronoi_mod
         DO n3=1,chg%npts(3)
           r_lat(3)=REAL(n3,q2)
           closest=1
+          !r_car=lat2car(chg,r_lat)
           dr_lat=r_lat-ions%r_lat(1,:)
           CALL matrix_vector(chg%lat2car,dr_lat,dr_car)
           CALL dpbc_car(ions,dr_car)
           min_dist=DOT_PRODUCT(dr_car,dr_car)
-
           DO i=2,ions%nions
+!            dr_car=r_car-ions%r_car(i,:)
             dr_lat=r_lat-ions%r_lat(i,:)
             CALL matrix_vector(chg%lat2car,dr_lat,dr_car)
             CALL dpbc_car(ions,dr_car)
@@ -93,7 +94,7 @@ MODULE voronoi_mod
       END DO
     END DO
 
-    ! Don't have this normalization for MONDO
+   ! Don't have this normalization for MONDO
     vor%vorchg(:)=vor%vorchg(:)/REAL(chg%nrho,q2)
 
     CALL SYSTEM_CLOCK(t2,cr,count_max)
