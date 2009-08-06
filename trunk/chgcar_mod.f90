@@ -123,8 +123,6 @@ MODULE chgcar_mod
   !make all ions%ion_chg=1, in case someone is writing a cube file from chgcar
 !  ALLOCATE(ions%ion_chg(ions%nions))
 !  ions%ion_chg=1.0
-!write(*,*) "charge:",chg%rho(1,2,1)
-!stop
 
   RETURN
   END SUBROUTINE read_charge_chgcar
