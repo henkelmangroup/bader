@@ -76,6 +76,9 @@ MODULE cube_mod
       CALL matrix_vector(ions%car2dir,ions%r_car(i,:)-chg%org_car(:),ions%r_dir(i,:))
     END DO
 
+    ! Note: this is only for isolated atoms.  For periodic systems, this shift
+    ! might not be appropriate
+
     ! origin of the lattice is at chg(0.5,0.5,0.5)
 !    chg%org_lat=(/0.5_q2,0.5_q2,0.5_q2/)
     chg%org_lat=(/1._q2,1._q2,1._q2/)
@@ -107,9 +110,6 @@ MODULE cube_mod
     &         chg%npts(1),'x',chg%npts(2),'x',chg%npts(3)
     WRITE(*,'(2x,A,1A20)') 'CLOSE ... ', chargefile
     CLOSE(100)
-
-    ! Note: this is only for isolated atoms.  For periodic systems, this shift
-    ! might not be appropriate
 
     ! distance between neighboring points
     DO d1=-1,1
