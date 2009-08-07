@@ -44,8 +44,6 @@ MODULE voronoi_mod
     TYPE(voronoi_obj) :: vor
     TYPE(ions_obj) :: ions
     TYPE(charge_obj) :: chg
-    TYPE(options_obj) :: opts
-    CHARACTER(LEN=128) :: atomfilename
 
     REAL(q2),DIMENSION(3) :: r_lat,r_car,dr_lat,dr_car
     REAL(q2) :: dist,min_dist,shift
@@ -73,7 +71,8 @@ MODULE voronoi_mod
         DO n3=1,chg%npts(3)
           r_lat(3)=REAL(n3,q2)
           closest=1
-          !r_car=lat2car(chg,r_lat)
+!          r_car=lat2car(chg,r_lat)
+!          dr_car=r_car-ions%r_car(1,:)
           dr_lat=r_lat-ions%r_lat(1,:)
           CALL matrix_vector(chg%lat2car,dr_lat,dr_car)
           CALL dpbc_car(ions,dr_car)
@@ -112,6 +111,8 @@ MODULE voronoi_mod
     END DO
     WRITE(*,'(A)') '  ----------------------------------------------------------'
 
+    WRITE(*,'(2x,A,2X,1F12.5)')  '         NUMBER OF ELECTRONS: ', &
+    &                                        SUM(vor%vorchg(1:ions%nions))
   RETURN
   END SUBROUTINE voronoi
 

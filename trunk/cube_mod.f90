@@ -84,7 +84,7 @@ MODULE cube_mod
     ALLOCATE(ions%r_lat(ions%nions,3))
     DO i=1,ions%nions
 !      ions%r_lat(i,:)=dir2lat(chg,ions%r_dir(i,:))
-      CALL matrix_vector(chg%car2lat,ions%r_car(i,:),ions%r_lat(i,:))
+      CALL matrix_vector(chg%car2lat,ions%r_car(i,:)-chg%org_car(:),ions%r_lat(i,:))
       ions%r_lat(i,:)=ions%r_lat(i,:)+chg%org_lat
       CALL pbc_r_lat(ions%r_lat(i,:),chg%npts)
     END DO
