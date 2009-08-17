@@ -84,7 +84,10 @@ MODULE chgcar_mod
     CLOSE(100)
     DO i=1,3
       chg%lat2car(:,i)=ions%dir2car(:,i)/REAL(chg%npts(i),q2)
+    !Wenjies fix: this should be by row instead of by column
     !  chg%car2lat(:,i)=ions%car2dir(:,i)*REAL(chg%npts(i),q2)
+    !This should work as well
+    !  chg%car2lat(i,:)=ions%car2dir(i,:)*REAL(chg%npts(i),q2)
     END DO
     CALL matrix_3x3_inverse(chg%lat2car,chg%car2lat)
 
