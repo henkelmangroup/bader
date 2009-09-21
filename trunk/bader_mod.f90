@@ -1686,7 +1686,10 @@ MODULE bader_mod
     TYPE(bader_obj) :: bdr
     INTEGER :: newsize
 
-    INTEGER,ALLOCATABLE,DIMENSION(:,:) :: tmpvolpos
+    !STC: tmpvolpos was INTEGER should have been REAL(q2), this caused a crash
+    !STC: when bader was run with -ref and compiled with floating point
+    !STC: exception handling (-fpe0).
+    REAL(q2),ALLOCATABLE,DIMENSION(:,:) :: tmpvolpos
 
     IF (newsize < bdr%bnum) write(*,*) 'Error: new volpos length too small'
 
