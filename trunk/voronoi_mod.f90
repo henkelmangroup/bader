@@ -46,8 +46,9 @@ MODULE voronoi_mod
     TYPE(charge_obj) :: chg
 
     REAL(q2),DIMENSION(3) :: r_lat,r_car,dr_lat,dr_car
-    REAL(q2) :: dist,min_dist,shift
+    REAL(q2) :: dist,min_dist,shift,vol
     INTEGER :: i,n1,n2,n3,closest,tenths_done,cr,count_max,t1,t2
+    REAL(q2),ALLOCATABLE,DIMENSION(:) :: ionvol
 
     CALL SYSTEM_CLOCK(t1,cr,count_max)
 
@@ -59,6 +60,9 @@ MODULE voronoi_mod
 
     vor%vorchg=0._q2
     tenths_done=0
+
+    ALLOCATE(ionvol(ions%nions))
+    ionvol=0.0
 
     DO n1=1,chg%npts(1)
       r_lat(1)=REAL(n1,q2)
@@ -88,6 +92,7 @@ MODULE voronoi_mod
               closest=i
             END IF
           END DO
+          ionvol(closest)=ionvol(closest)+1._q2
           vor%vorchg(closest)=vor%vorchg(closest)+rho_val(chg,n1,n2,n3)
         END DO
       END DO
@@ -96,23 +101,32 @@ MODULE voronoi_mod
    ! Don't have this normalization for MONDO
     vor%vorchg(:)=vor%vorchg(:)/REAL(chg%nrho,q2)
 
+    vol=matrix_volume(ions%lattice)
+    vol=vol/chg%nrho
+    DO i=1,ions%nions
+      ionvol(i)=ionvol(i)*vol
+    END DO
+
     CALL SYSTEM_CLOCK(t2,cr,count_max)
     WRITE(*,'(/,A12,F7.2,A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
 
     WRITE(*,*) ''
     WRITE(*,*) 'VORONOI ANALYSIS RESULT'
-    WRITE(*,556) '#','X','Y','Z','CHARGE'
-    556 FORMAT(4X,1A1,9X,1A1,2(11X,1A1),8X,1A6)
+    WRITE(*,556) '#','X','Y','Z','CHARGE','ATOMIC VOL'
+    556 FORMAT(4X,1A1,9X,1A1,2(11X,1A1),8X,1A6,6X,1A10)
 
-    WRITE(*,'(A)') '  ----------------------------------------------------------'
+    WRITE(*,'(A)') '  ----------------------------------------------------------------------'
     DO i=1,ions%nions
-       WRITE(*,777) i,ions%r_car(i,:),vor%vorchg(i)
-       777 FORMAT(1I5,4F12.4)
+       WRITE(*,777) i,ions%r_car(i,:),vor%vorchg(i),ionvol(i)
+       777 FORMAT(1I5,4F12.4,3X,1F12.4)
     END DO
-    WRITE(*,'(A)') '  ----------------------------------------------------------'
+    WRITE(*,'(A)') '  -----------------------------------------------------------------------'
 
     WRITE(*,'(2x,A,2X,1F12.5)')  '         NUMBER OF ELECTRONS: ', &
     &                                        SUM(vor%vorchg(1:ions%nions))
+
+    DEALLOCATE(ionvol)
+    
   RETURN
   END SUBROUTINE voronoi
 
