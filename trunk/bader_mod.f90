@@ -43,6 +43,7 @@ MODULE bader_mod
     INTEGER,ALLOCATABLE,DIMENSION(:,:) :: path
     INTEGER,ALLOCATABLE,DIMENSION(:) :: nnion
     REAL(q2) :: stepsize, tol
+    REAL(q2) :: vacchg, vacvol
     INTEGER nvols,pnum,bnum,pdim,bdim
   END TYPE
 
@@ -74,7 +75,7 @@ MODULE bader_mod
     INTEGER :: ref_itrs=1
 
     REAL(q2),DIMENSION(3) :: grad,voxlen
-    REAL(q2) :: rho
+    REAL(q2) :: rho,vol
     TYPE(charge_obj) :: chgtemp
     TYPE(ions_obj) :: ionstemp
 
@@ -112,6 +113,26 @@ MODULE bader_mod
     bdr%bnum=0
     bdr%nvols=0  ! True number of Bader volumes
 
+    ! find vacuum points, get the charge and volume
+    bdr%vacchg=0.0_q2
+    bdr%vacvol=0.0_q2
+    vol=matrix_volume(ions%lattice)
+    IF (opts%vac_flag) THEN
+      DO n1=1,chgval%npts(1)
+        DO n2=1,chgval%npts(2)
+          DO n3=1,chgval%npts(3)
+            IF (rho_val(chgval,n1,n2,n3)/vol<=opts%vacval) THEN
+               bdr%volnum(n1,n2,n3)=-1
+               bdr%vacchg=bdr%vacchg+chgval%rho(n1,n2,n3)
+               bdr%vacvol=bdr%vacvol+1
+            END IF
+          END DO
+        END DO
+      END DO
+    END IF
+    bdr%vacchg = bdr%vacchg/REAL(chgval%nrho,q2)
+    bdr%vacvol=bdr%vacvol*vol/chgval%nrho
+
     tenths_done=0
     DO n1=1,chgval%npts(1)
       IF ((n1*10/chgval%npts(1)) > tenths_done) THEN
@@ -145,7 +166,9 @@ MODULE bader_mod
             ! assign all points along the trajectory
             DO i=1,bdr%pnum
               ptemp = (/bdr%path(i,1),bdr%path(i,2),bdr%path(i,3)/)
-              bdr%volnum(ptemp(1),ptemp(2),ptemp(3)) = path_volnum
+              IF(bdr%volnum(ptemp(1),ptemp(2),ptemp(3))/=-1) THEN
+                bdr%volnum(ptemp(1),ptemp(2),ptemp(3)) = path_volnum
+              END IF 
               IF (opts%bader_opt /= opts%bader_ongrid) THEN
                 ! GH: how does this work?  Can it ever get here with bdr%known==2?
                 ! If so, the path should have quit
@@ -164,6 +187,16 @@ MODULE bader_mod
       END DO
     END DO
     WRITE(*,*) ''
+
+    IF (opts%vac_flag) THEN
+      DO n1=1,chgval%npts(1)
+        DO n2=1,chgval%npts(2)
+          DO n3=1,chgval%npts(3)
+            IF(bdr%volnum(n1,n2,n3)==-1) bdr%volnum(n1,n2,n3)=bdr%bnum+1
+          END DO
+        END DO
+      END DO
+    END IF
 
     IF(opts%refine_edge_itrs ==-1 .OR. opts%refine_edge_itrs ==-2) THEN
       WRITE(*,'(/,2x,A)') 'REFINING AUTOMATICALLY'
@@ -191,12 +224,14 @@ MODULE bader_mod
       bdr%volpos_car(i,:) = lat2car(chgtemp,bdr%volpos_lat(i,:))
     END DO
 
+
     ! Sum up the charge included in each volume
     ALLOCATE(bdr%volchg(bdr%nvols))
     bdr%volchg = 0._q2
     DO n1=1,chgval%npts(1)
       DO n2=1,chgval%npts(2)
         DO n3=1,chgval%npts(3)
+          IF (bdr%volnum(n1,n2,n3)==bdr%nvols+1) CYCLE
           bdr%volchg(bdr%volnum(n1,n2,n3)) = &
           &  bdr%volchg(bdr%volnum(n1,n2,n3))+chgval%rho(n1,n2,n3)
         END DO
@@ -477,6 +512,8 @@ MODULE bader_mod
         DO n2=1,chg%npts(2)
           DO n3=1,chg%npts(3)
             p = (/n1,n2,n3/)
+            ! change for calculating the vacuum volume
+            IF (bdr%volnum(n1,n2,n3)==bdr%bnum+1) CYCLE
             IF (is_vol_edge(bdr,chg,p).AND.(.NOT.is_max(chg,p))) THEN
               num_edge = num_edge+1
               bdr%volnum(p(1),p(2),p(3)) = -bdr%volnum(p(1),p(2),p(3))
@@ -497,6 +534,8 @@ MODULE bader_mod
         DO n2=1,chg%npts(2)
           DO n3=1,chg%npts(3)
             p = (/n1,n2,n3/)
+            ! change for calculating the vacuum volume
+            IF (bdr%volnum(n1,n2,n3)==bdr%bnum+1) CYCLE
 
             IF(bdr%volnum(n1,n2,n3) < 0 .AND. bdr%known(n1,n2,n3) /=-1) THEN
               DO d1=-1,1
@@ -504,6 +543,8 @@ MODULE bader_mod
                 DO d3=-1,1
                   pt=p+(/d1,d2,d3/)
                   CALL pbc(pt,chg%npts)
+                  ! change for calculating the vacuum volume
+                  IF (bdr%volnum(pt(1),pt(2),pt(3))==bdr%bnum+1) CYCLE
                   IF(.NOT.is_max(chg,pt)) THEN 
                     IF(bdr%volnum(pt(1),pt(2),pt(3))>0) THEN
                       bdr%volnum(pt(1),pt(2),pt(3)) = -bdr%volnum(pt(1),pt(2),pt(3))
@@ -640,7 +681,8 @@ MODULE bader_mod
   END SUBROUTINE assign_chg2atom
 
 !-----------------------------------------------------------------------------------!
-! bader_mindist: Find the minimum distance from the surface of each volume to 
+! bader_mindist: Find the minimum distance from the surface of each volume to each 
+!                ion
 !-----------------------------------------------------------------------------------!
 
   SUBROUTINE bader_mindist(bdr,ions,chg)
@@ -674,6 +716,8 @@ MODULE bader_mod
       DO n2=1,chg%npts(2)
         DO n3=1,chg%npts(3)
           p=(/n1,n2,n3/)
+          ! change for calculating the vacuum volume
+          IF (bdr%volnum(n1,n2,n3)==bdr%nvols+1) CYCLE
 
 !         If this is an edge cell, check if it is the closest to the atom so far
           IF (is_atm_edge(bdr,chg,p,atom)) THEN
@@ -1187,7 +1231,12 @@ MODULE bader_mod
     DO n1=1,chg%npts(1)
       DO n2=1,chg%npts(2)
         DO n3=1,chg%npts(3)
-          tmp%rho(n1,n2,n3)=bdr%nnion(bdr%volnum(n1,n2,n3))
+          ! change this to accord with the vacuum volume calculation
+          IF(bdr%volnum(n1,n2,n3)==bdr%bnum+1) THEN
+            tmp%rho(n1,n2,n3)=ions%nions+1
+          ELSE
+            tmp%rho(n1,n2,n3)=bdr%nnion(bdr%volnum(n1,n2,n3))
+          END IF
         END DO
       END DO
     END DO
@@ -1231,8 +1280,11 @@ MODULE bader_mod
     DO n1=1,chg%npts(1)
       DO n2=1,chg%npts(2)
         DO n3=1,chg%npts(3)
-          atom=bdr%nnion(bdr%volnum(n1,n2,n3))
-          bdr%ionvol(atom)=bdr%ionvol(atom)+1
+          ! change to calculate vacuum volume
+          IF (bdr%volnum(n1,n2,n3)/=bdr%nvols+1) THEN
+            atom=bdr%nnion(bdr%volnum(n1,n2,n3))
+            bdr%ionvol(atom)=bdr%ionvol(atom)+1
+          END IF
         END DO
       END DO
     END DO
@@ -1263,7 +1315,7 @@ MODULE bader_mod
     TYPE(charge_obj) :: chg
 
   
-    REAL(q2) :: sum_ionchg
+    REAL(q2) :: sum_ionchg,ne
     INTEGER :: i,bdimsig,mib,mab,cc,j,nmax
     INTEGER,DIMENSION(bdr%nvols) :: rck
   
@@ -1302,12 +1354,15 @@ MODULE bader_mod
     WRITE(100,'(A,A)') ' ----------------------------------------------------------------',&
     &                  '----------------'
     sum_ionchg = SUM(bdr%ionchg)
+    ne=SUM(bdr%volchg(1:bdr%nvols))+bdr%vacchg
     DO i=1,ions%nions
       WRITE(100,'(1I5,7F12.4)') i,ions%r_car(i,:),bdr%ionchg(i),bdr%minsurfdist(i),bdr%ionvol(i)
     END DO
     WRITE(100,'(A,A)') ' ----------------------------------------------------------------',&
     &                  '----------------'
-    WRITE(100,'(2x,A,2X,1F12.5)')  ' NUMBER OF ELECTRONS: ',SUM(bdr%volchg(1:bdr%nvols))
+    WRITE(100,'(4X,A,1F12.4)') 'VACUUM CHARGE:',bdr%vacchg
+    WRITE(100,'(4X,A,1F12.4)') 'VACUUM VOLUME:',bdr%vacvol
+    WRITE(100,'(2x,A,2X,1F12.5)')  ' NUMBER OF ELECTRONS: ',ne
     CLOSE(100)
 
     bdimsig=0
@@ -1332,8 +1387,7 @@ MODULE bader_mod
 
     WRITE(*,'(2x,A,6X,1I8)')       'NUMBER OF BADER MAXIMA FOUND: ',bdr%nvols
     WRITE(*,'(2x,A,6X,1I8)')       '    SIGNIFICANT MAXIMA FOUND: ',bdimsig
-    WRITE(*,'(2x,A,2X,1F12.5)')  '         NUMBER OF ELECTRONS: ', &
-    &                                        SUM(bdr%volchg(1:bdr%nvols))
+    WRITE(*,'(2x,A,2X,1F12.5)')  '         NUMBER OF ELECTRONS: ', ne
 
   RETURN
   END SUBROUTINE bader_output

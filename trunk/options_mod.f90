@@ -19,7 +19,7 @@
 
     TYPE :: options_obj
       CHARACTER(LEN=128) :: chargefile,refchgfile
-      REAL(q2) :: badertol, stepsize
+      REAL(q2) :: badertol, stepsize,vacval
       INTEGER :: out_opt, out_auto = 0, out_cube = 1, out_chgcar4 = 2, out_chgcar5 = 3
       INTEGER :: in_opt, in_auto = 0, in_cube = 1, in_chgcar=2, in_chgcar4 = 3,in_chgcar5 = 4
       INTEGER :: ref_in_opt
@@ -30,6 +30,7 @@
 ! refine_edge_itrs=-2 check every edge point during refinement
       INTEGER :: selanum, selbnum,sumanum,sumbnum
       INTEGER,ALLOCATABLE,DIMENSION(:) :: selavol, selbvol,sumavol,sumbvol
+      LOGICAL :: vac_flag
       LOGICAL :: bader_flag, voronoi_flag, dipole_flag, ldos_flag
       LOGICAL :: print_all_bader, print_all_atom
       LOGICAL :: print_sel_bader, print_sel_atom
@@ -63,6 +64,8 @@
       opts%out_opt = opts%out_chgcar4
       opts%in_opt = opts%in_auto
       ! print options
+      opts%vac_flag = .FALSE.
+      opts%vacval=1E-3
       opts%print_all_atom = .FALSE.
       opts%print_all_bader = .FALSE.
       opts%print_sel_atom = .FALSE.
@@ -122,6 +125,20 @@
         ! Verbose
         ELSEIF (p(1:ip) == '-v') THEN
           opts%verbose_flag = .TRUE.
+        ! Vacuum options
+        ELSEIF (p(1:ip) == '-vac') THEN
+          m=m+1
+          CALL GET_COMMAND_ARGUMENT(m,inc)
+          inc=ADJUSTL(inc)
+          it=LEN_TRIM(inc)
+          IF (inc(1:it) == 'auto' .OR. inc(1:it) == 'auto') THEN
+            opts%vac_flag = .TRUE.
+          ELSEIF (inc(1:it) == 'OFF' .OR. inc(1:it) == 'off') THEN
+            opts%vac_flag = .FALSE.
+          ELSE
+             READ(inc,*) opts%vacval
+             opts%vac_flag = .TRUE.
+          END IF
         ! Bader options
         ELSEIF (p(1:ip) == '-b') THEN
           m=m+1
@@ -403,7 +420,7 @@
           m=m+1
 !          CALL GETARG(m,inc)
           CALL GET_COMMAND_ARGUMENT(m,inc)
-          read(inc,*) opts%badertol
+          READ(inc,*) opts%badertol
         ! Refine edge iterations  -- change this to a flag once working
         ELSEIF (p(1:ip) == '-r') THEN
           m=m+1
@@ -414,14 +431,14 @@
           IF (inc(1:it) == 'AUTO' .OR. inc(1:it) == 'auto') THEN
             opts%refine_edge_itrs=-1
           ELSE
-            read(inc,*) opts%refine_edge_itrs
+            READ(inc,*) opts%refine_edge_itrs
           END IF
         ! Step size
         ELSEIF (p(1:ip) == '-s') THEN
           m=m+1
 !          CALL GETARG(m,inc)
           CALL GET_COMMAND_ARGUMENT(m,inc)
-          read(inc,*) opts%stepsize
+          READ(inc,*) opts%stepsize
         !doing analysis with ref charge
         ELSEIF (p(1:ip) == '-ref') THEN
           m=m+1
@@ -491,6 +508,7 @@
       WRITE(*,*) '         [ -b neargrid | ongrid ]'
       WRITE(*,*) '         [ -r refine_edge_method ]'
       WRITE(*,*) '         [ -ref reference_charge ]'
+      WRITE(*,*) '         [ -vac auto | off | specific cutoff]'
       WRITE(*,*) '         [ -m known | max ]'
       WRITE(*,*) '         [ -p all_atom | all_bader ]'
       WRITE(*,*) '         [ -p sel_atom | sel_bader ] [ volume list or range ]'
@@ -542,6 +560,12 @@
       WRITE(*,*) '        This is the recommended way to analyze vasp output files:'
       WRITE(*,*) '           bader CHGCAR -ref CHGCAR_total'
       WRITE(*,*) '        where CHGCAR_total is the sum of AECCAR0 and AECCAR2.'
+      WRITE(*,*) ''
+      WRITE(*,*) '   -vac < auto | off | specific cutoff >'
+      WRITE(*,*) '        Assign low density points to vacuum.'
+      WRITE(*,*) '          auto: low density cutoff is 1E-3 by default'
+      WRITE(*,*) '          off: not assign low density points to vacuum'
+      WRITE(*,*) '          specific value: low density cutoff is defined by specific value'
       WRITE(*,*) ''
       WRITE(*,*) '   -m < known | max >'
       WRITE(*,*) '        Determines how trajectories terminate'
