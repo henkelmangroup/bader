@@ -131,7 +131,7 @@
           CALL GET_COMMAND_ARGUMENT(m,inc)
           inc=ADJUSTL(inc)
           it=LEN_TRIM(inc)
-          IF (inc(1:it) == 'auto' .OR. inc(1:it) == 'auto') THEN
+          IF (inc(1:it) == 'AUTO' .OR. inc(1:it) == 'auto') THEN
             opts%vac_flag = .TRUE.
           ELSEIF (inc(1:it) == 'OFF' .OR. inc(1:it) == 'off') THEN
             opts%vac_flag = .FALSE.
