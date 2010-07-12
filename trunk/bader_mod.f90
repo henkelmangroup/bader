@@ -1360,9 +1360,9 @@ MODULE bader_mod
     END DO
     WRITE(100,'(A,A)') ' ----------------------------------------------------------------',&
     &                  '----------------'
-    WRITE(100,'(4X,A,1F12.4)') 'VACUUM CHARGE:',bdr%vacchg
-    WRITE(100,'(4X,A,1F12.4)') 'VACUUM VOLUME:',bdr%vacvol
-    WRITE(100,'(2x,A,2X,1F12.5)')  ' NUMBER OF ELECTRONS: ',ne
+    WRITE(100,'(4X,A,9X,1F12.4)') 'VACUUM CHARGE:',bdr%vacchg
+    WRITE(100,'(4X,A,9X,1F12.4)') 'VACUUM VOLUME:',bdr%vacvol
+    WRITE(100,'(4X,A,2X,1F12.4)')  'NUMBER OF ELECTRONS: ',ne
     CLOSE(100)
 
     bdimsig=0
