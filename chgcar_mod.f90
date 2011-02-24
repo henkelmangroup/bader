@@ -51,9 +51,17 @@ MODULE chgcar_mod
 
     IF(opts%in_opt == opts%in_chgcar5) THEN
       READ(100,'(1X,330A)') ions%name_ion
+      write(*,*) 'vasp5'
     END IF
-    READ(100,'(110I4)') nionlist
+!GH: vasp switched to I6 from I4 at 5.2.11; to be compatible with both
+!    use free format.  But, will fail for >999 atoms with vasp4.x
+!ORIGINAL
+!    READ(100,'(110I4)') nionlist
+!    READ(100,*)
+!NEW
+    READ(100,*,ERR=999) nionlist
     READ(100,*)
+999 CONTINUE
     DO i=1,110
      if(nionlist(i).eq.0) exit
     ENDDO
@@ -62,7 +70,8 @@ MODULE chgcar_mod
     DO i=1,ions%niontypes
       ions%num_ion(i)=nionlist(i)
     END DO
-    ions%nions=SUM(nionlist)
+    ions%nions=SUM(ions%num_ion)
+!    ions%nions=SUM(nionlist)
     ions%lattice=scalefactor*ions%lattice
     CALL matrix_transpose(ions%lattice,ions%dir2car)
     CALL matrix_3x3_inverse(ions%dir2car,ions%car2dir)

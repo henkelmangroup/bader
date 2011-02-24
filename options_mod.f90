@@ -18,8 +18,8 @@
     IMPLICIT NONE
 
     TYPE :: options_obj
-      CHARACTER(LEN=128) :: chargefile,refchgfile
-      REAL(q2) :: badertol, stepsize,vacval
+      CHARACTER(LEN=128) :: chargefile, refchgfile
+      REAL(q2) :: badertol, stepsize, vacval
       INTEGER :: out_opt, out_auto = 0, out_cube = 1, out_chgcar4 = 2, out_chgcar5 = 3
       INTEGER :: in_opt, in_auto = 0, in_cube = 1, in_chgcar=2, in_chgcar4 = 3,in_chgcar5 = 4
       INTEGER :: ref_in_opt
@@ -542,7 +542,7 @@
       WRITE(*,*) '        Use the default near-grid bader partitioning or the'
       WRITE(*,*) '        original on-grid based algorithm.'
       WRITE(*,*) ''
-!      WRITE(*,*) '   -s < stepsize >'
+!      WRITE(*,*) '   -s < stepsiz >'
 !      WRITE(*,*) '        Steepest asent trajectory step size.  This parameter is'
 !      WRITE(*,*) '        (only) used for the default offgrid Bader analysis.  If'
 !      WRITE(*,*) '        not specified, the stepsize is set to the minimum distance'
