@@ -37,7 +37,7 @@ MODULE cube_mod
     TYPE(charge_obj) :: chg
     CHARACTER(LEN=128) :: chargefile
 
-    REAL(q2) :: vol,tmp
+    REAL(q2) :: vol
     REAL(q2),DIMENSION(3) :: dlat,dcar
     INTEGER :: i,n1,n2,n3,d1,d2,d3
 
@@ -49,7 +49,7 @@ MODULE cube_mod
     READ(100,'(/)') 
     READ(100,*) ions%nions,chg%org_car
     ALLOCATE(ions%r_car(ions%nions,3),ions%r_dir(ions%nions,3), &
-    &        ions%ion_chg(ions%nions))
+    &        ions%ion_chg(ions%nions),ions%atomic_num(ions%nions))
     DO i=1,3
       READ(100,*) chg%npts(i),ions%lattice(i,1:3)
     END DO
@@ -71,7 +71,7 @@ MODULE cube_mod
 
     vol=matrix_volume(ions%lattice)
     DO i=1,ions%nions
-      READ(100,*) tmp,ions%ion_chg(i),ions%r_car(i,:)
+      READ(100,*) ions%atomic_num(i),ions%ion_chg(i),ions%r_car(i,:)
 !      ions%r_car(i,:)=ions%r_car(i,:)-chg%org_car(:)
       CALL matrix_vector(ions%car2dir,ions%r_car(i,:)-chg%org_car(:),ions%r_dir(i,:))
     END DO
@@ -169,7 +169,7 @@ MODULE cube_mod
     DO i=1,ions%nions
 !      WRITE(100,'(1I5,3X,1F9.6,3(3X,1F9.6))') & 
       WRITE(100,'(I5,F12.6,3(F12.6))') & 
-    &     INT(ions%ion_chg(i)),ions%ion_chg(i),ions%r_car(i,:)
+    &     ions%atomic_num(i),ions%ion_chg(i),ions%r_car(i,:)
     END DO
 
     vol=matrix_volume(ions%lattice)
