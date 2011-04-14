@@ -37,21 +37,21 @@ MODULE bader_mod
 ! minsurfdist: minimum distance from the Bader surface to the included ion
 
   TYPE bader_obj
-    REAL(q2),ALLOCATABLE,DIMENSION(:,:) :: volpos_lat,volpos_car,volpos_dir
-    REAL(q2),ALLOCATABLE,DIMENSION(:) :: volchg,iondist,ionchg,minsurfdist,ionvol
-    INTEGER,ALLOCATABLE,DIMENSION(:,:,:) :: volnum,known
+    REAL(q2),ALLOCATABLE,DIMENSION(:,:) :: volpos_lat, volpos_car, volpos_dir
+    REAL(q2),ALLOCATABLE,DIMENSION(:) :: volchg, iondist, ionchg, minsurfdist, ionvol
+    INTEGER,ALLOCATABLE,DIMENSION(:,:,:) :: volnum, known
     INTEGER,ALLOCATABLE,DIMENSION(:,:) :: path
     INTEGER,ALLOCATABLE,DIMENSION(:) :: nnion
     REAL(q2) :: stepsize, tol
     REAL(q2) :: vacchg, vacvol
-    INTEGER nvols,pnum,bnum,pdim,bdim
+    INTEGER nvols, pnum, bnum, pdim, bdim
   END TYPE
 
   PRIVATE
   PUBLIC :: bader_obj
-  PUBLIC :: bader_calc,bader_mindist,bader_output,write_all_atom,write_all_bader
-  PUBLIC :: write_sel_atom,write_sel_bader,write_atom_index,write_bader_index
-  PUBLIC :: write_sum_atom,write_sum_bader
+  PUBLIC :: bader_calc, bader_mindist, bader_output, write_all_atom, write_all_bader
+  PUBLIC :: write_sel_atom, write_sel_bader, write_atom_index, write_bader_index
+  PUBLIC :: write_sum_atom, write_sum_bader
 
   CONTAINS
 
@@ -101,30 +101,30 @@ MODULE bader_mod
       bdr%stepsize = MINVAL(voxlen(:))
     END IF
 
-    bdr%bdim=64
-    bdr%pdim=64
+    bdr%bdim = 64
+    bdr%pdim = 64
     ALLOCATE(bdr%volpos_lat(bdr%bdim,3)) ! will be expanded as needed
     ALLOCATE(bdr%path(bdr%pdim,3))
-    ALLOCATE(bdr%volnum(chgval%npts(1),chgval%npts(2),chgval%npts(3)))
-    ALLOCATE(bdr%known(chgval%npts(1),chgval%npts(2),chgval%npts(3)))
+    ALLOCATE(bdr%volnum(chgval%npts(1), chgval%npts(2), chgval%npts(3)))
+    ALLOCATE(bdr%known(chgval%npts(1), chgval%npts(2), chgval%npts(3)))
 !    bdr%volchg=0._q2
-    bdr%volnum=0
-    bdr%known=0
-    bdr%bnum=0
-    bdr%nvols=0  ! True number of Bader volumes
+    bdr%volnum = 0
+    bdr%known = 0
+    bdr%bnum = 0
+    bdr%nvols = 0  ! True number of Bader volumes
 
     ! find vacuum points, get the charge and volume
-    bdr%vacchg=0.0_q2
-    bdr%vacvol=0.0_q2
+    bdr%vacchg = 0.0_q2
+    bdr%vacvol = 0.0_q2
     vol=matrix_volume(ions%lattice)
     IF (opts%vac_flag) THEN
       DO n1=1,chgval%npts(1)
         DO n2=1,chgval%npts(2)
           DO n3=1,chgval%npts(3)
-            IF (ABS(rho_val(chgval,n1,n2,n3)/vol)<=opts%vacval) THEN
-               bdr%volnum(n1,n2,n3)=-1
-               bdr%vacchg=bdr%vacchg+chgval%rho(n1,n2,n3)
-               bdr%vacvol=bdr%vacvol+1
+            IF (ABS(rho_val(chgval,n1,n2,n3)/vol) <= opts%vacval) THEN
+               bdr%volnum(n1,n2,n3) = -1
+               bdr%vacchg = bdr%vacchg+chgval%rho(n1,n2,n3)
+               bdr%vacvol = bdr%vacvol+1
             END IF
           END DO
         END DO
@@ -168,15 +168,15 @@ MODULE bader_mod
               ptemp = (/bdr%path(i,1),bdr%path(i,2),bdr%path(i,3)/)
               IF(bdr%volnum(ptemp(1),ptemp(2),ptemp(3))/=-1) THEN
                 bdr%volnum(ptemp(1),ptemp(2),ptemp(3)) = path_volnum
-              END IF 
+              END IF
               IF (opts%bader_opt /= opts%bader_ongrid) THEN
                 ! GH: how does this work?  Can it ever get here with bdr%known==2?
                 ! If so, the path should have quit
                 IF (bdr%known(ptemp(1),ptemp(2),ptemp(3)) /= 2) THEN
                   bdr%known(ptemp(1),ptemp(2),ptemp(3)) = 0
                 END IF
-              END IF  
-              IF (opts%quit_opt==opts%quit_known.AND.opts%bader_opt/=opts%bader_ongrid) THEN
+              END IF
+              IF (opts%quit_opt == opts%quit_known .AND. opts%bader_opt /= opts%bader_ongrid) THEN
                 CALL assign_surrounding_pts(bdr,chgtemp,ptemp)
 !                CALL assign_surrounding_pts2(bdr,chgtemp,ptemp)
               END IF
@@ -192,13 +192,13 @@ MODULE bader_mod
       DO n1=1,chgval%npts(1)
         DO n2=1,chgval%npts(2)
           DO n3=1,chgval%npts(3)
-            IF(bdr%volnum(n1,n2,n3)==-1) bdr%volnum(n1,n2,n3)=bdr%bnum+1
+            IF(bdr%volnum(n1,n2,n3) == -1) bdr%volnum(n1,n2,n3) = bdr%bnum+1
           END DO
         END DO
       END DO
     END IF
 
-    IF(opts%refine_edge_itrs ==-1 .OR. opts%refine_edge_itrs ==-2) THEN
+    IF(opts%refine_edge_itrs == -1 .OR. opts%refine_edge_itrs == -2) THEN
       WRITE(*,'(/,2x,A)') 'REFINING AUTOMATICALLY'
       DO
         WRITE(*,'(2x,A,I2)') 'ITERATION:',ref_itrs
@@ -214,11 +214,12 @@ MODULE bader_mod
       END DO
     ENDIF
 
-    !Dallas Method
+    ! Weight method of Yu and Trinkle
     IF (opts%refine_edge_itrs == -3) THEN
-    ALLOCATE(chgval%weight(chgval%npts(1),chgval%npts(2),chgval%npts(3))) 
-    !Now allocate space for weight
-       DO n1=1,chgval%npts(1)
+      WRITE(*,'(/,2x,A)') 'REFINING USING THE WEIGHT METHOD OF YU AND TRINKLE'
+      ALLOCATE(chgval%weight(chgval%npts(1),chgval%npts(2),chgval%npts(3)))
+      ! allocate space for weight values
+      DO n1=1,chgval%npts(1)
         DO n2=1,chgval%npts(2)
           DO n3=1,chgval%npts(3)
             ALLOCATE (chgval%weight(n1,n2,n3)%w(bdr%bnum))
@@ -226,10 +227,10 @@ MODULE bader_mod
         END DO
       END DO
 
-      WRITE(*,'(/,2x,A)') 'DALLAS'
-        CALL dallas_weight(chgval, bdr, p)
+      WRITE(*,'(/,2x,A)') 'WEIGHT METHOD'
+      CALL refine_weights(chgval, bdr, p)
     END IF
-    !End of Dallas Method
+    ! End of weight method
 
     ! The total number of bader volumes is now known
     bdr%nvols = bdr%bnum
@@ -267,103 +268,104 @@ MODULE bader_mod
 
   RETURN
   END SUBROUTINE bader_calc
+
+
 !-----------------------------------------------------------------------------------!
-! Q-Weight_routine: made to assign weights
+! Weight method by Yu and Trinkle [JCP 134, 064111 (2011)]
 !-----------------------------------------------------------------------------------!
- SUBROUTINE dallas_weight(chgval, bdr, p)
-    implicit none
+
+  SUBROUTINE refine_weights(chgval, bdr, p)
+
     TYPE(bader_obj) :: bdr
     TYPE(charge_obj) :: chgval
-    INTEGER :: num_edge=0,n=0, n1,n2,n3,d1,d2,d3, i,iter=0, num_change=1, mycount=1
+    INTEGER :: num_edge=0, n=0, n1, n2, n3, d1, d2, d3
+    INTEGER :: i, iter=0, num_change=1, mycount=1
     INTEGER,DIMENSION(3) :: p, pn
-    REAL(q2)::sum_top, sum_bottom, length, facet_a, R_, new_weight, &
-    current_weight, wn
+    REAL(q2) :: sum_top, sum_bottom, length, facet_a, R_
+    REAL(q2) :: new_weight, current_weight, wn
 
-        write(*,*), 'nvols',bdr%nvols
-        write(*,*), 'pnum',bdr%pnum
-        write(*,*), 'bnum',bdr%bnum
-        write(*,*), 'pdim',bdr%pdim
-        write(*,*), 'bdim',bdr%bdim
+    write(*,*), 'nvols',bdr%nvols
+    write(*,*), 'bnum',bdr%bnum
+    write(*,*), 'bdim',bdr%bdim
 
-
-    !loop though everything and assign weight
-   DO i=1,bdr%bnum
-   ! i=the current basin
-       DO n1=1,chgval%npts(1)
+    ! loop though everything and assign weights
+    DO i=1,bdr%bnum
+    ! i is the current basin
+      DO n1=1,chgval%npts(1)
         DO n2=1,chgval%npts(2)
           DO n3=1,chgval%npts(3)
             p = (/n1,n2,n3/)
-            IF (bdr%volnum(n1,n2,n3)==bdr%bnum+1) CYCLE 
+            chgval%weight(p(1),p(2),p(3))%w(i) = 0
+            ! if p is a vacuum point, skip it
+            !IF (bdr%volnum(n1,n2,n3) == bdr%bnum+1) CYCLE 
             !ALLOCATE (chgval%weight(n1,n2,n3)%w(bdr%bnum))
-            !Vaccum pt is bnum+1, skipped them
             !IF ((.NOT. is_vol_edge(bdr,chgval,p)) .AND. &
             !(bdr%volnum(p(1),p(2),p(3))==i)) THEN
-            IF (bdr%volnum(p(1),p(2),p(3))==i) THEN
-              chgval%weight(p(1),p(2),p(3))%w(i)= 1
-            ELSE !IF ((is_vol_edge(bdr,chgval,p)) .OR. ( .NOT. (bdr%volnum(p(1),p(2),p(3))==i))) THEN
-              chgval%weight(p(1),p(2),p(3))%w(i)= 0
+            IF (bdr%volnum(p(1),p(2),p(3)) == i) THEN
+              chgval%weight(p(1),p(2),p(3))%w(i) = 1
             END IF
+            !ELSE !IF ((is_vol_edge(bdr,chgval,p)) .OR. ( .NOT. (bdr%volnum(p(1),p(2),p(3))==i))) THEN
+            !  chgval%weight(p(1),p(2),p(3))%w(i) = 0
+            !END IF
 
             ! and to capture num_edge, can be deleted
             IF ((is_vol_edge(bdr,chgval,p)) .AND. (bdr%volnum(p(1),p(2),p(3))==i)) THEN
-              chgval%weight(p(1),p(2),p(3))%w(i)= 0
-              num_edge=num_edge+1
+              !chgval%weight(p(1),p(2),p(3))%w(i) = 0
+              num_edge = num_edge+1
             END IF
 
           END DO
         END DO
       END DO
+
       WRITE(*,'(2x,A,6x,1I8)') 'Volnum = ', i, 'EDGE POINTS:',num_edge
-      num_edge=0
 
+      num_edge = 0
+      num_change = 1
+      mycount = 1
+      iter = 0
 
+      ! calculate weights
+      DO
+        ! stop when there are no zero weights and no weights change between iterations
+        IF (mycount==0 .AND. num_change==0) EXIT 
+        iter = iter+1
+        mycount = 0
+        num_change = 0
+        !n=0
 
-num_change=1
-mycount=1
-iter=0
-! Now, calculate weights
-   DO
-    !stop when all no zero weight left and no weight changed
-    if (mycount==0 .AND. num_change==0) EXIT 
-              iter=iter+1
-              mycount=0
-              num_change=0
-              !n=0
-
-       DO n1=1,chgval%npts(1)
-        DO n2=1,chgval%npts(2)
-          DO n3=1,chgval%npts(3)
-
-            p = (/n1,n2,n3/)
-            IF (bdr%volnum(n1,n2,n3)==bdr%bnum+1) CYCLE 
-            !Vaccum pt is bnum+1, skipped them
-            IF ((is_vol_edge(bdr,chgval,p)) .AND. &
-            (bdr%volnum(p(1),p(2),p(3))==i)) THEN
-            !IF (is_vol_edge(bdr,chgval,p)) THEN
-              sum_top=0
-              sum_bottom=0
-             DO d1=-1,1
-              DO d2=-1,1
-               DO d3=-1,1
-               pn = p+(/d1,d2,d3/) !neighbor pt
-               !IF (bdr%volnum(pn(1),pn(2),pn(3))==bdr%bnum+1) CYCLE 
-               CALL pbc(pn, chgval%npts)! just in case pn is out of the boundary
-                length = bdr%stepsize 
-                facet_a = facet_area(d1,d2,d3,length)
-                !note, area and length defined above only work for cubic lattice
-                R_= dim(rho_val(chgval,pn(1),pn(2),pn(3)),rho_val(chgval,p(1),p(2),p(3)))
-                wn = chgval%weight(pn(1),pn(2),pn(3))%w(i) !neighbor weight
-                 sum_top = sum_top+facet_a*length*R_*wn
-                 !write(*,*) 'sum_top', sum_top
-                sum_bottom = sum_bottom+facet_a*length*R_
-               END DO
-              END DO
-             END DO 
-            new_weight = sum_top/sum_bottom
-            !mycount=mycount+1  
-                current_weight =  chgval%weight(p(1),p(2),p(3))%w(i)
-                !count the unchanged zero weight
-                if ((current_weight==0) .AND. (new_weight==0)) THEN
+        DO n1=1,chgval%npts(1)
+          DO n2=1,chgval%npts(2)
+            DO n3=1,chgval%npts(3)
+              p = (/n1,n2,n3/)
+              ! skip vacuum points
+              IF (bdr%volnum(n1,n2,n3) == bdr%bnum+1) CYCLE 
+              IF ((is_vol_edge(bdr,chgval,p)) .AND. (bdr%volnum(p(1),p(2),p(3)) == i)) THEN
+                 !IF (is_vol_edge(bdr,chgval,p)) THEN
+                sum_top = 0
+                sum_bottom = 0
+                DO d1=-1,1
+                  DO d2=-1,1
+                    DO d3=-1,1
+                      pn = p+(/d1,d2,d3/) !neighbor pt
+                      !IF (bdr%volnum(pn(1),pn(2),pn(3))==bdr%bnum+1) CYCLE 
+                      CALL pbc(pn, chgval%npts) ! just in case pn is out of the boundary
+                      length = bdr%stepsize 
+                      facet_a = facet_area(d1,d2,d3,length)
+                      ! note, area and length defined above only work for cubic lattice
+                      R_ = dim(rho_val(chgval,pn(1),pn(2),pn(3)),rho_val(chgval,p(1),p(2),p(3)))
+                      wn = chgval%weight(pn(1),pn(2),pn(3))%w(i) ! neighbor weight
+                      sum_top = sum_top + facet_a*length*R_*wn
+                      !write(*,*) 'sum_top', sum_top
+                      sum_bottom = sum_bottom + facet_a*length*R_
+                    END DO
+                  END DO
+                END DO
+                new_weight = sum_top/sum_bottom
+                !mycount=mycount+1
+                current_weight = chgval%weight(p(1),p(2),p(3))%w(i)
+                ! count the unchanged zero weight
+                IF ((current_weight==0) .AND. (new_weight==0)) THEN
                   ! IF (num_change==0 .AND. mycount==1125 ) THEN
                    ! write(*,*) 'Current point p1',p(1),',',p(2),',',p(3),'w',current_weight,'rho',rho_val(chgval,p(1),p(2),p(3)),'m?',is_max(chgval,p) &
                    ! ,'b', bdr%volnum(p(1),p(2),p(3))
@@ -383,33 +385,35 @@ iter=0
                      !END DO
                     !END DO
                    !END IF
-                   mycount=mycount+1
-                end if
+                  mycount = mycount+1
+                END IF
 
-               !if (sum_top >0) then
+                !if (sum_top >0) then
                 !write(*,*) 'current-weight', current_weight
                 !write(*,*) 'mycount', mycount
                 !write(*,*) 'sum_bottom', sum_bottom
                 !write(*,*) 'new_weight', new_weight
-               !end if
-                
+                !end if
+
                 !testing
                 !n=n+1
                 !count of the weights that change
-                if (abs(new_weight-current_weight)>0.001) then 
-                    chgval%weight(p(1),p(2),p(3))%w(i)=new_weight
-                    num_change = num_change +1
-                end if
-            END IF
+                IF (abs(new_weight-current_weight) > 0.001) THEN
+                  chgval%weight(p(1),p(2),p(3))%w(i) = new_weight
+                  num_change = num_change+1
+                END IF
+              END IF
+            END DO
           END DO
         END DO
-      END DO
- WRITE(*,'(2x,A,6x,1I8)') 'Weight change',num_change
-  WRITE(*,'(2x,A,6x,1I8)') 'Zero weight left',mycount
- WRITE(*,'(2x,A,6x,1I8)') 'Iteration',iter
 
- END DO 
- END DO
+        WRITE(*,'(2x,A,6x,1I8)') 'Weight change', num_change
+        WRITE(*,'(2x,A,6x,1I8)') 'Zero weight left', mycount
+        WRITE(*,'(2x,A,6x,1I8)') 'Iteration', iter
+
+      END DO 
+    END DO
+
 !Double checking the empty weight number
 !num_edge=0
 ! DO n1=1,chgval%npts(1)
@@ -426,15 +430,14 @@ iter=0
 !      END DO
 !      WRITE(*,'(2x,A,6x,1I8)') 'empty weight',num_edge
 
- 
-
  END SUBROUTINE
+
 
   REAL FUNCTION facet_area(d1,d2,d3,length)
       INTEGER d1, d2, d3
       REAL(q2) length
-      IF (abs(d1)+abs(d2)+abs(d3)==1) THEN
-         facet_area=length*length
+      IF (abs(d1)+abs(d2)+abs(d3) == 1) THEN
+         facet_area = length*length
       ELSE
          facet_area = 0
       END IF
@@ -452,22 +455,19 @@ iter=0
  !END FUNCTION
 
 
-
-
-
 !-----------------------------------------------------------------------------------!
 ! max_offgrid:  From the point p, do a maximization in the charge density
 !-----------------------------------------------------------------------------------!
 
   SUBROUTINE max_offgrid(bdr,chg,p)
-    
+
     TYPE(bader_obj) :: bdr
     TYPE(charge_obj) :: chg
     INTEGER,DIMENSION(3),INTENT(INOUT) :: p
     INTEGER,DIMENSION(3) :: pm
     REAL(q2) :: cp,cm 
     REAL(q2),DIMENSION(3) :: r
- 
+
     bdr%pnum = 1
     bdr%path(bdr%pnum,:) = p
     IF (is_max(chg,p)) THEN
@@ -482,7 +482,7 @@ iter=0
       CALL step_offgrid(bdr,chg,r)
       pm = to_lat(chg,r)
       cm = rho_val(chg,pm(1),pm(2),pm(3))
- 
+
       IF (cm < cp) EXIT
       p = pm
 
@@ -497,7 +497,7 @@ iter=0
       END IF
 
       ! quit if this is a maximum or a known volume number
-      IF (is_max(chg,p) .OR. known_volnum(bdr,chg,r)/=0) EXIT
+      IF (is_max(chg,p) .OR. known_volnum(bdr,chg,r) /= 0) EXIT
 
     END DO
     
@@ -686,7 +686,7 @@ iter=0
       pm=p
       CALL step_ongrid(chg,pm)
       dr = (/0._q2,0._q2,0._q2/)
-    END IF 
+    END IF
 
     p=pm
 
@@ -815,7 +815,7 @@ iter=0
             END IF
             path_volnum = bdr%volnum(p(1),p(2),p(3))
             IF (path_volnum<0 .OR. path_volnum>bdr%bnum) THEN
-              write(*,*) 'ERROR: should be no new maxima in edge refinement'
+              WRITE(*,*) 'ERROR: should be no new maxima in edge refinement'
             END IF
             bdr%volnum(n1,n2,n3) = path_volnum
             IF (ABS(bvolnum) /= path_volnum) THEN
@@ -947,7 +947,7 @@ iter=0
 
     CALL SYSTEM_CLOCK(t2,cr,count_max)
     WRITE(*,'(2/,1A12,1F7.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
-  
+
   RETURN
   END SUBROUTINE bader_mindist
 
@@ -1155,33 +1155,33 @@ iter=0
 !-----------------------------------------------------------------------------------!
 
   SUBROUTINE write_sum_atom(bdr,opts,ions,chg)
-  
+
     TYPE(bader_obj) :: bdr
     TYPE(options_obj) :: opts
     TYPE(ions_obj) :: ions
     TYPE(charge_obj) :: chg
-    
+
     TYPE(charge_obj) :: tmp
-    
+
     INTEGER :: n1,n2,n3,i,j,b,ik,sc,cc,tenths_done,t1,t2,cr,count_max
     INTEGER,DIMENSION(bdr%nvols) :: rck
     CHARACTER(LEN=128) :: atomfilename
-    
+
     CALL SYSTEM_CLOCK(t1,cr,count_max)
-    
+
     tmp=chg
 !   Set temporary density to zero at start
     tmp%rho = 0._q2
-    
+
     WRITE(*,'(/,2x,A)') 'WRITING SUM OVER SELECTED ATOMIC VOLUMES '
     WRITE(*,'(2x,A)')   '               0  10  25  50  75  100'
     WRITE(*,'(2x,A,$)') 'PERCENT DONE:  **'
     tenths_done=0
     sc=0
-    
+
 !   Here we only need name one file
     WRITE(atomfilename,'(A)') "BvAt_summed.dat"
-    
+
 !   Loop over number of selected atoms (opts%selanum)
     DO i=1,opts%sumanum
       ik=opts%sumavol(i)
@@ -1211,16 +1211,16 @@ iter=0
           END DO
         END DO
       END DO
-    
+
     END DO
 
 !   Write out charge to file
     CALL write_charge(ions,tmp,opts,atomfilename)
     DEALLOCATE(tmp%rho)
-    
+
     CALL SYSTEM_CLOCK(t2,cr,count_max)
     WRITE(*,'(2/,1A12,1F7.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
-  
+
   RETURN
   END SUBROUTINE write_sum_atom
 

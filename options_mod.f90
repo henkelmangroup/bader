@@ -65,7 +65,7 @@
       opts%in_opt = opts%in_auto
       ! print options
       opts%vac_flag = .FALSE.
-      opts%vacval=1E-3
+      opts%vacval = 1E-3
       opts%print_all_atom = .FALSE.
       opts%print_all_bader = .FALSE.
       opts%print_sel_atom = .FALSE.
@@ -554,6 +554,8 @@
       WRITE(*,*) '        which checks every edge point during each refinement, can'
       WRITE(*,*) '        be enabled using the -r -2 switch:'
       WRITE(*,*) '           bader -r -2 CHGCAR'
+      WRITE(*,*) '        A new weight method developed by Yu and Trinkle and be'
+      WRITE(*,*) '        enabled with the -r -3 switch.'
       WRITE(*,*) ''
       WRITE(*,*) '   -ref < reference_charge >'
       WRITE(*,*) '        Use a reference charge file to do the Bader partitioning.'
