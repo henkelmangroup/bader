@@ -116,7 +116,7 @@ MODULE bader_mod
     ! find vacuum points, get the charge and volume
     bdr%vacchg = 0.0_q2
     bdr%vacvol = 0.0_q2
-    vol=matrix_volume(ions%lattice)
+    vol = matrix_volume(ions%lattice)
     IF (opts%vac_flag) THEN
       DO n1=1,chgval%npts(1)
         DO n2=1,chgval%npts(2)
@@ -131,9 +131,9 @@ MODULE bader_mod
       END DO
     END IF
     bdr%vacchg = bdr%vacchg/REAL(chgval%nrho,q2)
-    bdr%vacvol=bdr%vacvol*vol/chgval%nrho
+    bdr%vacvol = bdr%vacvol*vol/chgval%nrho
 
-    tenths_done=0
+    tenths_done = 0
     DO n1=1,chgval%npts(1)
       IF ((n1*10/chgval%npts(1)) > tenths_done) THEN
         tenths_done = (n1*10/chgval%npts(1))
@@ -164,9 +164,9 @@ MODULE bader_mod
             END IF
 
             ! assign all points along the trajectory
-            DO i=1,bdr%pnum
+            DO i = 1,bdr%pnum
               ptemp = (/bdr%path(i,1),bdr%path(i,2),bdr%path(i,3)/)
-              IF(bdr%volnum(ptemp(1),ptemp(2),ptemp(3))/=-1) THEN
+              IF(bdr%volnum(ptemp(1),ptemp(2),ptemp(3)) /= -1) THEN
                 bdr%volnum(ptemp(1),ptemp(2),ptemp(3)) = path_volnum
               END IF
               IF (opts%bader_opt /= opts%bader_ongrid) THEN
@@ -192,7 +192,7 @@ MODULE bader_mod
       DO n1=1,chgval%npts(1)
         DO n2=1,chgval%npts(2)
           DO n3=1,chgval%npts(3)
-            IF(bdr%volnum(n1,n2,n3) == -1) bdr%volnum(n1,n2,n3) = bdr%bnum+1
+            IF(bdr%volnum(n1,n2,n3) == -1) bdr%volnum(n1,n2,n3) = bdr%bnum + 1
           END DO
         END DO
       END DO
@@ -204,7 +204,7 @@ MODULE bader_mod
         WRITE(*,'(2x,A,I2)') 'ITERATION:',ref_itrs
         CALL refine_edge(bdr,chgtemp,opts,ions,ref_itrs)
         IF (opts%refine_edge_itrs == 0) EXIT
-        ref_itrs = ref_itrs+1
+        ref_itrs = ref_itrs + 1
       END DO
     ELSEIF (opts%refine_edge_itrs > 0) THEN
       WRITE(*,'(/,2x,A)') 'REFINING EDGE'
@@ -234,30 +234,30 @@ MODULE bader_mod
 
     ! The total number of bader volumes is now known
     bdr%nvols = bdr%bnum
-    CALL reallocate_volpos(bdr,bdr%nvols)
+    CALL reallocate_volpos(bdr, bdr%nvols)
     ALLOCATE(bdr%volpos_dir(bdr%nvols,3))
     ALLOCATE(bdr%volpos_car(bdr%nvols,3))
     DO i=1,bdr%nvols
-      bdr%volpos_dir(i,:) = lat2dir(chgtemp,bdr%volpos_lat(i,:))
-      bdr%volpos_car(i,:) = lat2car(chgtemp,bdr%volpos_lat(i,:))
+      bdr%volpos_dir(i,:) = lat2dir(chgtemp, bdr%volpos_lat(i,:))
+      bdr%volpos_car(i,:) = lat2car(chgtemp, bdr%volpos_lat(i,:))
     END DO
 
 
     ! Sum up the charge included in each volume
     ALLOCATE(bdr%volchg(bdr%nvols))
     bdr%volchg = 0._q2
-    DO n1=1,chgval%npts(1)
-      DO n2=1,chgval%npts(2)
-        DO n3=1,chgval%npts(3)
-          IF (bdr%volnum(n1,n2,n3)==bdr%nvols+1) CYCLE
+    DO n1 = 1,chgval%npts(1)
+      DO n2 = 1,chgval%npts(2)
+        DO n3 = 1,chgval%npts(3)
+          IF (bdr%volnum(n1,n2,n3) == bdr%nvols+1) CYCLE
           bdr%volchg(bdr%volnum(n1,n2,n3)) = &
-          &  bdr%volchg(bdr%volnum(n1,n2,n3))+chgval%rho(n1,n2,n3)
+          &  bdr%volchg(bdr%volnum(n1,n2,n3)) + chgval%rho(n1,n2,n3)
         END DO
       END DO
     END DO
     bdr%volchg = bdr%volchg/REAL(chgval%nrho,q2)
 
-    ALLOCATE(bdr%nnion(bdr%nvols),bdr%iondist(bdr%nvols),bdr%ionchg(ions%nions))
+    ALLOCATE(bdr%nnion(bdr%nvols), bdr%iondist(bdr%nvols), bdr%ionchg(ions%nions))
     CALL assign_chg2atom(bdr,ions,chgval)
     CALL cal_atomic_vol(bdr,ions,chgval)
 
@@ -289,29 +289,33 @@ MODULE bader_mod
     write(*,*), 'bdim',bdr%bdim
 
     ! loop though everything and assign weights
-    DO i=1,bdr%bnum
+    DO i = 1,bdr%bnum
     ! i is the current basin
-      DO n1=1,chgval%npts(1)
-        DO n2=1,chgval%npts(2)
-          DO n3=1,chgval%npts(3)
+      DO n1 = 1,chgval%npts(1)
+        DO n2 = 1,chgval%npts(2)
+          DO n3 = 1,chgval%npts(3)
+
             p = (/n1,n2,n3/)
             chgval%weight(p(1),p(2),p(3))%w(i) = 0
+
             ! if p is a vacuum point, skip it
-            !IF (bdr%volnum(n1,n2,n3) == bdr%bnum+1) CYCLE 
-            !ALLOCATE (chgval%weight(n1,n2,n3)%w(bdr%bnum))
+            !IF (bdr%volnum(n1,n2,n3) == bdr%bnum+1) CYCLE
+
             !IF ((.NOT. is_vol_edge(bdr,chgval,p)) .AND. &
             !(bdr%volnum(p(1),p(2),p(3))==i)) THEN
+
             IF (bdr%volnum(p(1),p(2),p(3)) == i) THEN
               chgval%weight(p(1),p(2),p(3))%w(i) = 1
             END IF
+
             !ELSE !IF ((is_vol_edge(bdr,chgval,p)) .OR. ( .NOT. (bdr%volnum(p(1),p(2),p(3))==i))) THEN
             !  chgval%weight(p(1),p(2),p(3))%w(i) = 0
             !END IF
 
-            ! and to capture num_edge, can be deleted
+            ! count the number of edge points, can be deleted
             IF ((is_vol_edge(bdr,chgval,p)) .AND. (bdr%volnum(p(1),p(2),p(3))==i)) THEN
               !chgval%weight(p(1),p(2),p(3))%w(i) = 0
-              num_edge = num_edge+1
+              num_edge = num_edge + 1
             END IF
 
           END DO
@@ -329,31 +333,34 @@ MODULE bader_mod
       DO
         ! stop when there are no zero weights and no weights change between iterations
         IF (mycount==0 .AND. num_change==0) EXIT 
-        iter = iter+1
+        iter = iter + 1
         mycount = 0
         num_change = 0
         !n=0
 
-        DO n1=1,chgval%npts(1)
-          DO n2=1,chgval%npts(2)
-            DO n3=1,chgval%npts(3)
+        DO n1 = 1,chgval%npts(1)
+          DO n2 = 1,chgval%npts(2)
+            DO n3 = 1,chgval%npts(3)
               p = (/n1,n2,n3/)
               ! skip vacuum points
               IF (bdr%volnum(n1,n2,n3) == bdr%bnum+1) CYCLE 
-              IF ((is_vol_edge(bdr,chgval,p)) .AND. (bdr%volnum(p(1),p(2),p(3)) == i)) THEN
+!              IF ((is_vol_edge(bdr,chgval,p)) .AND. (bdr%volnum(p(1),p(2),p(3)) == i)) THEN
+
+              ! must be an edge point and either within volume i or a neighbor to it
+              IF (is_vol_edge(bdr, chgval, p) .AND. ((bdr%volnum(p(1),p(2),p(3)) == i) .OR. is_vol_neighbor(bdr, chgval, p, i))) THEN 
                  !IF (is_vol_edge(bdr,chgval,p)) THEN
                 sum_top = 0
                 sum_bottom = 0
-                DO d1=-1,1
-                  DO d2=-1,1
-                    DO d3=-1,1
-                      pn = p+(/d1,d2,d3/) !neighbor pt
+                DO d1 = -1,1
+                  DO d2 = -1,1
+                    DO d3 = -1,1
+                      pn = p + (/d1,d2,d3/) !neighbor pt
                       !IF (bdr%volnum(pn(1),pn(2),pn(3))==bdr%bnum+1) CYCLE 
                       CALL pbc(pn, chgval%npts) ! just in case pn is out of the boundary
                       length = bdr%stepsize 
-                      facet_a = facet_area(d1,d2,d3,length)
+                      facet_a = facet_area(d1, d2, d3, length)
                       ! note, area and length defined above only work for cubic lattice
-                      R_ = dim(rho_val(chgval,pn(1),pn(2),pn(3)),rho_val(chgval,p(1),p(2),p(3)))
+                      R_ = dim(rho_val(chgval, pn(1), pn(2), pn(3)), rho_val(chgval,p(1),p(2),p(3)))
                       wn = chgval%weight(pn(1),pn(2),pn(3))%w(i) ! neighbor weight
                       sum_top = sum_top + facet_a*length*R_*wn
                       !write(*,*) 'sum_top', sum_top
@@ -365,7 +372,7 @@ MODULE bader_mod
                 !mycount=mycount+1
                 current_weight = chgval%weight(p(1),p(2),p(3))%w(i)
                 ! count the unchanged zero weight
-                IF ((current_weight==0) .AND. (new_weight==0)) THEN
+                IF (current_weight==0 .AND. new_weight==0) THEN
                   ! IF (num_change==0 .AND. mycount==1125 ) THEN
                    ! write(*,*) 'Current point p1',p(1),',',p(2),',',p(3),'w',current_weight,'rho',rho_val(chgval,p(1),p(2),p(3)),'m?',is_max(chgval,p) &
                    ! ,'b', bdr%volnum(p(1),p(2),p(3))
@@ -385,7 +392,7 @@ MODULE bader_mod
                      !END DO
                     !END DO
                    !END IF
-                  mycount = mycount+1
+                  mycount = mycount + 1
                 END IF
 
                 !if (sum_top >0) then
@@ -400,7 +407,7 @@ MODULE bader_mod
                 !count of the weights that change
                 IF (abs(new_weight-current_weight) > 0.001) THEN
                   chgval%weight(p(1),p(2),p(3))%w(i) = new_weight
-                  num_change = num_change+1
+                  num_change = num_change + 1
                 END IF
               END IF
             END DO
@@ -542,12 +549,12 @@ MODULE bader_mod
     TYPE(charge_obj) :: chg
     INTEGER,DIMENSION(3),INTENT(INOUT) :: p
 
-    bdr%pnum=1
-    bdr%path(bdr%pnum,:)=p
+    bdr%pnum = 1
+    bdr%path(bdr%pnum,:) = p
     DO
       CALL step_ongrid(chg,p)
       ! if we didn't move, we're at a maximum
-      IF (ALL(p==bdr%path(bdr%pnum,:))) EXIT
+      IF (ALL(p == bdr%path(bdr%pnum,:))) EXIT
       ! otherwise, add point to path
       IF (bdr%pnum >= bdr%pdim) THEN
         CALL reallocate_path(bdr,bdr%pdim*2)
@@ -581,9 +588,9 @@ MODULE bader_mod
     pm = p
     rho_ctr = rho_val(chg,p(1),p(2),p(3))
     rho_max = rho_ctr
-    DO d1=-1,1
-      DO d2=-1,1
-        DO d3=-1,1
+    DO d1 = -1,1
+      DO d2 = -1,1
+        DO d3 = -1,1
           pt = p+(/d1,d2,d3/)
           rho_tmp = rho_val(chg,pt(1),pt(2),pt(3))
           rho_tmp = rho_ctr+(rho_tmp-rho_ctr)*chg%lat_i_dist(d1,d2,d3)
@@ -648,12 +655,12 @@ MODULE bader_mod
     TYPE(bader_obj) :: bdr
     TYPE(charge_obj) :: chg
     INTEGER,DIMENSION(3),INTENT(INOUT) :: p
-    INTEGER,DIMENSION(3) :: pm,pt,pp=(/0,0,0/)
-    INTEGER :: d1,d2,d3,i
+    INTEGER,DIMENSION(3) :: pm, pt, pp=(/0,0,0/)
+    INTEGER :: d1, d2, d3, i
     LOGICAL :: ismax
 
-    REAL(q2),DIMENSION(3) :: gradrl,dr=(/0._q2,0._q2,0._q2/)
-    REAL(q2) :: cx,cy,cz,coeff,cp,cm,drp
+    REAL(q2),DIMENSION(3) :: gradrl, dr=(/0._q2,0._q2,0._q2/)
+    REAL(q2) :: cx, cy, cz, coeff, cp, cm, drp
     SAVE dr
 
     IF (bdr%pnum == 1) THEN
@@ -674,10 +681,10 @@ MODULE bader_mod
     ELSE
       coeff = 1._q2/MAXVAL(ABS(gradrl))
       gradrl = coeff*gradrl
-      pm = p+ANINT(gradrl)
-      dr = dr+gradrl-ANINT(gradrl)
-      pm = pm+ANINT(dr)
-      dr = dr-ANINT(dr)
+      pm = p + ANINT(gradrl)
+      dr = dr + gradrl - ANINT(gradrl)
+      pm = pm + ANINT(dr)
+      dr = dr - ANINT(dr)
     END IF
     bdr%known(p(1),p(2),p(3)) = 1
 
@@ -688,7 +695,7 @@ MODULE bader_mod
       dr = (/0._q2,0._q2,0._q2/)
     END IF
 
-    p=pm
+    p = pm
 
   RETURN
   END SUBROUTINE step_neargrid
@@ -712,14 +719,14 @@ MODULE bader_mod
 
      IF(opts%refine_edge_itrs==-2 .OR. ref_itrs==1) THEN
        num_edge=0
-       DO n1=1,chg%npts(1)
-        DO n2=1,chg%npts(2)
-          DO n3=1,chg%npts(3)
+       DO n1 = 1,chg%npts(1)
+        DO n2 = 1,chg%npts(2)
+          DO n3 = 1,chg%npts(3)
             p = (/n1,n2,n3/)
             ! change for calculating the vacuum volume
-            IF (bdr%volnum(n1,n2,n3)==bdr%bnum+1) CYCLE
-            IF (is_vol_edge(bdr,chg,p).AND.(.NOT.is_max(chg,p))) THEN
-              num_edge = num_edge+1
+            IF (bdr%volnum(n1,n2,n3) == bdr%bnum+1) CYCLE
+            IF (is_vol_edge(bdr,chg,p) .AND. (.NOT.is_max(chg,p))) THEN
+              num_edge = num_edge + 1
               bdr%volnum(p(1),p(2),p(3)) = -bdr%volnum(p(1),p(2),p(3))
               IF (opts%quit_opt == opts%quit_known) THEN
                 bdr%known(p(1),p(2),p(3)) = 0
@@ -734,36 +741,36 @@ MODULE bader_mod
 
     IF(opts%refine_edge_itrs==-1 .AND. ref_itrs>1) THEN
       num_check=0
-      DO n1=1,chg%npts(1)
-        DO n2=1,chg%npts(2)
-          DO n3=1,chg%npts(3)
+      DO n1 = 1,chg%npts(1)
+        DO n2 = 1,chg%npts(2)
+          DO n3 = 1,chg%npts(3)
             p = (/n1,n2,n3/)
             ! change for calculating the vacuum volume
             IF (bdr%volnum(n1,n2,n3)==bdr%bnum+1) CYCLE
 
             IF(bdr%volnum(n1,n2,n3) < 0 .AND. bdr%known(n1,n2,n3) /=-1) THEN
-              DO d1=-1,1
-               DO d2=-1,1
-                DO d3=-1,1
-                  pt=p+(/d1,d2,d3/)
+              DO d1 = -1,1
+               DO d2 = -1,1
+                DO d3 = -1,1
+                  pt = p + (/d1,d2,d3/)
                   CALL pbc(pt,chg%npts)
                   ! change for calculating the vacuum volume
-                  IF (bdr%volnum(pt(1),pt(2),pt(3))==bdr%bnum+1) CYCLE
+                  IF (bdr%volnum(pt(1),pt(2),pt(3)) == bdr%bnum+1) CYCLE
                   IF(.NOT.is_max(chg,pt)) THEN 
-                    IF(bdr%volnum(pt(1),pt(2),pt(3))>0) THEN
+                    IF(bdr%volnum(pt(1),pt(2),pt(3)) > 0) THEN
                       bdr%volnum(pt(1),pt(2),pt(3)) = -bdr%volnum(pt(1),pt(2),pt(3))
                       bdr%known(pt(1),pt(2),pt(3)) = -1
                       num_check=num_check+1
-                    ELSE IF(bdr%volnum(pt(1),pt(2),pt(3))<0.AND.bdr%known(pt(1),pt(2),pt(3))==0)THEN
+                    ELSE IF(bdr%volnum(pt(1),pt(2),pt(3))<0 .AND. bdr%known(pt(1),pt(2),pt(3)) == 0) THEN
                       bdr%known(pt(1),pt(2),pt(3)) = -2
-                      num_check=num_check+1
+                      num_check = num_check + 1
                     END IF
                   END IF
                 END DO
                END DO
               END DO
-              num_check=num_check-1
-              IF (bdr%known(pt(1),pt(2),pt(3))/=-2) THEN
+              num_check = num_check - 1
+              IF (bdr%known(pt(1),pt(2),pt(3)) /= -2) THEN
                 bdr%volnum(p(1),p(2),p(3)) = ABS(bdr%volnum(p(1),p(2),p(3)))         
               END IF
               ! end of mark
@@ -772,22 +779,22 @@ MODULE bader_mod
           END DO
         END DO
       END DO
-      WRITE(*,'(2x,A,3x,1I8)') 'CHECKED POINTS:',num_check
+      WRITE(*,'(2x,A,3x,1I8)') 'CHECKED POINTS:', num_check
 
       ! make the surrounding points unkown
-      DO n1=1,chg%npts(1)
-        DO n2=1,chg%npts(2)
-          DO n3=1,chg%npts(3)
+      DO n1 = 1,chg%npts(1)
+        DO n2 = 1,chg%npts(2)
+          DO n3 = 1,chg%npts(3)
             p = (/n1,n2,n3/)
             bvolnum = bdr%volnum(n1,n2,n3)
 
-            IF (bvolnum<0) THEN
-              DO d1=-1,1
-               DO d2=-1,1
-                DO d3=-1,1
-                  pt=p+(/d1,d2,d3/)
+            IF (bvolnum < 0) THEN
+              DO d1 = -1,1
+               DO d2 = -1,1
+                DO d3 = -1,1
+                  pt = p + (/d1,d2,d3/)
                   CALL pbc(pt,chg%npts)
-                  IF(bdr%known(pt(1),pt(2),pt(3))==2)bdr%known(pt(1),pt(2),pt(3))=0
+                  IF(bdr%known(pt(1),pt(2),pt(3)) == 2) bdr%known(pt(1),pt(2),pt(3)) = 0
                 END DO
                END DO
               END DO
@@ -799,10 +806,10 @@ MODULE bader_mod
 
     END IF
 
-    num_reassign=0
-    DO n1=1,chg%npts(1)
-      DO n2=1,chg%npts(2)
-        DO n3=1,chg%npts(3)
+    num_reassign = 0
+    DO n1 = 1,chg%npts(1)
+      DO n2 = 1,chg%npts(2)
+        DO n3 = 1,chg%npts(3)
           p = (/n1,n2,n3/)
           bvolnum = bdr%volnum(n1,n2,n3)
           IF (bvolnum<0) THEN
@@ -819,10 +826,10 @@ MODULE bader_mod
             END IF
             bdr%volnum(n1,n2,n3) = path_volnum
             IF (ABS(bvolnum) /= path_volnum) THEN
-              num_reassign = num_reassign+1
-              IF(opts%refine_edge_itrs==-1) bdr%volnum(n1,n2,n3) = -path_volnum
+              num_reassign = num_reassign + 1
+              IF(opts%refine_edge_itrs == -1) bdr%volnum(n1,n2,n3) = -path_volnum
             END IF
-            DO i=1,bdr%pnum
+            DO i = 1,bdr%pnum
               pt = (/bdr%path(i,1),bdr%path(i,2),bdr%path(i,3)/)
               IF (bdr%known(pt(1),pt(2),pt(3)) /= 2) THEN
                 bdr%known(pt(1),pt(2),pt(3)) = 0
@@ -853,24 +860,24 @@ MODULE bader_mod
     TYPE(ions_obj) :: ions
     TYPE(charge_obj) :: chg
 
-    REAL(q2),DIMENSION(3) :: dv,v
-    REAL(q2) :: dsq,dminsq
-    INTEGER :: i,j,dindex
+    REAL(q2),DIMENSION(3) :: dv, v
+    REAL(q2) :: dsq, dminsq
+    INTEGER :: i, j, dindex
 
-    bdr%ionchg=0._q2
-    DO i=1,bdr%nvols
-      dv = bdr%volpos_dir(i,:)-ions%r_dir(1,:)
+    bdr%ionchg = 0._q2
+    DO i = 1,bdr%nvols
+      dv = bdr%volpos_dir(i,:) - ions%r_dir(1,:)
 !      CALL dpbc_dir(ions,dv)
-      CALL matrix_vector(ions%dir2car,dv,v)
-      CALL dpbc_car(ions,v)
-      dminsq = DOT_PRODUCT(v,v)
+      CALL matrix_vector(ions%dir2car, dv, v)
+      CALL dpbc_car(ions, v)
+      dminsq = DOT_PRODUCT(v, v)
       dindex = 1
-      DO j=2,ions%nions
-        dv = bdr%volpos_dir(i,:)-ions%r_dir(j,:)
+      DO j = 2,ions%nions
+        dv = bdr%volpos_dir(i,:) - ions%r_dir(j,:)
 !        CALL dpbc_dir(ions,dv)
-        CALL matrix_vector(ions%dir2car,dv,v)
-        CALL dpbc_car(ions,v)
-        dsq = DOT_PRODUCT(v,v)
+        CALL matrix_vector(ions%dir2car, dv, v)
+        CALL dpbc_car(ions, v)
+        dsq = DOT_PRODUCT(v, v)
         IF (dsq < dminsq) THEN
           dminsq = dsq
           dindex = j
@@ -878,15 +885,15 @@ MODULE bader_mod
       END DO
       bdr%iondist(i) = SQRT(dminsq)
       bdr%nnion(i) = dindex
-      bdr%ionchg(dindex) = bdr%ionchg(dindex)+bdr%volchg(i)
+      bdr%ionchg(dindex) = bdr%ionchg(dindex) + bdr%volchg(i)
     END DO
 
   RETURN
   END SUBROUTINE assign_chg2atom
 
 !-----------------------------------------------------------------------------------!
-! bader_mindist: Find the minimum distance from the surface of each volume to each 
-!                ion
+! bader_mindist: Find the minimum distance from the surface of each volume to 
+!                each ion
 !-----------------------------------------------------------------------------------!
 
   SUBROUTINE bader_mindist(bdr,ions,chg)
@@ -895,13 +902,13 @@ MODULE bader_mod
     TYPE(ions_obj) :: ions
     TYPE(charge_obj) :: chg
 
-    REAL(q2),DIMENSION(3) :: shift,v,dv_dir,dv_car
+    REAL(q2),DIMENSION(3) :: shift, v, dv_dir, dv_car
     INTEGER,DIMENSION(3) :: p
     REAL :: dist
-    INTEGER :: i,atom,n1,n2,n3,d1,d2,d3
-    INTEGER :: cr,count_max,t1,t2,tenths_done
+    INTEGER :: i, atom, n1, n2, n3, d1, d2, d3
+    INTEGER :: cr, count_max, t1, t2, tenths_done
 
-    CALL SYSTEM_CLOCK(t1,cr,count_max)
+    CALL SYSTEM_CLOCK(t1, cr, count_max)
 
     WRITE(*,'(/,2x,A)') 'CALCULATING MINIMUM DISTANCES TO ATOMS'
     WRITE(*,'(2x,A)')   '               0  10  25  50  75  100'
@@ -909,44 +916,44 @@ MODULE bader_mod
 
 !   Store the minimum distance and the vector
     ALLOCATE(bdr%minsurfdist(ions%nions))
-    bdr%minsurfdist=0._q2
+    bdr%minsurfdist = 0._q2
 
-    tenths_done=0
-    DO n1=1,chg%npts(1)
+    tenths_done = 0
+    DO n1 = 1,chg%npts(1)
       IF ((n1*10/chg%npts(1)) > tenths_done) THEN
         tenths_done = (n1*10/chg%npts(1))
         WRITE(*,'(A,$)') '**'
       END IF
-      DO n2=1,chg%npts(2)
-        DO n3=1,chg%npts(3)
-          p=(/n1,n2,n3/)
+      DO n2 = 1,chg%npts(2)
+        DO n3 = 1,chg%npts(3)
+          p = (/n1,n2,n3/)
           ! change for calculating the vacuum volume
-          IF (bdr%volnum(n1,n2,n3)==bdr%nvols+1) CYCLE
+          IF (bdr%volnum(n1,n2,n3) == bdr%nvols+1) CYCLE
 
 !         If this is an edge cell, check if it is the closest to the atom so far
           IF (is_atm_edge(bdr,chg,p,atom)) THEN
             v = REAL((/n1,n2,n3/),q2)
-            dv_dir = (v-chg%org_lat)/REAL(chg%npts,q2)-ions%r_dir(atom,:)
+            dv_dir = (v-chg%org_lat)/REAL(chg%npts,q2) - ions%r_dir(atom,:)
 !            CALL dpbc_dir(ions,dv_dir)
 !            CALL dpbc_dir_org(dv_dir)
-            CALL matrix_vector(ions%dir2car,dv_dir,dv_car)
-            CALL dpbc_car(ions,dv_car)
-            dist=DOT_PRODUCT(dv_car,dv_car)
+            CALL matrix_vector(ions%dir2car, dv_dir, dv_car)
+            CALL dpbc_car(ions, dv_car)
+            dist = DOT_PRODUCT(dv_car, dv_car)
             IF ((bdr%minsurfdist(atom) == 0.0_q2) .OR.  &
             &   (bdr%minsurfdist(atom) > dist)) THEN
-              bdr%minsurfdist(atom)=dist
+              bdr%minsurfdist(atom) = dist
             END IF
           END IF
         END DO
       END DO
     END DO
 
-    DO i=1,ions%nions
-      bdr%minsurfdist(i)=SQRT(bdr%minsurfdist(i))
+    DO i = 1,ions%nions
+      bdr%minsurfdist(i) = SQRT(bdr%minsurfdist(i))
     END DO
 
     CALL SYSTEM_CLOCK(t2,cr,count_max)
-    WRITE(*,'(2/,1A12,1F7.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
+    WRITE(*,'(2/,1A12,1F7.2,1A8)') 'RUN TIME: ', (t2-t1)/REAL(cr,q2), ' SECONDS'
 
   RETURN
   END SUBROUTINE bader_mindist
@@ -955,7 +962,7 @@ MODULE bader_mod
 ! write_all_bader: Write out a CHGCAR type file for each of the Bader volumes found.
 !-----------------------------------------------------------------------------------!
 
-  SUBROUTINE write_all_bader(bdr,opts,ions,chg)
+  SUBROUTINE write_all_bader(bdr, opts, ions, chg)
 
     TYPE(bader_obj) :: bdr
     TYPE(options_obj) :: opts
@@ -963,21 +970,21 @@ MODULE bader_mod
     TYPE(charge_obj) :: chg
 
     TYPE(charge_obj) :: tmp
-    INTEGER :: nx,ny,nz,i,atomnum,badercur,tenths_done,t1,t2,cr,count_max
-    INTEGER :: n1,n2,n3
+    INTEGER :: nx, ny, nz, i, atomnum, badercur, tenths_done, t1, t2, cr, count_max
+    INTEGER :: n1, n2, n3
     CHARACTER(LEN=128) :: atomfilename
     
-    CALL SYSTEM_CLOCK(t1,cr,count_max)
+    CALL SYSTEM_CLOCK(t1, cr,count_max)
 
     WRITE(*,'(/,2x,A)') 'WRITING BADER VOLUMES'
     WRITE(*,'(2x,A)')   '               0  10  25  50  75  100'
     WRITE(*,'(2x,A,$)') 'PERCENT DONE:  **'
 
-    tmp=chg
-    atomnum=0
-    tenths_done=0
+    tmp = chg
+    atomnum = 0
+    tenths_done = 0
 
-    DO badercur=1,bdr%nvols
+    DO badercur = 1,bdr%nvols
       DO WHILE ((badercur*10/bdr%nvols) > tenths_done)
         tenths_done = tenths_done+1
         WRITE(*,'(A,$)') '**'
@@ -988,9 +995,9 @@ MODULE bader_mod
         tmp%rho = 0._q2
 !        WHERE (bdr%volnum == badercur) tmp%rho = chg%rho
         ! Replace for ifort/x86_32
-        DO n1=1,chg%npts(1)
-          DO n2=1,chg%npts(2)
-            DO n3=1,chg%npts(3)
+        DO n1 = 1,chg%npts(1)
+          DO n2 = 1,chg%npts(2)
+            DO n3 = 1,chg%npts(3)
               IF (bdr%volnum(n1,n2,n3) == badercur) tmp%rho(n1,n2,n3) = chg%rho(n1,n2,n3)
             END DO
           END DO
@@ -1022,34 +1029,35 @@ MODULE bader_mod
 
     TYPE(charge_obj) :: tmp
 
-    INTEGER :: nx,ny,nz,i,j,b,mab,mib,ik,sc,cc,tenths_done,t1,t2,cr,count_max
-    INTEGER :: n1,n2,n3
+    INTEGER :: nx, ny, nz, i, j, b, mab, mib, ik, sc, cc
+    INTEGER :: tenths_done, t1, t2, cr, count_max
+    INTEGER :: n1, n2, n3
     INTEGER,DIMENSION(bdr%nvols) :: rck
     CHARACTER(LEN=128) :: atomfilename
 
-    CALL SYSTEM_CLOCK(t1,cr,count_max)
+    CALL SYSTEM_CLOCK(t1, cr, count_max)
 
     tmp=chg
 
     WRITE(*,'(/,2x,A)') 'WRITING ATOMIC VOLUMES '
     WRITE(*,'(2x,A)')   '               0  10  25  50  75  100'
     WRITE(*,'(2x,A,$)') 'PERCENT DONE:  **'
-    tenths_done=0
-    mab=MAXVAL(bdr%nnion)
-    mib=MINVAL(bdr%nnion)
-    sc=0
+    tenths_done = 0
+    mab = MAXVAL(bdr%nnion)
+    mib = MINVAL(bdr%nnion)
+    sc = 0
 
-    DO ik=mib,mab
-      cc=0
-      rck=0
-      DO j=1,bdr%nvols
+    DO ik = mib,mab
+      cc = 0
+      rck = 0
+      DO j = 1,bdr%nvols
         IF (bdr%volchg(j) < bdr%tol) CYCLE
         IF (bdr%nnion(j) == ik) THEN
           cc = cc+1
           rck(cc) = j
         END IF
       END DO
-      sc = sc+cc
+      sc = sc + cc
       DO WHILE ((ik*10/(mab-mib+1)) > tenths_done)
         tenths_done = tenths_done+1
         WRITE(*,'(A,$)') '**'
@@ -1061,20 +1069,20 @@ MODULE bader_mod
       DO b=1,cc
 !        WHERE (bdr%volnum == rck(b)) tmp%rho = chg%rho
         ! this change is needed for ifort/x86_32
-        DO n1=1,chg%npts(1)
-          DO n2=1,chg%npts(2)
-            DO n3=1,chg%npts(3)
+        DO n1 = 1,chg%npts(1)
+          DO n2 = 1,chg%npts(2)
+            DO n3 = 1,chg%npts(3)
               IF (bdr%volnum(n1,n2,n3) == rck(b)) tmp%rho(n1,n2,n3) = chg%rho(n1,n2,n3)
             END DO
           END DO
         END DO
       END DO 
-      CALL write_charge(ions,tmp,opts,atomfilename)
+      CALL write_charge(ions, tmp, opts, atomfilename)
 
     END DO
     DEALLOCATE(tmp%rho)
 
-    CALL SYSTEM_CLOCK(t2,cr,count_max)
+    CALL SYSTEM_CLOCK(t2, cr, count_max)
     WRITE(*,'(2/,1A12,1F7.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
 
   RETURN
@@ -1093,7 +1101,8 @@ MODULE bader_mod
 
     TYPE(charge_obj) :: tmp
 
-    INTEGER :: n1,n2,n3,i,j,b,ik,sc,cc,tenths_done,t1,t2,cr,count_max
+    INTEGER :: n1, n2, n3, i, j, b, ik, sc, cc
+    INTEGER :: tenths_done, t1, t2, cr, count_max
     INTEGER,DIMENSION(bdr%nvols) :: rck
     CHARACTER(LEN=128) :: atomfilename
 
@@ -1104,21 +1113,21 @@ MODULE bader_mod
     WRITE(*,'(/,2x,A)') 'WRITING SELECTED ATOMIC VOLUMES '
     WRITE(*,'(2x,A)')   '               0  10  25  50  75  100'
     WRITE(*,'(2x,A,$)') 'PERCENT DONE:  **'
-    tenths_done=0
-    sc=0
+    tenths_done = 0
+    sc = 0
 
-    DO i=1,opts%selanum
-      ik=opts%selavol(i)
-      cc=0
-      rck=0
-      DO j=1,bdr%nvols
+    DO i = 1,opts%selanum
+      ik = opts%selavol(i)
+      cc = 0
+      rck = 0
+      DO j = 1,bdr%nvols
         IF (bdr%volchg(j) < bdr%tol) CYCLE
         IF (bdr%nnion(j) == ik) THEN
           cc = cc+1
           rck(cc) = j
         END IF
       END DO
-      sc = sc+cc
+      sc = sc + cc
       DO WHILE ((i*10/opts%selanum) > tenths_done)
         tenths_done = tenths_done+1
         WRITE(*,'(A,$)') '**'
@@ -1127,11 +1136,11 @@ MODULE bader_mod
       WRITE(atomfilename,'(A4,I4.4,A4)') "BvAt",ik,".dat"
 
       tmp%rho = 0._q2
-      DO b=1,cc
+      DO b = 1,cc
 !        WHERE (bdr%volnum == rck(b)) tmp%rho = chg%rho
-        DO n1=1,chg%npts(1)
-          DO n2=1,chg%npts(2)
-            DO n3=1,chg%npts(3)
+        DO n1 = 1,chg%npts(1)
+          DO n2 = 1,chg%npts(2)
+            DO n3 = 1,chg%npts(3)
               IF (bdr%volnum(n1,n2,n3) == rck(b))  &
               &   tmp%rho(n1,n2,n3) = chg%rho(n1,n2,n3)
             END DO
@@ -1144,7 +1153,7 @@ MODULE bader_mod
     END DO
     DEALLOCATE(tmp%rho)
 
-    CALL SYSTEM_CLOCK(t2,cr,count_max)
+    CALL SYSTEM_CLOCK(t2, cr, count_max)
     WRITE(*,'(2/,1A12,1F7.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
 
   RETURN
@@ -1163,48 +1172,49 @@ MODULE bader_mod
 
     TYPE(charge_obj) :: tmp
 
-    INTEGER :: n1,n2,n3,i,j,b,ik,sc,cc,tenths_done,t1,t2,cr,count_max
+    INTEGER :: n1, n2, n3, i, j, b, ik, sc, cc
+    INTEGER :: tenths_done, t1, t2, cr, count_max
     INTEGER,DIMENSION(bdr%nvols) :: rck
     CHARACTER(LEN=128) :: atomfilename
 
-    CALL SYSTEM_CLOCK(t1,cr,count_max)
+    CALL SYSTEM_CLOCK(t1, cr, count_max)
 
-    tmp=chg
+    tmp = chg
 !   Set temporary density to zero at start
     tmp%rho = 0._q2
 
     WRITE(*,'(/,2x,A)') 'WRITING SUM OVER SELECTED ATOMIC VOLUMES '
     WRITE(*,'(2x,A)')   '               0  10  25  50  75  100'
     WRITE(*,'(2x,A,$)') 'PERCENT DONE:  **'
-    tenths_done=0
-    sc=0
+    tenths_done = 0
+    sc = 0
 
 !   Here we only need name one file
     WRITE(atomfilename,'(A)') "BvAt_summed.dat"
 
 !   Loop over number of selected atoms (opts%selanum)
-    DO i=1,opts%sumanum
-      ik=opts%sumavol(i)
-      cc=0
-      rck=0
-      DO j=1,bdr%nvols
+    DO i = 1,opts%sumanum
+      ik = opts%sumavol(i)
+      cc = 0
+      rck = 0
+      DO j = 1,bdr%nvols
         IF (bdr%volchg(j) < bdr%tol) CYCLE
         IF (bdr%nnion(j) == ik) THEN
           cc = cc+1
           rck(cc) = j
         END IF
       END DO
-      sc = sc+cc
+      sc = sc + cc
       DO WHILE ((i*10/opts%sumanum) > tenths_done)
         tenths_done = tenths_done+1
         WRITE(*,'(A,$)') '**'
       END DO
       IF (cc == 0) CYCLE
-      DO b=1,cc
+      DO b = 1,cc
 !        WHERE (bdr%volnum == rck(b)) tmp%rho = chg%rho
-        DO n1=1,chg%npts(1)
-          DO n2=1,chg%npts(2)
-            DO n3=1,chg%npts(3)
+        DO n1 = 1,chg%npts(1)
+          DO n2 = 1,chg%npts(2)
+            DO n3 = 1,chg%npts(3)
               IF (bdr%volnum(n1,n2,n3) == rck(b))  &
               &   tmp%rho(n1,n2,n3) = chg%rho(n1,n2,n3)
             END DO
@@ -1215,10 +1225,10 @@ MODULE bader_mod
     END DO
 
 !   Write out charge to file
-    CALL write_charge(ions,tmp,opts,atomfilename)
+    CALL write_charge(ions, tmp, opts, atomfilename)
     DEALLOCATE(tmp%rho)
 
-    CALL SYSTEM_CLOCK(t2,cr,count_max)
+    CALL SYSTEM_CLOCK(t2, cr, count_max)
     WRITE(*,'(2/,1A12,1F7.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
 
   RETURN
@@ -1229,7 +1239,7 @@ MODULE bader_mod
 !              Volumes associated with a atom can be read from AtomVolumes.dat
 !-----------------------------------------------------------------------------------!
 
-  SUBROUTINE write_sel_bader(bdr,opts,ions,chg)
+  SUBROUTINE write_sel_bader(bdr, opts, ions, chg)
 
     TYPE(bader_obj) :: bdr
     TYPE(options_obj) :: opts
@@ -1239,17 +1249,18 @@ MODULE bader_mod
     TYPE(charge_obj) :: tmp
     CHARACTER(LEN=128) :: atomfilename
     INTEGER,DIMENSION(bdr%nvols,2) :: volsig
-    INTEGER :: n1,n2,n3,cr,count_max,t1,t2,tenths_done,i,bdimsig,bvolnum
+    INTEGER :: n1, n2, n3, cr, count_max, t1, t2
+    INTEGER :: tenths_done, i, bdimsig, bvolnum
 
-    CALL SYSTEM_CLOCK(t1,cr,count_max)
+    CALL SYSTEM_CLOCK(t1, cr, count_max)
 
-    tmp=chg
+    tmp = chg
 
 ! Correlate the number for each significant bader volume to its real number
-    bdimsig=0
-    volsig=0
+    bdimsig = 0
+    volsig = 0
 
-    DO i=1,bdr%nvols
+    DO i = 1,bdr%nvols
       IF (bdr%volchg(i) > bdr%tol) THEN
         bdimsig = bdimsig+1
         volsig(bdimsig,1) = bdimsig
@@ -1260,35 +1271,35 @@ MODULE bader_mod
     WRITE(*,'(/,2x,A)') 'WRITING SELECTED BADER VOLUMES '
     WRITE(*,'(2x,A)')   '               0  10  25  50  75  100'
     WRITE(*,'(2x,A,$)') 'PERCENT DONE:  **'
-    tenths_done=0
+    tenths_done = 0
 
     tmp%rho = 0._q2
 
-    DO i=1,opts%selbnum
+    DO i = 1,opts%selbnum
       DO WHILE ((i*10/opts%selbnum) > tenths_done)
         tenths_done = tenths_done+1
         WRITE(*,'(A,$)') '**'
       END DO
 
-      bvolnum=opts%selbvol(i)
+      bvolnum = opts%selbvol(i)
       WRITE(atomfilename,'(A4,I4.4,A4)') "Bvol",bvolnum,".dat"
       tmp%rho = 0._q2
 !      WHERE (bdr%volnum == volsig(bvolnum,2)) tmp%rho = chg%rho
-      DO n1=1,chg%npts(1)
-        DO n2=1,chg%npts(2)
-          DO n3=1,chg%npts(3)
+      DO n1 = 1,chg%npts(1)
+        DO n2 = 1,chg%npts(2)
+          DO n3 = 1,chg%npts(3)
             IF (bdr%volnum(n1,n2,n3) == volsig(bvolnum,2))  &
             &  tmp%rho(n1,n2,n3) = chg%rho(n1,n2,n3)
           END DO
         END DO
       END DO
 
-      CALL write_charge(ions,tmp,opts,atomfilename)
+      CALL write_charge(ions, tmp, opts, atomfilename)
     END DO
 
     DEALLOCATE(tmp%rho)
 
-    CALL SYSTEM_CLOCK(t2,cr,count_max)
+    CALL SYSTEM_CLOCK(t2, cr, count_max)
     WRITE(*,'(2/,1A12,1F7.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
 
   RETURN
@@ -1299,7 +1310,7 @@ MODULE bader_mod
 ! bader volumes.
 !-----------------------------------------------------------------------------------!
         
-  SUBROUTINE write_sum_bader(bdr,opts,ions,chg)
+  SUBROUTINE write_sum_bader(bdr, opts, ions, chg)
 
     TYPE(bader_obj) :: bdr
     TYPE(options_obj) :: opts
@@ -1309,17 +1320,18 @@ MODULE bader_mod
     TYPE(charge_obj) :: tmp
     CHARACTER(LEN=128) :: atomfilename
     INTEGER,DIMENSION(bdr%nvols,2) :: volsig
-    INTEGER :: n1,n2,n3,cr,count_max,t1,t2,tenths_done,i,bdimsig,bvolnum
-  
-    CALL SYSTEM_CLOCK(t1,cr,count_max)
+    INTEGER :: n1, n2, n3, cr, count_max, t1, t2
+    INTEGER :: tenths_done, i, bdimsig, bvolnum
 
-    tmp=chg
+    CALL SYSTEM_CLOCK(t1, cr, count_max)
+
+    tmp = chg
 
 ! Correlate the number for each significant bader volume to its real number
-    bdimsig=0
-    volsig=0 
+    bdimsig = 0
+    volsig = 0 
 
-    DO i=1,bdr%nvols
+    DO i = 1,bdr%nvols
       IF (bdr%volchg(i) > bdr%tol) THEN
         bdimsig = bdimsig+1
         volsig(bdimsig,1) = bdimsig
@@ -1330,22 +1342,22 @@ MODULE bader_mod
     WRITE(*,'(/,2x,A)') 'WRITING SELECTED BADER VOLUMES '
     WRITE(*,'(2x,A)')   '               0  10  25  50  75  100'
     WRITE(*,'(2x,A,$)') 'PERCENT DONE:  **'
-    tenths_done=0
+    tenths_done = 0
 
     tmp%rho = 0._q2
     WRITE(atomfilename,'(A15)') "Bvol_summed.dat"
 
-    DO i=1,opts%sumbnum
+    DO i = 1,opts%sumbnum
       DO WHILE ((i*10/opts%sumbnum) > tenths_done)
         tenths_done = tenths_done+1
         WRITE(*,'(A,$)') '**'
       END DO
 
-      bvolnum=opts%sumbvol(i)
+      bvolnum = opts%sumbvol(i)
 !      WHERE (bdr%volnum == volsig(bvolnum,2)) tmp%rho = chg%rho
-      DO n1=1,chg%npts(1)
-        DO n2=1,chg%npts(2)
-          DO n3=1,chg%npts(3)
+      DO n1 = 1,chg%npts(1)
+        DO n2 = 1,chg%npts(2)
+          DO n3 = 1,chg%npts(3)
             IF (bdr%volnum(n1,n2,n3) == volsig(bvolnum,2))  &
             &  tmp%rho(n1,n2,n3) = chg%rho(n1,n2,n3)
           END DO
@@ -1353,10 +1365,10 @@ MODULE bader_mod
       END DO
     END DO
       
-    CALL write_charge(ions,tmp,opts,atomfilename)
+    CALL write_charge(ions, tmp, opts, atomfilename)
     DEALLOCATE(tmp%rho)
     
-    CALL SYSTEM_CLOCK(t2,cr,count_max)
+    CALL SYSTEM_CLOCK(t2, cr, count_max)
     WRITE(*,'(2/,1A12,1F7.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
   
   RETURN
@@ -1367,7 +1379,7 @@ MODULE bader_mod
 !                     Bader volume number for that grid point.
 !-----------------------------------------------------------------------------------!
 
-  SUBROUTINE write_bader_index(bdr,opts,ions,chg)
+  SUBROUTINE write_bader_index(bdr, opts, ions, chg)
 
     TYPE(bader_obj) :: bdr
     TYPE(options_obj) :: opts
@@ -1377,29 +1389,29 @@ MODULE bader_mod
     TYPE(charge_obj) :: tmp
     CHARACTER(LEN=128) :: filename
     REAL(q2):: vol
-    INTEGER :: n1,n2,n3
+    INTEGER :: n1, n2, n3
 
     WRITE(*,'(/,2x,A)') 'WRITING BADER VOLUME INDEX TO BvIndex.dat'
 
-    tmp=chg
+    tmp = chg
 !GH: to be compatible with ifort/x86_32
 !    tmp%rho=bdr%volnum
-    DO n1=1,chg%npts(1)
-      DO n2=1,chg%npts(2)
-        DO n3=1,chg%npts(3)
+    DO n1 = 1,chg%npts(1)
+      DO n2 = 1,chg%npts(2)
+        DO n3 = 1,chg%npts(3)
           tmp%rho(n1,n2,n3) = bdr%volnum(n1,n2,n3)
         END DO
       END DO
     END DO
 
-    filename='BvIndex.dat'
-    IF(opts%out_opt==opts%out_cube) THEN
-      vol=matrix_volume(ions%lattice)
+    filename = 'BvIndex.dat'
+    IF(opts%out_opt == opts%out_cube) THEN
+      vol = matrix_volume(ions%lattice)
 !GH: to be compatible with ifort/x86_32
 !      tmp%rho=tmp%rho*vol
-      DO n1=1,chg%npts(1)
-        DO n2=1,chg%npts(2)
-          DO n3=1,chg%npts(3)
+      DO n1 = 1,chg%npts(1)
+        DO n2 = 1,chg%npts(2)
+          DO n3 = 1,chg%npts(3)
             tmp%rho(n1,n2,n3) = tmp%rho(n1,n2,n3)*vol
           END DO
         END DO
@@ -1407,7 +1419,7 @@ MODULE bader_mod
 
     END IF
 
-    CALL write_charge(ions,tmp,opts,filename)
+    CALL write_charge(ions, tmp, opts, filename)
     DEALLOCATE(tmp%rho)
 
   END SUBROUTINE write_bader_index
@@ -1417,7 +1429,7 @@ MODULE bader_mod
 !                    associated atom number for that grid point.
 !-----------------------------------------------------------------------------------!
 
-  SUBROUTINE write_atom_index(bdr,opts,ions,chg)
+  SUBROUTINE write_atom_index(bdr, opts, ions, chg)
 
     TYPE(bader_obj) :: bdr
     TYPE(options_obj) :: opts
@@ -1427,31 +1439,31 @@ MODULE bader_mod
     TYPE(charge_obj) :: tmp
     CHARACTER(LEN=128) :: filename
     REAL(q2):: vol
-    INTEGER :: n1,n2,n3
+    INTEGER :: n1, n2, n3
 
     WRITE(*,'(/,2x,A)') 'WRITING BADER ATOMIC INDEX TO AtIndex.dat'
 
-    tmp=chg
-    DO n1=1,chg%npts(1)
-      DO n2=1,chg%npts(2)
-        DO n3=1,chg%npts(3)
+    tmp = chg
+    DO n1 = 1,chg%npts(1)
+      DO n2 = 1,chg%npts(2)
+        DO n3 = 1,chg%npts(3)
           ! change this to accord with the vacuum volume calculation
-          IF(bdr%volnum(n1,n2,n3)==bdr%bnum+1) THEN
-            tmp%rho(n1,n2,n3)=ions%nions+1
+          IF(bdr%volnum(n1,n2,n3) == bdr%bnum+1) THEN
+            tmp%rho(n1,n2,n3) = ions%nions+1
           ELSE
-            tmp%rho(n1,n2,n3)=bdr%nnion(bdr%volnum(n1,n2,n3))
+            tmp%rho(n1,n2,n3) = bdr%nnion(bdr%volnum(n1,n2,n3))
           END IF
         END DO
       END DO
     END DO
 
-    filename='AtIndex.dat'
-    IF(opts%out_opt==opts%out_cube) THEN
-      vol=matrix_volume(ions%lattice)
+    filename = 'AtIndex.dat'
+    IF(opts%out_opt == opts%out_cube) THEN
+      vol = matrix_volume(ions%lattice)
 !      tmp%rho=tmp%rho*vol
-      DO n1=1,chg%npts(1)
-        DO n2=1,chg%npts(2)
-          DO n3=1,chg%npts(3)
+      DO n1 = 1,chg%npts(1)
+        DO n2 = 1,chg%npts(2)
+          DO n3 = 1,chg%npts(3)
             tmp%rho(n1,n2,n3) = tmp%rho(n1,n2,n3)*vol
           END DO
         END DO
@@ -1459,7 +1471,7 @@ MODULE bader_mod
 
     END IF
 
-    CALL write_charge(ions,tmp,opts,filename)
+    CALL write_charge(ions, tmp, opts, filename)
     DEALLOCATE(tmp%rho)
 
   RETURN
@@ -1476,28 +1488,28 @@ MODULE bader_mod
     TYPE(charge_obj) :: chg
 
     REAL(q2):: vol
-    INTEGER :: n1,n2,n3,i,atom
+    INTEGER :: n1, n2, n3, i, atom
 
     ALLOCATE(bdr%ionvol(ions%nions))
-    bdr%ionvol=0.0
+    bdr%ionvol = 0.0
 
-    DO n1=1,chg%npts(1)
-      DO n2=1,chg%npts(2)
-        DO n3=1,chg%npts(3)
+    DO n1 = 1,chg%npts(1)
+      DO n2 = 1,chg%npts(2)
+        DO n3 = 1,chg%npts(3)
           ! change to calculate vacuum volume
           IF (bdr%volnum(n1,n2,n3)/=bdr%nvols+1) THEN
-            atom=bdr%nnion(bdr%volnum(n1,n2,n3))
-            bdr%ionvol(atom)=bdr%ionvol(atom)+1
+            atom = bdr%nnion(bdr%volnum(n1,n2,n3))
+            bdr%ionvol(atom) = bdr%ionvol(atom)+1
           END IF
         END DO
       END DO
     END DO
 
-    vol=matrix_volume(ions%lattice)
-    vol=vol/chg%nrho
+    vol = matrix_volume(ions%lattice)
+    vol = vol/chg%nrho
 
-    DO i=1,ions%nions
-      bdr%ionvol(i)=bdr%ionvol(i)*vol
+    DO i = 1,ions%nions
+      bdr%ionvol(i) = bdr%ionvol(i)*vol
     END DO
 
   RETURN
@@ -1518,22 +1530,21 @@ MODULE bader_mod
     TYPE(ions_obj) :: ions
     TYPE(charge_obj) :: chg
 
-  
-    REAL(q2) :: sum_ionchg,ne
-    INTEGER :: i,bdimsig,mib,mab,cc,j,nmax
+    REAL(q2) :: sum_ionchg, ne
+    INTEGER :: i, bdimsig, mib, mab, cc, j, nmax
     INTEGER,DIMENSION(bdr%nvols) :: rck
-  
+
     mab=MAXVAL(bdr%nnion)
     mib=MINVAL(bdr%nnion)
     OPEN(100,FILE='AVF.dat',STATUS='replace',ACTION='write')
     WRITE(100,'(A)') '   Atom                     Volume(s)'
     WRITE(100,'(A,A)') '  --------------------------------------------------------',&
     &                  '----------------'
-    DO i=mib,mab
-      cc=0
-      rck=0
-      nmax=0
-      DO j=1,bdr%nvols
+    DO i = mib,mab
+      cc = 0
+      rck = 0
+      nmax = 0
+      DO j = 1,bdr%nvols
         IF (bdr%volchg(j) > bdr%tol) THEN
           nmax = nmax+1
           IF (bdr%nnion(j) == i) THEN
@@ -1558,8 +1569,8 @@ MODULE bader_mod
     WRITE(100,'(A,A)') ' ----------------------------------------------------------------',&
     &                  '----------------'
     sum_ionchg = SUM(bdr%ionchg)
-    ne=SUM(bdr%volchg(1:bdr%nvols))+bdr%vacchg
-    DO i=1,ions%nions
+    ne = SUM(bdr%volchg(1:bdr%nvols)) + bdr%vacchg
+    DO i = 1,ions%nions
       WRITE(100,'(1I5,7F12.4)') i,ions%r_car(i,:),bdr%ionchg(i),bdr%minsurfdist(i),bdr%ionvol(i)
     END DO
     WRITE(100,'(A,A)') ' ----------------------------------------------------------------',&
@@ -1569,7 +1580,7 @@ MODULE bader_mod
     WRITE(100,'(4X,A,2X,1F12.4)')  'NUMBER OF ELECTRONS: ',ne
     CLOSE(100)
 
-    bdimsig=0
+    bdimsig = 0
     OPEN(200,FILE='BCF.dat',STATUS='replace',ACTION='write')
 
     WRITE(200,556) '#','X','Y','Z','CHARGE','ATOM','DISTANCE'
@@ -1577,7 +1588,7 @@ MODULE bader_mod
     
     WRITE(200,'(A,A)') '  ----------------------------------------------------------',&
     &              '---------------'
-    DO i=1,bdr%nvols
+    DO i = 1,bdr%nvols
         IF (bdr%volchg(i) > bdr%tol) THEN
            bdimsig = bdimsig+1
            WRITE(200,777) bdimsig,bdr%volpos_car(i,:),bdr%volchg(i), &
@@ -1607,26 +1618,24 @@ MODULE bader_mod
 
     TYPE(bader_obj) :: bdr
     TYPE(charge_obj) :: chg
-    INTEGER,INTENT(IN) :: p1,p2,p3
-    INTEGER :: volnum_val
-    
+    INTEGER,INTENT(IN) :: p1, p2, p3
+    INTEGER :: i, volnum_val
     INTEGER,DIMENSION(3) :: p
-    INTEGER :: i
-    
+
     p = (/p1,p2,p3/)
     DO i = 1,3
       DO
         IF (p(i) >= 1) EXIT
-        p(i) = p(i)+chg%npts(i)
+        p(i) = p(i) + chg%npts(i)
       END DO
       DO
         IF (p(i) <= chg%npts(i)) EXIT
-        p(i) = p(i)-chg%npts(i)
+        p(i) = p(i) - chg%npts(i)
       END DO
     END DO
-    
+
     volnum_val = bdr%volnum(p(1),p(2),p(3))
-    
+
   RETURN
   END FUNCTION volnum_val
 
@@ -1636,13 +1645,13 @@ MODULE bader_mod
 !-----------------------------------------------------------------------------------!
 
   FUNCTION known_volnum(bdr,chg,p)
-   
+
     TYPE(bader_obj) :: bdr
     TYPE(charge_obj) :: chg
     REAL(q2),DIMENSION(3),INTENT(IN) :: p
     INTEGER :: known_volnum
-   
-    INTEGER :: volnum,d1,d2,d3,p1,p2,p3
+
+    INTEGER :: volnum, d1, d2, d3, p1, p2, p3
     LOGICAL :: first_flag
 
     known_volnum = 0
@@ -1684,32 +1693,32 @@ MODULE bader_mod
     INTEGER,DIMENSION(3),INTENT(IN) :: p
     INTEGER,DIMENSION(3) :: pt
 
-    pt = p+(/1,0,0/)
+    pt = p + (/1,0,0/)
     CALL pbc(pt,chg%npts)
     IF(bdr%known(pt(1),pt(2),pt(3)) /= 2) THEN 
       CALL known_volnum_ongrid(bdr,chg,pt)
     END IF
-    pt = p+(/-1,0,0/)
+    pt = p + (/-1,0,0/)
     CALL pbc(pt,chg%npts)
     IF(bdr%known(pt(1),pt(2),pt(3)) /= 2) THEN
       CALL known_volnum_ongrid(bdr,chg,pt)
     END IF
-    pt = p+(/0,1,0/)
+    pt = p + (/0,1,0/)
     CALL pbc(pt,chg%npts)
     IF(bdr%known(pt(1),pt(2),pt(3)) /= 2) THEN
       CALL known_volnum_ongrid(bdr,chg,pt)
     END IF
-    pt = p+(/0,-1,0/)
+    pt = p + (/0,-1,0/)
     CALL pbc(pt,chg%npts)
     IF(bdr%known(pt(1),pt(2),pt(3)) /= 2) THEN
       CALL known_volnum_ongrid(bdr,chg,pt)
     END IF
-    pt = p+(/0,0,1/)
+    pt = p + (/0,0,1/)
     CALL pbc(pt,chg%npts)
     IF(bdr%known(pt(1),pt(2),pt(3)) /= 2) THEN
       CALL known_volnum_ongrid(bdr,chg,pt)
     END IF
-    pt = p+(/0,0,-1/)
+    pt = p + (/0,0,-1/)
     CALL pbc(pt,chg%npts)
     IF(bdr%known(pt(1),pt(2),pt(3)) /= 2) THEN
       CALL known_volnum_ongrid(bdr,chg,pt)
@@ -1727,12 +1736,12 @@ MODULE bader_mod
     TYPE(charge_obj) :: chg
     INTEGER,DIMENSION(3),INTENT(IN) :: p
     INTEGER,DIMENSION(3) :: pt
-    INTEGER :: d1,d2,d3
+    INTEGER :: d1, d2, d3
 
-    DO d1=-1,1
-      DO d2=-1,1
-        DO d3=-1,1
-          pt = p+(/d1,d2,d3/)
+    DO d1 = -1,1
+      DO d2 = -1,1
+        DO d3 = -1,1
+          pt = p + (/d1,d2,d3/)
           CALL pbc(pt,chg%npts)
           IF (bdr%known(pt(1),pt(2),pt(3)) /= 2) THEN
             CALL known_volnum_ongrid2(bdr,chg,pt)
@@ -1755,26 +1764,27 @@ MODULE bader_mod
     TYPE(charge_obj) :: chg
     INTEGER,DIMENSION(3),INTENT(IN) :: p
 
-    INTEGER :: volnum,d1,d2,d3,p1,p2,p3
+    INTEGER :: volnum, d1, d2, d3, p1, p2, p3
 
-    p1=p(1)
-    p2=p(2)
-    p3=p(3)     
+    p1 = p(1)
+    p2 = p(2)
+    p3 = p(3)     
 
-    volnum=volnum_val(bdr,chg,p1,p2,p3)
-    IF(volnum<=0) RETURN
+    volnum = volnum_val(bdr,chg,p1,p2,p3)
+    IF(volnum <= 0) RETURN
 
-    IF (volnum_val(bdr,chg,p1,p2,p3+1)/=volnum) RETURN
-    IF (volnum_val(bdr,chg,p1,p2,p3-1)/=volnum) RETURN
-    IF (volnum_val(bdr,chg,p1,p2+1,p3)/=volnum) RETURN
-    IF (volnum_val(bdr,chg,p1,p2-1,p3)/=volnum) RETURN
-    IF (volnum_val(bdr,chg,p1+1,p2,p3)/=volnum) RETURN
-    IF (volnum_val(bdr,chg,p1-1,p2,p3)/=volnum) RETURN
+    IF (volnum_val(bdr,chg,p1,p2,p3+1) /= volnum) RETURN
+    IF (volnum_val(bdr,chg,p1,p2,p3-1) /= volnum) RETURN
+    IF (volnum_val(bdr,chg,p1,p2+1,p3) /= volnum) RETURN
+    IF (volnum_val(bdr,chg,p1,p2-1,p3) /= volnum) RETURN
+    IF (volnum_val(bdr,chg,p1+1,p2,p3) /= volnum) RETURN
+    IF (volnum_val(bdr,chg,p1-1,p2,p3) /= volnum) RETURN
 
     bdr%known(p1,p2,p3) = 2
   
   RETURN
   END SUBROUTINE known_volnum_ongrid
+
 !-----------------------------------------------------------------------------------!
 ! known_volnum_ongrid: return number of the associated bader volnum if nearest
 !    grid points are known to be associated with the same bader volnum
@@ -1786,19 +1796,19 @@ MODULE bader_mod
     TYPE(charge_obj) :: chg
     INTEGER,DIMENSION(3),INTENT(IN) :: p
     INTEGER,DIMENSION(3) :: pt
-    INTEGER :: volnum,d1,d2,d3,p1,p2,p3
+    INTEGER :: volnum, d1, d2, d3, p1, p2, p3
 
-    p1=p(1)
-    p2=p(2)
-    p3=p(3)  
+    p1 = p(1)
+    p2 = p(2)
+    p3 = p(3)
 
     volnum = volnum_val(bdr,chg,p1,p2,p3)
     IF (volnum <= 0) RETURN
 
-    DO d1=-1,1
-      DO d2=-1,1
-        DO d3=-1,1
-          pt = p+(/d1,d2,d3/)
+    DO d1 = -1,1
+      DO d2 = -1,1
+        DO d3 = -1,1
+          pt = p + (/d1,d2,d3/)
           IF (volnum_val(bdr,chg,pt(1),pt(2),pt(3)) /= volnum) RETURN
         END DO
       END DO
@@ -1807,6 +1817,7 @@ MODULE bader_mod
 
   RETURN
   END SUBROUTINE known_volnum_ongrid2
+
 !-----------------------------------------------------------------------------------!
 ! reassign_volnum_ongrid: reassign the surrounding points of a edge point as unknown
 !                         points
@@ -1822,22 +1833,22 @@ MODULE bader_mod
     
     pt = (/p(1)+1,p(2),p(3)/)
     CALL pbc(pt,chg%npts)
-    bdr%known(pt(1),pt(2),pt(3))=0
+    bdr%known(pt(1),pt(2),pt(3)) = 0
     pt = (/p(1)-1,p(2),p(3)/)
     CALL pbc(pt,chg%npts)
-    bdr%known(pt(1),pt(2),pt(3))=0
+    bdr%known(pt(1),pt(2),pt(3)) = 0
     pt = (/p(1),p(2)+1,p(3)/)
     CALL pbc(pt,chg%npts)
-    bdr%known(pt(1),pt(2),pt(3))=0
+    bdr%known(pt(1),pt(2),pt(3)) = 0
     pt = (/p(1),p(2)-1,p(3)/)
     CALL pbc(pt,chg%npts)
-    bdr%known(pt(1),pt(2),pt(3))=0
+    bdr%known(pt(1),pt(2),pt(3)) = 0
     pt = (/p(1),p(2),p(3)+1/)
     CALL pbc(pt,chg%npts)
-    bdr%known(pt(1),pt(2),pt(3))=0
+    bdr%known(pt(1),pt(2),pt(3)) = 0
     pt = (/p(1),p(2),p(3)-1/)
     CALL pbc(pt,chg%npts)
-    bdr%known(pt(1),pt(2),pt(3))=0
+    bdr%known(pt(1),pt(2),pt(3)) = 0
 
   RETURN
   END SUBROUTINE reassign_volnum_ongrid
@@ -1853,12 +1864,12 @@ MODULE bader_mod
     TYPE(charge_obj) :: chg
     INTEGER,DIMENSION(3),INTENT(IN) :: p
     INTEGER,DIMENSION(3) :: pt
-    INTEGER :: volnum,d1,d2,d3,p1,p2,p3
+    INTEGER :: volnum, d1, d2, d3, p1, p2, p3
 
-    DO d1=-1,1
-      DO d2=-1,1
-        DO d3=-1,1
-          pt = p+(/d1,d2,d3/)
+    DO d1 = -1,1
+      DO d2 = -1,1
+        DO d3 = -1,1
+          pt = p + (/d1,d2,d3/)
           CALL pbc(pt,chg%npts)
           bdr%known(pt(1),pt(2),pt(3)) = 0
         END DO
@@ -1884,25 +1895,25 @@ MODULE bader_mod
 
     volnum = bdr%volnum(p(1),p(2),p(3))
     is_vol_edge = .FALSE.
-    neighbourloop: DO d1=-1,1
-      DO d2=-1,1
-        DO d3=-1,1
-          pt = p+(/d1,d2,d3/)
+    neighborloop: DO d1 = -1,1
+      DO d2 = -1,1
+        DO d3 = -1,1
+          pt = p + (/d1,d2,d3/)
           CALL pbc(pt,chg%npts)
           volnbr = bdr%volnum(pt(1),pt(2),pt(3))
           IF (ABS(volnbr) /= ABS(volnum)) THEN
             is_vol_edge = .TRUE.
-            EXIT neighbourloop  
+            EXIT neighborloop  
           END IF
         END DO
       END DO
-    END DO neighbourloop
+    END DO neighborloop
 
   RETURN
   END FUNCTION is_vol_edge
 
 !-----------------------------------------------------------------------------------!
-! is_atm_edge: return .true. if the grid point is on the edge of a Bader atom.
+! is_atm_edge: return .true. if the grid point is on the edge of a Bader atom
 !-----------------------------------------------------------------------------------!
 
   FUNCTION is_atm_edge(bdr,chg,p,atom)
@@ -1913,27 +1924,64 @@ MODULE bader_mod
 
     INTEGER,DIMENSION(3),INTENT(IN) :: p
     INTEGER,DIMENSION(3) ::pt
-    INTEGER :: d1,d2,d3,atmnum,atmnbr
+    INTEGER :: d1, d2, d3, atmnum, atmnbr
     INTEGER,INTENT(INOUT) ::atom 
 
     atom = bdr%nnion(bdr%volnum(p(1),p(2),p(3)))
     is_atm_edge = .FALSE.
-    neighbourloop: DO d1=-1,1
-      DO d2=-1,1
-        DO d3=-1,1
-          pt = p+(/d1,d2,d3/)
+    neighborloop: DO d1 = -1,1
+      DO d2 = -1,1
+        DO d3 = -1,1
+          pt = p + (/d1,d2,d3/)
           CALL pbc(pt,chg%npts)
           atmnbr = bdr%nnion(bdr%volnum(pt(1),pt(2),pt(3)))
           IF (atmnbr /= atom) THEN
             is_atm_edge = .TRUE.
-            EXIT neighbourloop
+            EXIT neighborloop
           END IF
         END DO
       END DO
-    END DO neighbourloop
+    END DO neighborloop
 
     RETURN
     END FUNCTION is_atm_edge
+
+!-----------------------------------------------------------------------------------!
+! is_vol_neighbor: return .true. if the grid point neighboring the bader volume
+!-----------------------------------------------------------------------------------!
+
+  FUNCTION is_vol_neighbor(bdr,chg,p,vol)
+
+    TYPE(bader_obj) :: bdr
+    TYPE(charge_obj) :: chg
+    LOGICAL :: is_vol_neighbor
+
+    INTEGER,DIMENSION(3),INTENT(IN) :: p
+    INTEGER,DIMENSION(3) :: pt
+    INTEGER :: d1, d2, d3, volneighbor
+    INTEGER,INTENT(IN) :: vol
+
+    is_vol_neighbor = .FALSE.
+
+    ! only find neighbors, not points in the volume
+    IF (bdr%volnum(pt(1),pt(2),pt(3)) == vol) RETURN
+  
+    neighborloop: DO d1 = -1,1
+      DO d2 = -1,1
+        DO d3 = -1,1
+          pt = p + (/d1,d2,d3/)
+          CALL pbc(pt,chg%npts)
+          volneighbor = bdr%volnum(pt(1),pt(2),pt(3))
+          IF (volneighbor == vol) THEN
+            is_vol_neighbor = .TRUE.
+            EXIT neighborloop
+          END IF
+        END DO
+      END DO
+    END DO neighborloop
+
+    RETURN
+    END FUNCTION is_vol_neighbor
 
 !-----------------------------------------------------------------------------------!
 ! reallocate_volpos: 
