@@ -28,15 +28,16 @@
       INTEGER :: refine_edge_itrs
 ! refine_edge_itrs=-1 check points around the reassigned points during refinement
 ! refine_edge_itrs=-2 check every edge point during refinement
-      INTEGER :: selanum, selbnum,sumanum,sumbnum
+! refine_edge_itrs=-3 Yu and Trinkle weight method
+      INTEGER :: selanum, selbnum, sumanum, sumbnum
       INTEGER,ALLOCATABLE,DIMENSION(:) :: selavol, selbvol,sumavol,sumbvol
-      LOGICAL :: vac_flag
+      LOGICAL :: vac_flag, weight_flag
       LOGICAL :: bader_flag, voronoi_flag, dipole_flag, ldos_flag
       LOGICAL :: print_all_bader, print_all_atom
       LOGICAL :: print_sel_bader, print_sel_atom
       LOGICAL :: print_sum_bader, print_sum_atom
       LOGICAL :: print_bader_index, print_atom_index
-      LOGICAL :: verbose_flag,ref_flag
+      LOGICAL :: verbose_flag, ref_flag
     END TYPE options_obj
 
     PRIVATE
@@ -65,6 +66,7 @@
       opts%in_opt = opts%in_auto
       ! print options
       opts%vac_flag = .FALSE.
+      opts%weight_flag = .FALSE.
       opts%vacval = 1E-3
       opts%print_all_atom = .FALSE.
       opts%print_all_bader = .FALSE.
@@ -104,7 +106,9 @@
         p=ADJUSTL(p)
         ip=LEN_TRIM(p)
         i=INDEX(p,'-')
+
         IF (i /= 1) THEN
+
           ! Not a flag, so read the charge density file name
           IF (readchgflag) THEN
             WRITE(*,'(A,A,A)') ' Option "',p(1:ip),'" is not valid'
@@ -117,14 +121,17 @@
             WRITE(*,'(2X,A,A)') opts%chargefile(1:ip),' does not exist'
             STOP
           END IF
-          readchgflag=.TRUE.
+          readchgflag = .TRUE.
+
         ! Help
         ELSEIF (p(1:ip) == '-h') THEN
           CALL write_help()
           STOP
+
         ! Verbose
         ELSEIF (p(1:ip) == '-v') THEN
           opts%verbose_flag = .TRUE.
+
         ! Vacuum options
         ELSEIF (p(1:ip) == '-vac') THEN
           m=m+1
@@ -139,6 +146,7 @@
              READ(inc,*) opts%vacval
              opts%vac_flag = .TRUE.
           END IF
+
         ! Bader options
         ELSEIF (p(1:ip) == '-b') THEN
           m=m+1
@@ -156,6 +164,7 @@
             WRITE(*,'(A,A,A)') ' Unknown option "',inc(1:it),'"'
             STOP
           END IF
+
         ! Quit options
         ELSEIF (p(1:ip) == '-m') THEN
           m=m+1
@@ -171,6 +180,7 @@
             WRITE(*,'(A,A,A)') ' Unknown option "',inc(1:it),'"'
             STOP
           END IF
+
         ! Print options
         ELSEIF (p(1:ip) == '-p') THEN
           m=m+1
@@ -353,6 +363,7 @@
 !            WRITE(*,'(A,A,A)') ' Unknown option "',inc(1:it),'"'
 !            STOP
 !          END IF  
+
         ! Calculation options
         ELSEIF (p(1:ip) == '-c') THEN
           m=m+1
@@ -400,6 +411,7 @@
             WRITE(*,'(A,A,A)') ' Unknown option "',inc(1:it),'"'
             STOP
           ENDIF
+
         ! Input file type
         ELSEIF (p(1:ip) == '-i') THEN
           m=m+1
@@ -415,12 +427,14 @@
             WRITE(*,'(A,A,A)') ' Unknown option "',inc(1:it),'"'
             STOP
           END IF
+
         ! Bader tolerance
         ELSEIF (p(1:ip) == '-t') THEN
           m=m+1
 !          CALL GETARG(m,inc)
           CALL GET_COMMAND_ARGUMENT(m,inc)
           READ(inc,*) opts%badertol
+
         ! Refine edge iterations  -- change this to a flag once working
         ELSEIF (p(1:ip) == '-r') THEN
           m=m+1
@@ -433,13 +447,15 @@
           ELSE
             READ(inc,*) opts%refine_edge_itrs
           END IF
+
         ! Step size
         ELSEIF (p(1:ip) == '-s') THEN
           m=m+1
 !          CALL GETARG(m,inc)
           CALL GET_COMMAND_ARGUMENT(m,inc)
           READ(inc,*) opts%stepsize
-        !doing analysis with ref charge
+
+        ! Do analysis with a reference charge
         ELSEIF (p(1:ip) == '-ref') THEN
           m=m+1
 !          CALL GETARG(m,inc)
@@ -452,6 +468,7 @@
             opts%ref_flag = .TRUE.
             opts%refchgfile = inc(1:it)
           END IF
+
         ! Unknown flag
         ELSE
           WRITE(*,'(A,A,A)') ' Unknown option flag "',p(1:ip),'"'

@@ -44,7 +44,7 @@ MODULE bader_mod
     INTEGER,ALLOCATABLE,DIMENSION(:) :: nnion
     REAL(q2) :: stepsize, tol
     REAL(q2) :: vacchg, vacvol
-    INTEGER nvols, pnum, bnum, pdim, bdim
+    INTEGER nvols, pnum, bnum, pdim, bdim, refine_edge_itrs
   END TYPE
 
   PRIVATE
@@ -176,7 +176,7 @@ MODULE bader_mod
                   bdr%known(ptemp(1),ptemp(2),ptemp(3)) = 0
                 END IF
               END IF
-              IF (opts%quit_opt == opts%quit_known .AND. opts%bader_opt /= opts%bader_ongrid) THEN
+              IF (opts%quit_opt==opts%quit_known .AND. opts%bader_opt/=opts%bader_ongrid) THEN
                 CALL assign_surrounding_pts(bdr,chgtemp,ptemp)
 !                CALL assign_surrounding_pts2(bdr,chgtemp,ptemp)
               END IF
@@ -192,18 +192,22 @@ MODULE bader_mod
       DO n1=1,chgval%npts(1)
         DO n2=1,chgval%npts(2)
           DO n3=1,chgval%npts(3)
-            IF(bdr%volnum(n1,n2,n3) == -1) bdr%volnum(n1,n2,n3) = bdr%bnum + 1
+            IF(bdr%volnum(n1,n2,n3) == -1) bdr%volnum(n1,n2,n3) = bdr%bnum+1
           END DO
         END DO
       END DO
     END IF
 
-    IF(opts%refine_edge_itrs == -1 .OR. opts%refine_edge_itrs == -2) THEN
+    ! make a temproary variable which can be changed to indicate convergence
+    bdr%refine_edge_itrs = opts%refine_edge_itrs
+
+!    IF(opts%refine_edge_itrs == -1 .OR. opts%refine_edge_itrs == -2) THEN
+    IF(opts%refine_edge_itrs <= 0) THEN
       WRITE(*,'(/,2x,A)') 'REFINING AUTOMATICALLY'
       DO
         WRITE(*,'(2x,A,I2)') 'ITERATION:',ref_itrs
         CALL refine_edge(bdr,chgtemp,opts,ions,ref_itrs)
-        IF (opts%refine_edge_itrs == 0) EXIT
+        IF (bdr%refine_edge_itrs == 0) EXIT
         ref_itrs = ref_itrs + 1
       END DO
     ELSEIF (opts%refine_edge_itrs > 0) THEN
@@ -226,11 +230,8 @@ MODULE bader_mod
           END DO
         END DO
       END DO
-
-      WRITE(*,'(/,2x,A)') 'WEIGHT METHOD'
       CALL refine_weights(chgval, bdr, p)
     END IF
-    ! End of weight method
 
     ! The total number of bader volumes is now known
     bdr%nvols = bdr%bnum
@@ -241,7 +242,6 @@ MODULE bader_mod
       bdr%volpos_dir(i,:) = lat2dir(chgtemp, bdr%volpos_lat(i,:))
       bdr%volpos_car(i,:) = lat2car(chgtemp, bdr%volpos_lat(i,:))
     END DO
-
 
     ! Sum up the charge included in each volume
     ALLOCATE(bdr%volchg(bdr%nvols))
@@ -278,19 +278,20 @@ MODULE bader_mod
 
     TYPE(bader_obj) :: bdr
     TYPE(charge_obj) :: chgval
-    INTEGER :: num_edge=0, n=0, n1, n2, n3, d1, d2, d3
-    INTEGER :: i, iter=0, num_change=1, mycount=1
+    INTEGER :: num_edge, n1, n2, n3, d1, d2, d3
+    INTEGER :: i, iter, num_change, mycount
     INTEGER,DIMENSION(3) :: p, pn
     REAL(q2) :: sum_top, sum_bottom, length, facet_a, R_
     REAL(q2) :: new_weight, current_weight, wn
 
-    write(*,*), 'nvols',bdr%nvols
-    write(*,*), 'bnum',bdr%bnum
-    write(*,*), 'bdim',bdr%bdim
+!    write(*,*), ' bnum',bdr%bnum
 
-    ! loop though everything and assign weights
     DO i = 1,bdr%bnum
     ! i is the current basin
+
+      num_edge = 0
+
+      ! loop through grid points and assign initial weights
       DO n1 = 1,chgval%npts(1)
         DO n2 = 1,chgval%npts(2)
           DO n3 = 1,chgval%npts(3)
@@ -308,49 +309,46 @@ MODULE bader_mod
               chgval%weight(p(1),p(2),p(3))%w(i) = 1
             END IF
 
-            !ELSE !IF ((is_vol_edge(bdr,chgval,p)) .OR. ( .NOT. (bdr%volnum(p(1),p(2),p(3))==i))) THEN
-            !  chgval%weight(p(1),p(2),p(3))%w(i) = 0
-            !END IF
-
-            ! count the number of edge points, can be deleted
-            IF ((is_vol_edge(bdr,chgval,p)) .AND. (bdr%volnum(p(1),p(2),p(3))==i)) THEN
-              !chgval%weight(p(1),p(2),p(3))%w(i) = 0
-              num_edge = num_edge + 1
+            ! count the number of edge points
+            IF (is_vol_edge(bdr, chgval, p) .AND. &
+              &  ((bdr%volnum(p(1),p(2),p(3)) == i) .OR. is_vol_neighbor(bdr, chgval, p, i))) THEN
+              num_edge = num_edge+1
             END IF
 
           END DO
         END DO
       END DO
 
-      WRITE(*,'(2x,A,6x,1I8)') 'Volnum = ', i, 'EDGE POINTS:',num_edge
+      WRITE(*,'(2x,A,6x,1I8)') 'Volnum = ',i,'EDGE POINTS:',num_edge
 
-      num_edge = 0
       num_change = 1
       mycount = 1
       iter = 0
 
-      ! calculate weights
-      DO
-        ! stop when there are no zero weights and no weights change between iterations
-        IF (mycount==0 .AND. num_change==0) EXIT 
+      ! calculate weights; stop when there are no zero weights and no weights change between iterations
+      DO WHILE (mycount>0 .OR. num_change>0)
+
         iter = iter + 1
         mycount = 0
         num_change = 0
-        !n=0
+
+        write (*,*) ' Iteration',iter
 
         DO n1 = 1,chgval%npts(1)
           DO n2 = 1,chgval%npts(2)
             DO n3 = 1,chgval%npts(3)
               p = (/n1,n2,n3/)
+
               ! skip vacuum points
               IF (bdr%volnum(n1,n2,n3) == bdr%bnum+1) CYCLE 
-!              IF ((is_vol_edge(bdr,chgval,p)) .AND. (bdr%volnum(p(1),p(2),p(3)) == i)) THEN
 
               ! must be an edge point and either within volume i or a neighbor to it
-              IF (is_vol_edge(bdr, chgval, p) .AND. ((bdr%volnum(p(1),p(2),p(3)) == i) .OR. is_vol_neighbor(bdr, chgval, p, i))) THEN 
-                 !IF (is_vol_edge(bdr,chgval,p)) THEN
+              IF (is_vol_edge(bdr, chgval, p) .AND. &
+                &  ((bdr%volnum(p(1),p(2),p(3)) == i) .OR. is_vol_neighbor(bdr, chgval, p, i))) THEN
+
                 sum_top = 0
                 sum_bottom = 0
+
                 DO d1 = -1,1
                   DO d2 = -1,1
                     DO d3 = -1,1
@@ -368,7 +366,9 @@ MODULE bader_mod
                     END DO
                   END DO
                 END DO
+
                 new_weight = sum_top/sum_bottom
+
                 !mycount=mycount+1
                 current_weight = chgval%weight(p(1),p(2),p(3))%w(i)
                 ! count the unchanged zero weight
@@ -402,13 +402,12 @@ MODULE bader_mod
                 !write(*,*) 'new_weight', new_weight
                 !end if
 
-                !testing
-                !n=n+1
                 !count of the weights that change
-                IF (abs(new_weight-current_weight) > 0.001) THEN
+                IF (abs(new_weight - current_weight) > 0.001) THEN
                   chgval%weight(p(1),p(2),p(3))%w(i) = new_weight
-                  num_change = num_change + 1
+                  num_change = num_change+1
                 END IF
+
               END IF
             END DO
           END DO
@@ -718,7 +717,7 @@ MODULE bader_mod
     INTEGER :: d1,d2,d3
 
      IF(opts%refine_edge_itrs==-2 .OR. ref_itrs==1) THEN
-       num_edge=0
+       num_edge = 0
        DO n1 = 1,chg%npts(1)
         DO n2 = 1,chg%npts(2)
           DO n3 = 1,chg%npts(3)
@@ -739,7 +738,7 @@ MODULE bader_mod
       WRITE(*,'(2x,A,6x,1I8)') 'EDGE POINTS:',num_edge
     END IF
 
-    IF(opts%refine_edge_itrs==-1 .AND. ref_itrs>1) THEN
+    IF((opts%refine_edge_itrs==-1 .OR. opts%refine_edge_itrs==-3) .AND. ref_itrs>1) THEN
       num_check=0
       DO n1 = 1,chg%npts(1)
         DO n2 = 1,chg%npts(2)
@@ -827,7 +826,7 @@ MODULE bader_mod
             bdr%volnum(n1,n2,n3) = path_volnum
             IF (ABS(bvolnum) /= path_volnum) THEN
               num_reassign = num_reassign + 1
-              IF(opts%refine_edge_itrs == -1) bdr%volnum(n1,n2,n3) = -path_volnum
+              IF(opts%refine_edge_itrs==-1 .OR. opts%refine_edge_itrs==-3) bdr%volnum(n1,n2,n3) = -path_volnum
             END IF
             DO i = 1,bdr%pnum
               pt = (/bdr%path(i,1),bdr%path(i,2),bdr%path(i,3)/)
@@ -841,11 +840,13 @@ MODULE bader_mod
     END DO
  
     WRITE(*,'(2x,A,1I8)') 'REASSIGNED POINTS:',num_reassign
-    IF (opts%refine_edge_itrs==-1 .AND. num_reassign==0) THEN
-      opts%refine_edge_itrs = 0
+
+    ! flag to indicate that we are done refining
+    IF ((opts%refine_edge_itrs==-1 .OR. opts%refine_edge_itrs==-3) .AND. num_reassign==0) THEN
+      bdr%refine_edge_itrs = 0
     END IF
     IF (opts%refine_edge_itrs==-2 .AND. num_reassign==0) THEN
-      opts%refine_edge_itrs = 0
+      bdr%refine_edge_itrs = 0
     END IF
 
   RETURN
