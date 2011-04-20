@@ -51,7 +51,7 @@ MODULE bader_mod
   PUBLIC :: bader_obj
   PUBLIC :: bader_calc, bader_mindist, bader_output, write_all_atom, write_all_bader
   PUBLIC :: write_sel_atom, write_sel_bader, write_atom_index, write_bader_index
-  PUBLIC :: write_sum_atom, write_sum_bader
+  PUBLIC :: write_sum_atom, write_sum_bader, write_bader_weight
 
   CONTAINS
 
@@ -312,6 +312,11 @@ MODULE bader_mod
             ! count the number of edge points
             IF (is_vol_edge(bdr, chgval, p) .AND. &
               &  ((bdr%volnum(p(1),p(2),p(3)) == i) .OR. is_vol_neighbor(bdr, chgval, p, i))) THEN
+            !IF (is_vol_edge(bdr, chgval, p) .AND. &
+            !  &  (bdr%volnum(p(1),p(2),p(3)) == i)) THEN
+
+            !IF (is_vol_edge(bdr, chgval, p)) THEN
+              chgval%weight(p(1),p(2),p(3))%w(i)= 0
               num_edge = num_edge+1
             END IF
 
@@ -326,13 +331,14 @@ MODULE bader_mod
       iter = 0
 
       ! calculate weights; stop when there are no zero weights and no weights change between iterations
-      DO WHILE (mycount>0 .OR. num_change>0)
+      !DO WHILE (mycount>0 .OR. num_change>0)
+      !Q-
+      DO WHILE (num_change>0)
+
 
         iter = iter + 1
         mycount = 0
         num_change = 0
-
-        write (*,*) ' Iteration',iter
 
         DO n1 = 1,chgval%npts(1)
           DO n2 = 1,chgval%npts(2)
@@ -344,7 +350,11 @@ MODULE bader_mod
 
               ! must be an edge point and either within volume i or a neighbor to it
               IF (is_vol_edge(bdr, chgval, p) .AND. &
-                &  ((bdr%volnum(p(1),p(2),p(3)) == i) .OR. is_vol_neighbor(bdr, chgval, p, i))) THEN
+                &  ((bdr%volnum(p(1),p(2),p(3)) == i) .OR. is_vol_neighbor(bdr, chgval, p, i))) THEN 
+              !IF (is_vol_edge(bdr, chgval, p) .AND. &
+              !  &  (bdr%volnum(p(1),p(2),p(3)) == i)) THEN
+
+              ! IF (is_vol_edge(bdr, chgval, p)) THEN
 
                 sum_top = 0
                 sum_bottom = 0
@@ -353,7 +363,6 @@ MODULE bader_mod
                   DO d2 = -1,1
                     DO d3 = -1,1
                       pn = p + (/d1,d2,d3/) !neighbor pt
-                      !IF (bdr%volnum(pn(1),pn(2),pn(3))==bdr%bnum+1) CYCLE 
                       CALL pbc(pn, chgval%npts) ! just in case pn is out of the boundary
                       length = bdr%stepsize 
                       facet_a = facet_area(d1, d2, d3, length)
@@ -373,36 +382,10 @@ MODULE bader_mod
                 current_weight = chgval%weight(p(1),p(2),p(3))%w(i)
                 ! count the unchanged zero weight
                 IF (current_weight==0 .AND. new_weight==0) THEN
-                  ! IF (num_change==0 .AND. mycount==1125 ) THEN
-                   ! write(*,*) 'Current point p1',p(1),',',p(2),',',p(3),'w',current_weight,'rho',rho_val(chgval,p(1),p(2),p(3)),'m?',is_max(chgval,p) &
-                   ! ,'b', bdr%volnum(p(1),p(2),p(3))
-                    !print neighbor
-                    !d1=0
-                    !d2=0
-                    !d3=0
-                    !DO d1=-1,1
-                    ! DO d2=-1,1
-                    !  DO d3=-1,1
-                    !   pn=p+(/d1,d2,d3/)
-                    !   CALL pbc(pn, chgval%npts)
-                    !   write (*,*) 'Nei','pn1',pn(1),',',pn(2),',',pn(3),'w',chgval%weight(pn(1),pn(2),pn(3))%w(i),'rho',rho_val(chgval,pn(1),pn(2),pn(3)) &
-                     !  ,'b', bdr%volnum(pn(1),pn(2),pn(3)), 'e?',is_vol_edge(bdr,chgval,pn)
-
-                     !END DO
-                     !END DO
-                    !END DO
-                   !END IF
                   mycount = mycount + 1
                 END IF
 
-                !if (sum_top >0) then
-                !write(*,*) 'current-weight', current_weight
-                !write(*,*) 'mycount', mycount
-                !write(*,*) 'sum_bottom', sum_bottom
-                !write(*,*) 'new_weight', new_weight
-                !end if
 
-                !count of the weights that change
                 IF (abs(new_weight - current_weight) > 0.001) THEN
                   chgval%weight(p(1),p(2),p(3))%w(i) = new_weight
                   num_change = num_change+1
@@ -420,21 +403,6 @@ MODULE bader_mod
       END DO 
     END DO
 
-!Double checking the empty weight number
-!num_edge=0
-! DO n1=1,chgval%npts(1)
-!        DO n2=1,chgval%npts(2)
-!         DO n3=1,chgval%npts(3)
-!            p = (/n1,n2,n3/)
-!            IF (bdr%volnum(n1,n2,n3)==bdr%bnum+1) CYCLE 
-!            !Vaccum pt is bnum+1, skipped them
-!            IF (chgval%weight(p(1),p(2),p(3))== 0) THEN
-!                num_edge=num_edge+1
-!            END IF
-!          END DO
-!        END DO
-!      END DO
-!      WRITE(*,'(2x,A,6x,1I8)') 'empty weight',num_edge
 
  END SUBROUTINE
 
@@ -450,15 +418,7 @@ MODULE bader_mod
       RETURN
    END FUNCTION
 
- !REAL FUNCTION ramp_func(a,b) ! ramp function
- ! REAL(q2) a,b
- ! IF (a-b<0) THEN 
- !    ramp_func=0 
- ! ELSE
- !    ramp_func=a-b 
- ! END IF
- ! RETURN
- !END FUNCTION
+
 
 
 !-----------------------------------------------------------------------------------!
@@ -1283,7 +1243,7 @@ MODULE bader_mod
       END DO
 
       bvolnum = opts%selbvol(i)
-      WRITE(atomfilename,'(A4,I4.4,A4)') "Bvol",bvolnum,".dat"
+      WRITE(atomfilename,'(A4,I4.4,A4)') "B_weight",bvolnum,".dat"
       tmp%rho = 0._q2
 !      WHERE (bdr%volnum == volsig(bvolnum,2)) tmp%rho = chg%rho
       DO n1 = 1,chg%npts(1)
@@ -1374,6 +1334,60 @@ MODULE bader_mod
   
   RETURN
   END SUBROUTINE write_sum_bader
+
+!-----------------------------------------------------------------------------------!
+! write_bader_weight: Write out a CHGCAR type file with weights for each of the Bader 
+! volumes found.
+!-----------------------------------------------------------------------------------!
+
+  SUBROUTINE write_bader_weight(bdr,opts,ions,chg)
+
+    TYPE(bader_obj) :: bdr
+    TYPE(options_obj) :: opts
+    TYPE(ions_obj) :: ions
+    TYPE(charge_obj) :: chg
+
+    TYPE(charge_obj) :: tmp
+    INTEGER :: nx,ny,nz,i,atomnum,badercur,tenths_done,t1,t2,cr,count_max
+    INTEGER :: n1,n2,n3
+    CHARACTER(LEN=128) :: atomfilename
+    
+    CALL SYSTEM_CLOCK(t1,cr,count_max)
+
+    WRITE(*,'(/,2x,A)') 'WRITING BADER VOLUMES'
+    WRITE(*,'(2x,A)')   '               0  10  25  50  75  100'
+    WRITE(*,'(2x,A,$)') 'PERCENT DONE:  **'
+
+    tmp=chg
+    atomnum=0
+    tenths_done=0
+
+    DO badercur=1,bdr%nvols
+    IF(bdr%volchg(badercur) > bdr%tol) THEN
+        atomnum = atomnum+1
+        WRITE(atomfilename,'(A4,I4.4,A4)') "Bvol",atomnum,".dat"
+        tmp%rho = 0._q2
+!        WHERE (bdr%volnum == badercur) tmp%rho = chg%rho
+        ! Replace for ifort/x86_32
+        DO n1=1,chg%npts(1)
+          DO n2=1,chg%npts(2)
+            DO n3=1,chg%npts(3)
+             ! IF (bdr%volnum(n1,n2,n3) == badercur) tmp%rho(n1,n2,n3) = chg%rho(n1,n2,n3)
+             IF (bdr%volnum(n1,n2,n3) == badercur) tmp%rho(n1,n2,n3) = chg%weight(n1,n2,n3)%w(badercur)
+            END DO
+          END DO
+        END DO
+        CALL write_charge(ions,tmp,opts,atomfilename)
+      END IF
+    END DO
+
+    DEALLOCATE(tmp%rho)
+
+    CALL SYSTEM_CLOCK(t2,cr,count_max)
+    WRITE(*,'(2/,1A12,1F7.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
+
+  RETURN
+  END SUBROUTINE write_bader_weight
 
 !-----------------------------------------------------------------------------------!
 ! write_bader_index: Write out a CHGCAR type file that the value at each point is

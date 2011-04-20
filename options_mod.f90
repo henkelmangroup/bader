@@ -610,7 +610,6 @@
       WRITE(*,*) '        Print index of atomic or Bader volumes'
       WRITE(*,*) '           atom_index: print atomic volume indicies'
       WRITE(*,*) '           bader_index: print Bader volume indicies'
-      WRITE(*,*) ''
       WRITE(*,*) '   -i < cube | chgcar >'
       WRITE(*,*) '        Input charge density file type.  If not specified, the'
       WRITE(*,*) '        program will try to determine the charge density file type'

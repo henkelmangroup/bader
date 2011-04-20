@@ -54,6 +54,7 @@
      TYPE(charge_obj) :: chgval
      TYPE(bader_obj) :: bdr
      TYPE(voronoi_obj) :: vor
+     CHARACTER :: A
  
     ! Write the version number
      WRITE(*,'(/,2X,A)') 'GRID BASED BADER ANALYSIS  (Version 0.27c 03/23/11)'
@@ -78,7 +79,15 @@
      IF (opts%print_sum_bader) CALL write_sum_bader(bdr,opts,ions,chgval)
      IF (opts%print_bader_index) CALL write_bader_index(bdr,opts,ions,chgval)
      IF (opts%print_atom_index) CALL write_atom_index(bdr,opts,ions,chgval)
-
+     !Q
+     IF (opts%refine_edge_itrs==-3) THEN
+        PRINT*,'Print bader weights to CHGCAR files? y/n'
+        READ (*,*) A
+        IF (A=='y') THEN
+        CALL write_bader_weight(bdr,opts,ions,chgval)
+        END IF
+     END IF
+     !Q
 !     IF (opts%dipole_flag) CALL multipole()
      IF (opts%voronoi_flag) CALL voronoi(vor,ions,chgval)
 
