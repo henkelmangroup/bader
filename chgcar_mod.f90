@@ -36,6 +36,7 @@ MODULE chgcar_mod
     TYPE(ions_obj) :: ions
     TYPE(charge_obj) :: chg
     CHARACTER(LEN=128) :: chargefile
+    CHARACTER(LEN=128) :: line
     TYPE(options_obj) :: opts
 
     REAL(q2) :: scalefactor
@@ -51,16 +52,23 @@ MODULE chgcar_mod
 
     IF(opts%in_opt == opts%in_chgcar5) THEN
       READ(100,'(1X,330A)') ions%name_ion
-      write(*,*) 'vasp5'
+      write(*,*) 'VASP5 format'
     END IF
 !GH: vasp switched to I6 from I4 at 5.2.11; to be compatible with both
 !    use free format.  But, will fail for >999 atoms with vasp4.x
+
 !ORIGINAL
 !    READ(100,'(110I4)') nionlist
 !    READ(100,*)
-!NEW
-    READ(100,*,ERR=999) nionlist
-    READ(100,*)
+
+!NEXT: this version fails for gfortran on linux
+!    READ(100,*,ERR=999) nionlist
+!    WRITE(*,*) "nionlist: ",nionlist
+!999 CONTINUE
+
+!WORKING:
+    READ(100,'(A)') line
+    READ(line,*,END=999) nionlist
 999 CONTINUE
     DO i=1,110
      if(nionlist(i).eq.0) exit
@@ -76,6 +84,7 @@ MODULE chgcar_mod
     CALL matrix_transpose(ions%lattice,ions%dir2car)
     CALL matrix_3x3_inverse(ions%dir2car,ions%car2dir)
     ALLOCATE(ions%r_dir(ions%nions,3),ions%r_car(ions%nions,3))
+    READ(100,*) !GH: read Direct line
     DO i=1,ions%nions
       READ(100,'(3(2X,1F8.6))') ions%r_dir(i,:)
       CALL matrix_vector(ions%dir2car,ions%r_dir(i,:),ions%r_car(i,:))
