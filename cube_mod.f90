@@ -149,6 +149,7 @@ MODULE cube_mod
     CHARACTER(LEN=128) :: cubefile
     
     INTEGER :: i,n1,n2,n3
+    REAL(q2),DIMENSION(3,3) :: voxel
     REAL(q2) :: vol
 
 !   EM: change the file extension to something more descriptive   
@@ -163,13 +164,16 @@ MODULE cube_mod
 !   EM: Formats changed to comply with G03 cube standard
 !    WRITE(100,'(1I5,3(3X,1F9.6))') ions%nions,chg%org_car
     WRITE(100,'(I5,3(F12.6))') ions%nions,chg%org_car
+
     DO i=1,3
-      WRITE(100,'(1I5,3(3X,1F9.6))') chg%npts(i),chg%lat2car(i,:)
+!GH      WRITE(100,'(1I5,3(3X,1F9.6))') chg%npts(i),chg%lat2car(i,:)
+      voxel(i,:)=ions%lattice(i,:)/REAL(chg%npts(i),q2)
+      WRITE(100,'(1I5,3(3X,1F9.6))') chg%npts(i),voxel(i,:)
     END DO
     DO i=1,ions%nions
 !      WRITE(100,'(1I5,3X,1F9.6,3(3X,1F9.6))') & 
       WRITE(100,'(I5,F12.6,3(F12.6))') & 
-    &     ions%atomic_num(i),ions%ion_chg(i),ions%r_car(i,:)
+      &     ions%atomic_num(i),ions%ion_chg(i),ions%r_car(i,:)
     END DO
 
     vol=matrix_volume(ions%lattice)
