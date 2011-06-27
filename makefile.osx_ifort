@@ -15,7 +15,8 @@ OBJS = kind_mod.o       \
        cube_mod.o       \
        io_mod.o         \
        bader_mod.o      \
-       voronoi_mod.o
+       voronoi_mod.o    \
+       multipole_mod.o
 
 %.o %.mod : %.f90
 	$(FC) $(FFLAGS) -c $*.f90

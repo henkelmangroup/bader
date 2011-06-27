@@ -14,7 +14,7 @@
 ! Angyan Janos <Janos.Angyan@crm2.uhp-nancy.fr>
 ! Emmanuel Aubert <emmanuel.aubert@crm2.uhp-nancy.fr>
 
-MODULE multipole_mod_new
+MODULE multipole_mod
 
   USE kind_mod
   USE matrix_mod
@@ -189,4 +189,4 @@ MODULE multipole_mod_new
   RETURN
   END SUBROUTINE multipole_calc
 
-  END MODULE multipole_mod_new
+  END MODULE multipole_mod
