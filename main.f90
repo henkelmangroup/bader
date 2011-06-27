@@ -17,6 +17,7 @@
 !   Wenjie Tang, Andri Arnaldsson, Samuel T. Chill, and Graeme Henkelman
 !
 ! Authors of the multipole code:
+!   Sebastien Lebegue <Sebastien.Lebegue@crm2.uhp-nancy.fr>
 !   Angyan Janos <Janos.Angyan@crm2.uhp-nancy.fr>
 !   Emmanuel Aubert <emmanuel.aubert@crm2.uhp-nancy.fr>
 !

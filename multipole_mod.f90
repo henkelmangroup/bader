@@ -11,6 +11,7 @@
 !
 ! The multipole code was writen by:
 !
+! Sebastien Lebegue <Sebastien.Lebegue@crm2.uhp-nancy.fr>
 ! Angyan Janos <Janos.Angyan@crm2.uhp-nancy.fr>
 ! Emmanuel Aubert <emmanuel.aubert@crm2.uhp-nancy.fr>
 
