@@ -11,10 +11,14 @@
 
 !-----------------------------------------------------------------------------------!
 ! Bader charge density analysis program
-! Version 0.27e (05/09/11)
+! Version 0.28 (06/26/11)
 !
 ! Authors:
 !   Wenjie Tang, Andri Arnaldsson, Samuel T. Chill, and Graeme Henkelman
+!
+! Authors of the multipole code:
+!   Angyan Janos <Janos.Angyan@crm2.uhp-nancy.fr>
+!   Emmanuel Aubert <emmanuel.aubert@crm2.uhp-nancy.fr>
 !
 ! Contributers:
 !   Johannes Voss (DTU), Erik McNellis (FHI), Matthew Dyer (Liverpool),
@@ -45,6 +49,8 @@
      USE bader_mod 
      USE voronoi_mod
      USE chgcar_mod
+     USE chgcar_mod
+     USE multipole_mod
      
      IMPLICIT NONE
 
@@ -57,7 +63,7 @@
      CHARACTER :: A
  
     ! Write the version number
-     WRITE(*,'(/,2X,A)') 'GRID BASED BADER ANALYSIS  (Version 0.27e 05/09/11)'
+     WRITE(*,'(/,2X,A)') 'GRID BASED BADER ANALYSIS  (Version 0.28 06/26/11)'
 
      ! Get the control variables
      CALL get_options(opts)
@@ -89,6 +95,7 @@
      END IF
      !Q
 !     IF (opts%dipole_flag) CALL multipole()
+     IF (opts%dipole_flag) CALL multipole_calc(bdr,ions,chgval,opts)
      IF (opts%voronoi_flag) CALL voronoi(vor,ions,chgval)
 
     WRITE(*,*)
