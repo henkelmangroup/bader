@@ -175,6 +175,8 @@ MODULE matrix_mod
     &              -h(1,2)*(h(2,1)*h(3,3)-h(3,1)*h(2,3))  &
     &              +h(1,3)*(h(2,1)*h(3,2)-h(3,1)*h(2,2))
 
+    matrix_volume = abs(matrix_volume)
+
   RETURN
   END FUNCTION matrix_volume
 

@@ -97,7 +97,7 @@ MODULE chgcar_mod
     READ(100,*) (((chg%rho(n1,n2,n3), &
     &  n1=1,chg%npts(1)),n2=1,chg%npts(2)),n3=1,chg%npts(3))
     WRITE(*,'(1A12,1I5,1A2,1I4,1A2,1I4)') &
-    &  'FFT-grid: ',chg%npts(1),'x',chg%npts(2),'x',chg%npts(3)
+    &  'Density-grid: ',chg%npts(1),'x',chg%npts(2),'x',chg%npts(3)
     WRITE(*,'(2x,A,1A20)') 'CLOSE ... ', chargefile
     CLOSE(100)
     DO i=1,3
