@@ -1,4 +1,4 @@
-! Copyright 2009
+! Copyright 2014
 ! Wenjie Tang, Andri Arnaldsson, Samuel T. Chill, and Graeme Henkelman
 !
 ! Bader is free software: you can redistribute it and/or modify
