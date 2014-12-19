@@ -27,6 +27,7 @@
       LOGICAL :: print_sum_bader, print_sum_atom
       LOGICAL :: print_bader_index, print_atom_index
       LOGICAL :: verbose_flag, ref_flag
+      LOGICAL :: find_stationary
     END TYPE options_obj
 
     PRIVATE
@@ -77,6 +78,7 @@
       opts%badertol = 1.0e-4_q2
       opts%stepsize = 0.0_q2
       opts%ref_flag = .FALSE.
+      opts%find_stationary = .FALSE.
 
 !      n=IARGC()
       n=COMMAND_ARGUMENT_COUNT()
@@ -116,6 +118,9 @@
         ELSEIF (p(1:ip) == '-h') THEN
           CALL write_help()
           STOP
+        ! Find stationary point option
+        ELSEIF (p(1:ip) == '-stp') THEN
+          opts%find_stationary = .TRUE.
 
         ! Verbose
         ELSEIF (p(1:ip) == '-v') THEN
