@@ -260,9 +260,6 @@ MODULE bader_mod
     bdr%nvols = bdr%bnum
     CALL reallocate_volpos(bdr, bdr%nvols)
 
-!-----------------------------------------------------------!
-!KINGRAYCHARD:
-    PRINT *, "bdr nvols is  ", bdr%nvols
 
 
     ALLOCATE(bdr%volpos_dir(bdr%nvols,3))
@@ -718,11 +715,16 @@ MODULE bader_mod
     INTEGER,DIMENSION(3) :: p,pt,ptt,ptx1,ptx2,pty1,pty2,ptz1,ptz2
     REAL(q2),DIMENSION(3,3) :: matrixB,matrixD1,matrixD2,matrixD3
     REAL(q2),DIMENSION(3,3) :: matrixC1,matrixC2,matrixC3
+    REAL(q2),DIMENSION(3,3) :: dM ! the deviatoric matrix
+    REAL(q2),DIMENSION(3,3) :: dMSQ ! dM squared                
+    REAL(q2):: j2,j3 ! second and third invariant of dM
     INTEGER :: n1,n2,n3,path_volnum,bvolnum,i,i2
     INTEGER :: num_edge,num_reassign,num_check
     INTEGER :: d1,d2,d3,dummy,switch
-    REAL(q2):: x,y,z,xx,yy,zz,xy,xz,yz,denom,nomx,nomy,nomz,ODS,trace,num1,num2,num3,phi,pi
-    REAL(q2):: traceOver3
+    INTEGER :: lc1,lc2,lc3
+    REAL(q2):: x,y,z,xx,yy,zz,xy,xz,yz,denom,nomx,nomy,nomz,ODS,trace,num1,num2,num3,phi,PI
+    REAL(q2):: traceOver3,temp,alpha
+
     ! ODS and trace are the off diagonal sum and trace of the hessian matrix. 
 
     PRINT *, ' '//achar(27)//'[35;40;1m Doing Honest Critical Finding Buisiness'//achar(27)//'[0m.' 
@@ -753,7 +755,7 @@ MODULE bader_mod
     ALLOCATE (hes%eigvecz3(chg%npts(1),chg%npts(2),chg%npts(3))) 
 
 
-    pi=4.0*ATAN(1.0)
+    PI=4.0*ATAN(1.0)
     switch=0
     dummy=0
     DO n1 = 1,chg%npts(1)
@@ -958,124 +960,158 @@ hes%rho(p(1),pty2(2),ptz1(3))-hes%rho(p(1),pty1(2),ptz2(3))+hes%rho(p(1),pty2(2)
                        ELSE
                        traceOver3=(hes%dxdx(p(1),p(2),p(3))+hes%dydy(p(1),p(2),p(3)) + &
                          hes%dzdz(p(1),p(2),p(3)))/3.0
-!                       PRINT *, n1,n2,n3
-!                       PRINT *, "trace duvuded by 3 is ", trace
+                       dM(1,1)=hes%dxdx(p(1),p(2),p(3))-traceOver3
+                       dM(2,2)=hes%dydy(p(1),p(2),p(3))-traceOver3
+                       dM(3,3)=hes%dzdz(p(1),p(2),p(3))-traceOver3
+                       dM(1,2)=hes%dxdy(p(1),p(2),p(3))
+                       dM(1,3)=hes%dxdz(p(1),p(2),p(3))
+                       dM(2,1)=hes%dxdy(p(1),p(2),p(3))
+                       dM(2,3)=hes%dydz(p(1),p(2),p(3))
+                       dM(3,1)=hes%dxdz(p(1),p(2),p(3))
+                       dM(3,2)=hes%dydz(p(1),p(2),p(3))
+                       ! this deviatoric matrix calculation is correct
 
+                       ! Now a loop to calculate the dMSQ
+                       temp=0.
+                       ! this loop is functional
+                       DO lc1=1, 3
+                         DO lc2=1,3
+                           DO lc3=1,3
+                             temp=temp+dM(lc1,lc3)*dM(lc3,lc2) 
+                           END DO
+                             dMSQ(lc1,lc2)=temp
+                             PRINT *, dM(lc1,lc2),dMSQ(lc1,lc2)
+                             PRINT *, lc1,lc2
+                             temp=0
+                         END DO
+                       END DO 
+                       ! j2 is 1/2 tr(dM dot dM)
+                       j2=0.5_q2*(dMSQ(1,1)+dMSQ(2,2)+dMSQ(3,3))
+                       ! j3 is det(dM)
+                       j3=-dMSQ(1,3)*dMSQ(1,3)*dMSQ(2,2)+2.0_q2*dMSQ(1,2)*dMSQ(1,3)*dMSQ(2,3)&
+-dMSQ(1,1)*dMSQ(2,3)*dMSQ(2,3)-dMSQ(1,2)*dMSQ(1,2)*dMSQ(3,3)+dMSQ(1,1)*dMSQ(2,3)*dMSQ(3,3)
+                       alpha= ACOS(j3/2.0_q2*(3.0_q2/j2)**(3/2))/3.0_q2
+                       hes%eigval1(p(1),p(2),p(3))=2.0_q2*SQRT(j2/3.0_q2)*COS(alpha)
+                       hes%eigval2(p(1),p(2),p(3))=2.0_q2*SQRT(j2/3.0_q2)*&
+COS(alpha+2.0_q2*PI)
+                       hes%eigval3(p(1),p(2),p(3))=2.0_q2*SQRT(j2/3.0_q2)*COS(alpha)
+
+! ***************** THE WIKIPEDIA METHOD ******************                       
+!        
+!                       num1=(hes%dxdx(p(1),p(2),p(3))-trace)**2 + &
+!                         (hes%dydy(p(1),p(2),p(3))-trace)**2 + &
+!                         (hes%dzdz(p(1),p(2),p(3))-trace)**2 + 2.0*ODS
+!                       num2=SQRT(num1/6.0)
+!!                       PRINT *, num2
+!                       matrixB(1,1)=(1.0/num2)*(hes%dxdx(p(1),p(2),p(3))-trace)
+!                       matrixB(1,2)=(1.0/num2)*(hes%dxdy(p(1),p(2),p(3))-trace)
+!                       matrixB(1,3)=(1.0/num2)*(hes%dxdz(p(1),p(2),p(3))-trace)
+!                       matrixB(2,1)=(1.0/num2)*(hes%dxdy(p(1),p(2),p(3))-trace)
+!                       matrixB(2,2)=(1.0/num2)*(hes%dydy(p(1),p(2),p(3))-trace)
+!                       matrixB(2,3)=(1.0/num2)*(hes%dydz(p(1),p(2),p(3))-trace)
+!                       matrixB(3,1)=(1.0/num2)*(hes%dxdz(p(1),p(2),p(3))-trace)
+!                       matrixB(3,2)=(1.0/num2)*(hes%dydz(p(1),p(2),p(3))-trace)
+!                       matrixB(3,3)=(1.0/num2)*(hes%dzdz(p(1),p(2),p(3))-trace)
+!                       ! this num 3 is the determinent of matrix b
+!                       num3=0.5 * matrixB(1,1)*(matrixB(2,2)*matrixB(3,3) -&
+!                         matrixB(2,3)*matrixB(3,2)) - &
+!                         matrixB(1,2)*(matrixB(2,1)*matrixB(3,3) +&
+!                         matrixB(3,1)*matrixB(2,3)) + &
+!                         matrixB(1,3)*(matrixB(2,1)*matrixB(3,2) +&
+!                         matrixB(3,1)*matrixB(2,2))
+!                       PRINT *, num3
+!                       IF (num3 <= -1) THEN
+!                         phi= pi/3.0
+!                       ELSE IF (num3 >= 1) THEN
+!                         phi=0 
+!                       ELSE 
+!                         phi=ACOS(num3)/3.0
+!                       END IF
+!                       hes%eigval1(p(1),p(2),p(3))= trace+2.0*num2 * COS(phi)
+!                       hes%eigval2(p(1),p(2),p(3))= trace+2.0*num2 * &
+!                         COS(phi+2.0*pi/3.0)
+!                       hes%eigval3(p(1),p(2),p(3))=3*trace-&
+!                         hes%eigval1(p(1),p(2),p(3))-&
+!                         hes%eigval2(p(1),p(2),p(3))
+!                       ! now calculate the eigenvectors
+!                       ! when the three eigenvalues are different, eigvec1=
+!                       ! (hes-eigval2 I)(hes - eigval3 I) etc, this is not
+!                       ! normalized eigvec
+!                       IF  & 
+!     (hes%eigval1(p(1),p(2),p(3))/=hes%eigval2(p(1),p(2),p(3))) THEN
+!                         IF &
+!     (hes%eigval1(p(1),p(2),p(3))/=hes%eigval3(p(1),p(2),p(3))) THEN
+!                           IF & 
+!     (hes%eigval2(p(1),p(2),p(3))/=hes%eigval3(p(1),p(2),p(3))) THEN
+!                           matrixC1(1,1)=hes%dxdx(p(1),p(2),p(3))+hes%eigval1(p(1),p(2),p(3))     
+!                           matrixC1(1,2)=hes%dxdy(p(1),p(2),p(3))
+!                           matrixC1(1,3)=hes%dxdz(p(1),p(2),p(3))
+!                           matrixC1(2,1)=hes%dxdy(p(1),p(2),p(3))
+!                           matrixC1(2,2)=hes%dydy(p(1),p(2),p(3))+hes%eigval1(p(1),p(2),p(3))
+!                           matrixC1(2,3)=hes%dydz(p(1),p(2),p(3))
+!                           matrixC1(3,1)=hes%dxdz(p(1),p(2),p(3))
+!                           matrixC1(3,2)=hes%dydz(p(1),p(2),p(3))
+!                           matrixC1(3,3)=hes%dzdz(p(1),p(2),p(3))+hes%eigval1(p(1),p(2),p(3))
+!                           matrixC2(1,1)=hes%dxdx(p(1),p(2),p(3))+hes%eigval2(p(1),p(2),p(3))
+!                           matrixC2(1,2)=hes%dxdy(p(1),p(2),p(3))
+!                           matrixC2(1,3)=hes%dxdz(p(1),p(2),p(3))
+!                           matrixC2(2,1)=hes%dxdy(p(1),p(2),p(3))
+!                           matrixC2(2,2)=hes%dydy(p(1),p(2),p(3))+hes%eigval2(p(1),p(2),p(3))
+!                           matrixC2(2,3)=hes%dydz(p(1),p(2),p(3))
+!                           matrixC2(3,1)=hes%dxdz(p(1),p(2),p(3))
+!                           matrixC2(3,2)=hes%dydz(p(1),p(2),p(3))
+!                           matrixC2(3,3)=hes%dzdz(p(1),p(2),p(3))+hes%eigval2(p(1),p(2),p(3))
+!                           matrixC3(1,1)=hes%dxdx(p(1),p(2),p(3))+hes%eigval3(p(1),p(2),p(3))
+!                           matrixC3(1,2)=hes%dxdy(p(1),p(2),p(3))
+!                           matrixC3(1,3)=hes%dxdz(p(1),p(2),p(3))
+!                           matrixC3(2,1)=hes%dxdy(p(1),p(2),p(3))
+!                           matrixC3(2,2)=hes%dydy(p(1),p(2),p(3))+hes%eigval3(p(1),p(2),p(3))
+!                           matrixC3(2,3)=hes%dydz(p(1),p(2),p(3))
+!                           matrixC3(3,1)=hes%dxdz(p(1),p(2),p(3))
+!                           matrixC3(3,2)=hes%dydz(p(1),p(2),p(3))
+!                           matrixC3(3,3)=hes%dzdz(p(1),p(2),p(3))+hes%eigval3(p(1),p(2),p(3))
 !
-                       num1=(hes%dxdx(p(1),p(2),p(3))-trace)**2 + &
-                         (hes%dydy(p(1),p(2),p(3))-trace)**2 + &
-                         (hes%dzdz(p(1),p(2),p(3))-trace)**2 + 2.0*ODS
-                       num2=SQRT(num1/6.0)
-!                       PRINT *, num2
-                       matrixB(1,1)=(1.0/num2)*(hes%dxdx(p(1),p(2),p(3))-trace)
-                       matrixB(1,2)=(1.0/num2)*(hes%dxdy(p(1),p(2),p(3))-trace)
-                       matrixB(1,3)=(1.0/num2)*(hes%dxdz(p(1),p(2),p(3))-trace)
-                       matrixB(2,1)=(1.0/num2)*(hes%dxdy(p(1),p(2),p(3))-trace)
-                       matrixB(2,2)=(1.0/num2)*(hes%dydy(p(1),p(2),p(3))-trace)
-                       matrixB(2,3)=(1.0/num2)*(hes%dydz(p(1),p(2),p(3))-trace)
-                       matrixB(3,1)=(1.0/num2)*(hes%dxdz(p(1),p(2),p(3))-trace)
-                       matrixB(3,2)=(1.0/num2)*(hes%dydz(p(1),p(2),p(3))-trace)
-                       matrixB(3,3)=(1.0/num2)*(hes%dzdz(p(1),p(2),p(3))-trace)
-                       ! this num 3 is the determinent of matrix b
-                       num3=0.5 * matrixB(1,1)*(matrixB(2,2)*matrixB(3,3) -&
-                         matrixB(2,3)*matrixB(3,2)) - &
-                         matrixB(1,2)*(matrixB(2,1)*matrixB(3,3) +&
-                         matrixB(3,1)*matrixB(2,3)) + &
-                         matrixB(1,3)*(matrixB(2,1)*matrixB(3,2) +&
-                         matrixB(3,1)*matrixB(2,2))
-                       PRINT *, num3
-                       IF (num3 <= -1) THEN
-                         phi= pi/3.0
-                       ELSE IF (num3 >= 1) THEN
-                         phi=0 
-                       ELSE 
-                         phi=ACOS(num3)/3.0
-                       END IF
-                       hes%eigval1(p(1),p(2),p(3))= trace+2.0*num2 * COS(phi)
-                       hes%eigval2(p(1),p(2),p(3))= trace+2.0*num2 * &
-                         COS(phi+2.0*pi/3.0)
-                       hes%eigval3(p(1),p(2),p(3))=3*trace-&
-                         hes%eigval1(p(1),p(2),p(3))-&
-                         hes%eigval2(p(1),p(2),p(3))
-                       ! now calculate the eigenvectors
-                       ! when the three eigenvalues are different, eigvec1=
-                       ! (hes-eigval2 I)(hes - eigval3 I) etc, this is not
-                       ! normalized eigvec
-                       IF  & 
-     (hes%eigval1(p(1),p(2),p(3))/=hes%eigval2(p(1),p(2),p(3))) THEN
-                         IF &
-     (hes%eigval1(p(1),p(2),p(3))/=hes%eigval3(p(1),p(2),p(3))) THEN
-                           IF & 
-     (hes%eigval2(p(1),p(2),p(3))/=hes%eigval3(p(1),p(2),p(3))) THEN
-                           matrixC1(1,1)=hes%dxdx(p(1),p(2),p(3))+hes%eigval1(p(1),p(2),p(3))     
-                           matrixC1(1,2)=hes%dxdy(p(1),p(2),p(3))
-                           matrixC1(1,3)=hes%dxdz(p(1),p(2),p(3))
-                           matrixC1(2,1)=hes%dxdy(p(1),p(2),p(3))
-                           matrixC1(2,2)=hes%dydy(p(1),p(2),p(3))+hes%eigval1(p(1),p(2),p(3))
-                           matrixC1(2,3)=hes%dydz(p(1),p(2),p(3))
-                           matrixC1(3,1)=hes%dxdz(p(1),p(2),p(3))
-                           matrixC1(3,2)=hes%dydz(p(1),p(2),p(3))
-                           matrixC1(3,3)=hes%dzdz(p(1),p(2),p(3))+hes%eigval1(p(1),p(2),p(3))
-                           matrixC2(1,1)=hes%dxdx(p(1),p(2),p(3))+hes%eigval2(p(1),p(2),p(3))
-                           matrixC2(1,2)=hes%dxdy(p(1),p(2),p(3))
-                           matrixC2(1,3)=hes%dxdz(p(1),p(2),p(3))
-                           matrixC2(2,1)=hes%dxdy(p(1),p(2),p(3))
-                           matrixC2(2,2)=hes%dydy(p(1),p(2),p(3))+hes%eigval2(p(1),p(2),p(3))
-                           matrixC2(2,3)=hes%dydz(p(1),p(2),p(3))
-                           matrixC2(3,1)=hes%dxdz(p(1),p(2),p(3))
-                           matrixC2(3,2)=hes%dydz(p(1),p(2),p(3))
-                           matrixC2(3,3)=hes%dzdz(p(1),p(2),p(3))+hes%eigval2(p(1),p(2),p(3))
-                           matrixC3(1,1)=hes%dxdx(p(1),p(2),p(3))+hes%eigval3(p(1),p(2),p(3))
-                           matrixC3(1,2)=hes%dxdy(p(1),p(2),p(3))
-                           matrixC3(1,3)=hes%dxdz(p(1),p(2),p(3))
-                           matrixC3(2,1)=hes%dxdy(p(1),p(2),p(3))
-                           matrixC3(2,2)=hes%dydy(p(1),p(2),p(3))+hes%eigval3(p(1),p(2),p(3))
-                           matrixC3(2,3)=hes%dydz(p(1),p(2),p(3))
-                           matrixC3(3,1)=hes%dxdz(p(1),p(2),p(3))
-                           matrixC3(3,2)=hes%dydz(p(1),p(2),p(3))
-                           matrixC3(3,3)=hes%dzdz(p(1),p(2),p(3))+hes%eigval3(p(1),p(2),p(3))
-
-                           matrixD1(1,1)=matrixC2(1,1)*matrixC3(1,1)+matrixC2(1,2)*matrixC3(2,1)+matrixC2(1,3)*matrixC3(3,1)
-                           matrixD1(1,2)=matrixC2(1,1)*matrixC3(1,2)+matrixC2(1,2)*matrixC3(2,2)+matrixC2(1,3)*matrixC3(3,2)
-                           matrixD1(1,3)=matrixC2(1,1)*matrixC3(1,3)+matrixC2(1,2)*matrixC3(2,3)+matrixC2(1,3)*matrixC3(3,3)
-                           matrixD1(2,1)=matrixC2(2,1)*matrixC3(1,1)+matrixC2(2,2)*matrixC3(2,1)+matrixC2(2,3)*matrixC3(3,1)
-                           matrixD1(2,2)=matrixC2(2,1)*matrixC3(1,2)+matrixC2(2,2)*matrixC3(2,2)+matrixC2(2,3)*matrixC3(3,2)
-                           matrixD1(2,3)=matrixC2(2,1)*matrixC3(1,3)+matrixC2(2,2)*matrixC3(2,3)+matrixC2(2,3)*matrixC3(3,3)
-                           matrixD1(3,1)=matrixC2(3,1)*matrixC3(1,1)+matrixC2(3,2)*matrixC3(2,1)+matrixC2(3,3)*matrixC3(3,1)
-                           matrixD1(3,2)=matrixC2(3,1)*matrixC3(1,2)+matrixC2(3,2)*matrixC3(2,2)+matrixC2(3,3)*matrixC3(3,2)
-                           matrixD1(3,3)=matrixC2(3,1)*matrixC3(1,3)+matrixC2(3,2)*matrixC3(2,3)+matrixC2(3,3)*matrixC3(3,3)
-
-                           matrixD2(1,1)=matrixC1(1,1)*matrixC3(1,1)+matrixC1(1,2)*matrixC3(2,1)+matrixC1(1,3)*matrixC3(3,1)
-                           matrixD2(1,2)=matrixC1(1,1)*matrixC3(1,2)+matrixC1(1,2)*matrixC3(2,2)+matrixC1(1,3)*matrixC3(3,2)
-                           matrixD2(1,3)=matrixC1(1,1)*matrixC3(1,3)+matrixC1(1,2)*matrixC3(2,3)+matrixC1(1,3)*matrixC3(3,3)
-                           matrixD2(2,1)=matrixC1(2,1)*matrixC3(1,1)+matrixC1(2,2)*matrixC3(2,1)+matrixC1(2,3)*matrixC3(3,1)
-                           matrixD2(2,2)=matrixC1(2,1)*matrixC3(1,2)+matrixC1(2,2)*matrixC3(2,2)+matrixC1(2,3)*matrixC3(3,2)
-                           matrixD2(2,3)=matrixC1(2,1)*matrixC3(1,3)+matrixC1(2,2)*matrixC3(2,3)+matrixC1(2,3)*matrixC3(3,3)
-                           matrixD2(3,1)=matrixC1(3,1)*matrixC3(1,1)+matrixC1(3,2)*matrixC3(2,1)+matrixC1(3,3)*matrixC3(3,1)
-                           matrixD2(3,2)=matrixC1(3,1)*matrixC3(1,2)+matrixC1(3,2)*matrixC3(2,2)+matrixC1(3,3)*matrixC3(3,2)
-                           matrixD2(3,3)=matrixC1(3,1)*matrixC3(1,3)+matrixC1(3,2)*matrixC3(2,3)+matrixC1(3,3)*matrixC3(3,3)
-
-                           matrixD3(1,1)=matrixC1(1,1)*matrixC2(1,1)+matrixC1(1,2)*matrixC2(2,1)+matrixC1(1,3)*matrixC2(3,1)
-                           matrixD3(1,2)=matrixC1(1,1)*matrixC2(1,2)+matrixC1(1,2)*matrixC2(2,2)+matrixC1(1,3)*matrixC2(3,2)
-                           matrixD3(1,3)=matrixC1(1,1)*matrixC2(1,3)+matrixC1(1,2)*matrixC2(2,3)+matrixC1(1,3)*matrixC2(3,3)
-                           matrixD3(2,1)=matrixC1(2,1)*matrixC2(1,1)+matrixC1(2,2)*matrixC2(2,1)+matrixC1(2,3)*matrixC2(3,1)
-                           matrixD3(2,2)=matrixC1(2,1)*matrixC2(1,2)+matrixC1(2,2)*matrixC2(2,2)+matrixC1(2,3)*matrixC2(3,2)
-                           matrixD3(2,3)=matrixC1(2,1)*matrixC2(1,3)+matrixC1(2,2)*matrixC2(2,3)+matrixC1(2,3)*matrixC2(3,3)
-                           matrixD3(3,1)=matrixC1(3,1)*matrixC2(1,1)+matrixC1(3,2)*matrixC2(2,1)+matrixC1(3,3)*matrixC2(3,1)
-                           matrixD3(3,2)=matrixC1(3,1)*matrixC2(1,2)+matrixC1(3,2)*matrixC2(2,2)+matrixC1(3,3)*matrixC2(3,2)
-                           matrixD3(3,3)=matrixC1(3,1)*matrixC2(1,3)+matrixC1(3,2)*matrixC2(2,3)+matrixC1(3,3)*matrixC2(3,3)
-
-                           hes%eigvecx1(p(1),p(2),p(3))=matrixD1(1,1)
-                           hes%eigvecy1(p(1),p(2),p(3))=matrixD1(2,1)
-                           hes%eigvecz1(p(1),p(2),p(3))=matrixD1(3,1)
-
-                           hes%eigvecx2(p(1),p(2),p(3))=matrixD2(1,1)
-                           hes%eigvecy2(p(1),p(2),p(3))=matrixD2(2,1)
-                           hes%eigvecz2(p(1),p(2),p(3))=matrixD2(3,1)
-
-                           hes%eigvecx3(p(1),p(2),p(3))=matrixD3(1,1)
-                           hes%eigvecy3(p(1),p(2),p(3))=matrixD3(2,1)
-                           hes%eigvecz3(p(1),p(2),p(3))=matrixD3(3,1)
+!                           matrixD1(1,1)=matrixC2(1,1)*matrixC3(1,1)+matrixC2(1,2)*matrixC3(2,1)+matrixC2(1,3)*matrixC3(3,1)
+!                           matrixD1(1,2)=matrixC2(1,1)*matrixC3(1,2)+matrixC2(1,2)*matrixC3(2,2)+matrixC2(1,3)*matrixC3(3,2)
+!                           matrixD1(1,3)=matrixC2(1,1)*matrixC3(1,3)+matrixC2(1,2)*matrixC3(2,3)+matrixC2(1,3)*matrixC3(3,3)
+!                           matrixD1(2,1)=matrixC2(2,1)*matrixC3(1,1)+matrixC2(2,2)*matrixC3(2,1)+matrixC2(2,3)*matrixC3(3,1)
+!                           matrixD1(2,2)=matrixC2(2,1)*matrixC3(1,2)+matrixC2(2,2)*matrixC3(2,2)+matrixC2(2,3)*matrixC3(3,2)
+!                           matrixD1(2,3)=matrixC2(2,1)*matrixC3(1,3)+matrixC2(2,2)*matrixC3(2,3)+matrixC2(2,3)*matrixC3(3,3)
+!                           matrixD1(3,1)=matrixC2(3,1)*matrixC3(1,1)+matrixC2(3,2)*matrixC3(2,1)+matrixC2(3,3)*matrixC3(3,1)
+!                           matrixD1(3,2)=matrixC2(3,1)*matrixC3(1,2)+matrixC2(3,2)*matrixC3(2,2)+matrixC2(3,3)*matrixC3(3,2)
+!                           matrixD1(3,3)=matrixC2(3,1)*matrixC3(1,3)+matrixC2(3,2)*matrixC3(2,3)+matrixC2(3,3)*matrixC3(3,3)
+!
+!                           matrixD2(1,1)=matrixC1(1,1)*matrixC3(1,1)+matrixC1(1,2)*matrixC3(2,1)+matrixC1(1,3)*matrixC3(3,1)
+!                           matrixD2(1,2)=matrixC1(1,1)*matrixC3(1,2)+matrixC1(1,2)*matrixC3(2,2)+matrixC1(1,3)*matrixC3(3,2)
+!                           matrixD2(1,3)=matrixC1(1,1)*matrixC3(1,3)+matrixC1(1,2)*matrixC3(2,3)+matrixC1(1,3)*matrixC3(3,3)
+!                           matrixD2(2,1)=matrixC1(2,1)*matrixC3(1,1)+matrixC1(2,2)*matrixC3(2,1)+matrixC1(2,3)*matrixC3(3,1)
+!                           matrixD2(2,2)=matrixC1(2,1)*matrixC3(1,2)+matrixC1(2,2)*matrixC3(2,2)+matrixC1(2,3)*matrixC3(3,2)
+!                           matrixD2(2,3)=matrixC1(2,1)*matrixC3(1,3)+matrixC1(2,2)*matrixC3(2,3)+matrixC1(2,3)*matrixC3(3,3)
+!                           matrixD2(3,1)=matrixC1(3,1)*matrixC3(1,1)+matrixC1(3,2)*matrixC3(2,1)+matrixC1(3,3)*matrixC3(3,1)
+!                           matrixD2(3,2)=matrixC1(3,1)*matrixC3(1,2)+matrixC1(3,2)*matrixC3(2,2)+matrixC1(3,3)*matrixC3(3,2)
+!                           matrixD2(3,3)=matrixC1(3,1)*matrixC3(1,3)+matrixC1(3,2)*matrixC3(2,3)+matrixC1(3,3)*matrixC3(3,3)
+!
+!                           matrixD3(1,1)=matrixC1(1,1)*matrixC2(1,1)+matrixC1(1,2)*matrixC2(2,1)+matrixC1(1,3)*matrixC2(3,1)
+!                           matrixD3(1,2)=matrixC1(1,1)*matrixC2(1,2)+matrixC1(1,2)*matrixC2(2,2)+matrixC1(1,3)*matrixC2(3,2)
+!                           matrixD3(1,3)=matrixC1(1,1)*matrixC2(1,3)+matrixC1(1,2)*matrixC2(2,3)+matrixC1(1,3)*matrixC2(3,3)
+!                           matrixD3(2,1)=matrixC1(2,1)*matrixC2(1,1)+matrixC1(2,2)*matrixC2(2,1)+matrixC1(2,3)*matrixC2(3,1)
+!                           matrixD3(2,2)=matrixC1(2,1)*matrixC2(1,2)+matrixC1(2,2)*matrixC2(2,2)+matrixC1(2,3)*matrixC2(3,2)
+!                           matrixD3(2,3)=matrixC1(2,1)*matrixC2(1,3)+matrixC1(2,2)*matrixC2(2,3)+matrixC1(2,3)*matrixC2(3,3)
+!                           matrixD3(3,1)=matrixC1(3,1)*matrixC2(1,1)+matrixC1(3,2)*matrixC2(2,1)+matrixC1(3,3)*matrixC2(3,1)
+!                           matrixD3(3,2)=matrixC1(3,1)*matrixC2(1,2)+matrixC1(3,2)*matrixC2(2,2)+matrixC1(3,3)*matrixC2(3,2)
+!                           matrixD3(3,3)=matrixC1(3,1)*matrixC2(1,3)+matrixC1(3,2)*matrixC2(2,3)+matrixC1(3,3)*matrixC2(3,3)
+!
+!                           hes%eigvecx1(p(1),p(2),p(3))=matrixD1(1,1)
+!                           hes%eigvecy1(p(1),p(2),p(3))=matrixD1(2,1)
+!                           hes%eigvecz1(p(1),p(2),p(3))=matrixD1(3,1)
+!
+!                           hes%eigvecx2(p(1),p(2),p(3))=matrixD2(1,1)
+!                           hes%eigvecy2(p(1),p(2),p(3))=matrixD2(2,1)
+!                           hes%eigvecz2(p(1),p(2),p(3))=matrixD2(3,1)
+!
+!                           hes%eigvecx3(p(1),p(2),p(3))=matrixD3(1,1)
+!                           hes%eigvecy3(p(1),p(2),p(3))=matrixD3(2,1)
+!                           hes%eigvecz3(p(1),p(2),p(3))=matrixD3(3,1)
 
 
                            END IF
