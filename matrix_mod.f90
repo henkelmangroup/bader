@@ -10,7 +10,7 @@ MODULE matrix_mod
   PUBLIC :: matrix_mult,matrix_vector,vector_matrix
   PUBLIC :: matrix_transpose,matrix_volume
   PUBLIC :: matrix_3x3_inverse
-
+  PUBLIC :: scalar_matrix,matrix_addition,matrix_substraction
   CONTAINS
 
 !-----------------------------------------------------------------------------------!
@@ -168,6 +168,62 @@ MODULE matrix_mod
 
   RETURN
   END FUNCTION matrix_volume
+
+!-----------------------------------------------------------------------------------!
+! scalar_matrix: multiply the matrix with a scalar and return the matrix
+!-----------------------------------------------------------------------------------!
+  SUBROUTINE scalar_matrix(S,M,MO)
+
+    REAL(q2),INTENT(IN),DIMENSION(:,:) :: M
+    REAL(q2),INTENT(OUT),DIMENSION(:,:) :: MO
+    REAL(q2),INTENT(IN) :: S
+    INTEGER :: i1,i2,n1,n2
+    i1=SIZE(M,1)
+    i2=SIZE(M,2)
+    
+    DO n1=1,i1
+      DO n2=1,i2
+        MO(n1,n2)=S*M(n1,n2)
+      END DO
+    END DO
+    RETURN
+  END SUBROUTINE
+
+
+!-----------------------------------------------------------------------------------!
+! matrix_addition: do I REALLY need to say more?
+!-----------------------------------------------------------------------------------!
+  SUBROUTINE matrix_addition(A,B,C)
+    REAL(q2),INTENT(IN),DIMENSION(:,:) :: A,B
+    REAL(q2),INTENT(OUT),DIMENSION(:,:) :: C
+    INTEGER :: i1,i2,n1,n2
+    i1=SIZE(A,1)
+    i2=SIZE(A,2)
+    DO n1=1,i1
+      DO n2=2,i2
+        C(n1,n2)=A(n1,n2)+B(n1,n2)
+      END DO
+    END DO
+    RETURN
+  END SUBROUTINE
+
+!-----------------------------------------------------------------------------------!
+! matrix_substraction: do I REALLY need to say more?
+!-----------------------------------------------------------------------------------!
+  SUBROUTINE matrix_substraction(A,B,C)
+    REAL(q2),INTENT(IN),DIMENSION(:,:) :: A,B
+    REAL(q2),INTENT(OUT),DIMENSION(:,:) :: C
+    INTEGER :: i1,i2,n1,n2
+    i1=SIZE(A,1)
+    i2=SIZE(A,2)
+    DO n1=1,i1
+      DO n2=2,i2
+        C(n1,n2)=A(n1,n2)-B(n1,n2)
+      END DO
+    END DO
+    RETURN
+  END SUBROUTINE
+
 
 !-----------------------------------------------------------------------------------!
 
