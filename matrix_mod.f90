@@ -11,6 +11,8 @@ MODULE matrix_mod
   PUBLIC :: matrix_transpose,matrix_volume
   PUBLIC :: matrix_3x3_inverse
   PUBLIC :: scalar_matrix,matrix_addition,matrix_substraction
+  PUBLIC :: scalar_vector,vector_addition,vector_substraction
+  PUBLIC :: cross_product
   CONTAINS
 
 !-----------------------------------------------------------------------------------!
@@ -189,6 +191,22 @@ MODULE matrix_mod
     RETURN
   END SUBROUTINE
 
+!-----------------------------------------------------------------------------------!
+! scalar_vector: multiply the vector with a scalar and return the vector
+!-----------------------------------------------------------------------------------!
+  SUBROUTINE scalar_vector(S,V,VO)
+
+    REAL(q2),INTENT(IN),DIMENSION(:) :: V
+    REAL(q2),INTENT(OUT),DIMENSION(:) :: VO
+    REAL(q2),INTENT(IN) :: S
+    INTEGER :: i1,n1
+    i1=SIZE(V,1)
+
+    DO n1=1,i1
+        VO(n1)=S*V(n1)
+    END DO
+    RETURN
+  END SUBROUTINE
 
 !-----------------------------------------------------------------------------------!
 ! matrix_addition: do I REALLY need to say more?
@@ -200,7 +218,7 @@ MODULE matrix_mod
     i1=SIZE(A,1)
     i2=SIZE(A,2)
     DO n1=1,i1
-      DO n2=2,i2
+      DO n2=1,i2
         C(n1,n2)=A(n1,n2)+B(n1,n2)
       END DO
     END DO
@@ -217,10 +235,50 @@ MODULE matrix_mod
     i1=SIZE(A,1)
     i2=SIZE(A,2)
     DO n1=1,i1
-      DO n2=2,i2
+      DO n2=1,i2
         C(n1,n2)=A(n1,n2)-B(n1,n2)
       END DO
     END DO
+    RETURN
+  END SUBROUTINE
+
+!-----------------------------------------------------------------------------------!
+! vector_addition: do I REALLY need to say more?
+!-----------------------------------------------------------------------------------!
+  SUBROUTINE vector_addition(A,B,C)
+    REAL(q2),INTENT(IN),DIMENSION(:) :: A,B
+    REAL(q2),INTENT(OUT),DIMENSION(:) :: C
+    INTEGER :: i1,n1
+    i1=SIZE(A,1)
+    DO n1=1,i1
+        C(n1)=A(n1)+B(n1)
+    END DO
+    RETURN
+  END SUBROUTINE
+
+!-----------------------------------------------------------------------------------!
+! vector_substraction: do I REALLY need to say more?
+!-----------------------------------------------------------------------------------!
+  SUBROUTINE vector_substraction(A,B,C)
+    REAL(q2),INTENT(IN),DIMENSION(:) :: A,B
+    REAL(q2),INTENT(OUT),DIMENSION(:) :: C
+    INTEGER :: i1,n1
+    i1=SIZE(A,1)
+    DO n1=1,i1
+        C(n1)=A(n1)-B(n1)
+    END DO
+    RETURN
+  END SUBROUTINE
+
+!-----------------------------------------------------------------------------------!
+! cross_product: calculate the cross product of two vectors
+!-----------------------------------------------------------------------------------!
+  SUBROUTINE cross_product(A,B,C)
+    REAL(q2),INTENT(IN),DIMENSION(3) :: A,B
+    REAL(q2),INTENT(OUT),DIMENSION(3) :: C
+    C(1)=A(2)*B(3)-A(3)*B(2)
+    C(2)=A(3)*B(1)-A(1)*B(3)
+    C(3)=A(1)*B(2)-A(2)*B(1)
     RETURN
   END SUBROUTINE
 

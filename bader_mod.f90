@@ -713,7 +713,7 @@ MODULE bader_mod
     REAL(q2),DIMENSION(3,3) :: matrixB,matrixD1,matrixD2,matrixD3
     REAL(q2),DIMENSION(3,3) :: matrixC1,matrixC2,matrixC3
     REAL(q2),DIMENSION(3,3) :: dM ! the deviatoric matrix
-    REAL(q2),DIMENSION(3,3) :: dMSQ ! dM squared                
+    REAL(q2),DIMENSION(3,3) :: dMSQ,dMVSS ! dM squared and dM in vss basis               
     REAL(q2):: j2,j3 ! second and third invariant of dM
     INTEGER :: n1,n2,n3,path_volnum,bvolnum,i,i2
     INTEGER :: num_edge,num_reassign,num_check
@@ -722,13 +722,14 @@ MODULE bader_mod
     REAL(q2):: x,y,z,xx,yy,zz,xy,xz,yz,denom,nomx,nomy,nomz,ODS,trace,num1,num2,num3,phi,PI
     REAL(q2):: traceOver3,temp,alpha
     ! variables for degenerate eigenvalues.
-    REAL(q2):: DGN1,DGN2,DGN3,DGN,DGLamda1,DGLamda2,DGLamda3,DGDeltaLamda,DGEpsilon
+    REAL(q2):: yita1,yita2,yita3
     REAL(q2):: MDE !Most Distinct Eigenvalue
     ! ODS and trace are the off diagonal sum and trace of the hessian matrix. 
-    REAL(q2),DIMENSION(3) :: eigvec1,eigvec2,eigvec3,cartX,cartY,cartZ
+    REAL(q2),DIMENSION(3) ::eigvec1,eigvec2,eigvec3,cartX,cartY,cartZ,tempVec
     REAL(q2),DIMENSION(3,3) :: nIdentity,identityM,devSubNIden
     ! these are vectors orthogonal to eigenvectors
-    REAL(q2),DIMENSION(3) :: orthoR1,orthoR2,orthoR3    
+    REAL(q2),DIMENSION(3) :: orthoR1,orthoR2,orthoR3,S1,S2,orT2,orT3
+    REAL(q2):: norm,s1r2,s1r3    
 
 
     PRINT *, ' '//achar(27)//'[35;40;1m Doing Honest Critical Finding Buisiness'//achar(27)//'[0m.' 
@@ -914,8 +915,6 @@ hes%rho(p(1),pty2(2),ptz1(3))-hes%rho(p(1),pty1(2),ptz2(3))+hes%rho(p(1),pty2(2)
                              temp=temp+dM(lc1,lc3)*dM(lc3,lc2) 
                            END DO
                              dMSQ(lc1,lc2)=temp
-                             PRINT *, dM(lc1,lc2),dMSQ(lc1,lc2)
-                             PRINT *, lc1,lc2
                              temp=0
                          END DO
                        END DO 
@@ -931,25 +930,88 @@ COS(alpha)+traceOver3
 COS(alpha+2.0_q2/3.0_q2*PI)+traceOver3
                        hes%eigval3=2.0_q2*SQRT(j2/3.0_q2)*&
 COS(alpha+4.0_q2/3.0_q2*PI)+traceOver3
-
-                      ! Find the most distinct eigenvalue first
-                    
-                      IF (alpha==PI/6.0_q2) THEN
-                          ! every eigenvalue are equaly distinct
-                          CALL scalar_matrix(hes%eigval1,identityM,nIdentity)
-                       
-                        ELSE IF (alpha<PI/6.0_q2) THEN
-                          ! Start with eigval 1 first
-                          CALL scalar_matrix(hes%eigval1,identityM,nIdentity)
-                          CALL matrix_substraction(dM,nIdentity,devSubNIden)                          
-                          CALL matrix_vector(devSubNIden,cartX,orthoR1)
-                        ELSE IF (alpha>PI/6.0_q2) THEN
-                          ! Start with eigval 3 first
-                          temp=hes%eigval1 
-                          hes%eigval1=hes%eigval3
-                          hes%eigval3=temp
-                          temp=0
-                      END IF
+                       yita1=2.0_q2*SQRT(j2/3.0_q2)*COS(alpha)
+                       ! Find the most distinct eigenvalue first
+                       ! every eigenvalue are equaly distinct when alpha = PI/6
+                       ! can use the code when alpha < PI/6
+                       IF (alpha<=PI/6.0_q2) THEN
+                         PRINT *, 'A NEW LOOP'
+                         ! Start with eigval 1 first
+                         CALL scalar_matrix(yita1,identityM,nIdentity)
+                         CALL matrix_substraction(dM,nIdentity,devSubNIden)                          
+!                         print *, dM
+!                         print *,' ' 
+!                         print *,nIdentity
+!                         print *,' '
+!                         print *,devSubNIden
+!                         print *,' '
+                         CALL matrix_vector(devSubNIden,cartX,orthoR1)
+!                         print *, cartX
+!                         print *,orthoR1
+                         CALL matrix_vector(devSubNIden,cartY,orthoR2)
+                         CALL matrix_vector(devSubNIden,cartZ,orthoR3)
+                         ! assume r1 is the largest, normalize all orthoR
+                         ! vectors
+                         norm=1.0_q2/SQRT(orthoR1(1)**2+orthoR1(2)**2+orthoR1(3)**2)
+                         CAll scalar_vector(norm,orthoR1,S1)
+                         CALL scalar_vector(DOT_PRODUCT(S1,orthoR2),S1,tempVec)
+                         CALL vector_substraction(orthoR2,tempVec,orT2)
+                         CALL scalar_vector(DOT_PRODUCT(S1,orthoR3),S1,tempVec)
+                         CALL vector_substraction(orthoR3,tempVec,orT3)
+                         ! assume t2 is the larger one, normalize it 
+                         norm=1.0_q2/SQRT(orT2(1)**2+orT2(2)**2+orT2(3)**2)                          
+                         CALL scalar_vector(norm,orT2,S2)
+                         ! eigenvector 1 is the cross product of s1 s2
+                         CALL cross_product(S1,S2,eigvec1)
+                         ! now that I have a eigenvalue and a eigenvector,
+                         ! write the deviatoric matrix using v1,s1,s2 basis
+                         ! hes%eigval1 |         0        |      0
+                         ! 0           | s1 dot dM dot s1 | s1 dot dM dot s2
+                         ! 0           | s2 dot dM dot s1 | s2 dot dM dot s2
+                         DO lc1=1,3
+                           DO lc2=1,3
+                             dMVSS(lc1,lc2)=0  
+                           END DO
+                         END DO 
+                         dMVSS(1,1)=yita1
+                         CALL vector_matrix(S1,dM,tempVec)
+!                         print *, tempVec
+                         dMVSS(2,2)=DOT_PRODUCT(tempVec,S1)
+                         dMVSS(2,3)=DOT_PRODUCT(tempVec,S2)
+                         CALL vector_matrix(S2,dM,tempVec)
+                         dMVSS(3,2)=DOT_PRODUCT(tempVec,S1)
+                         dMVSS(3,3)=DOT_PRODUCT(tempVec,S2)
+                         ! This is a sign function right below
+                         IF (dMVSS(2,2)-dMVSS(3,3)<0) THEN
+                           temp=-1
+                           ELSE IF (dMVSS(2,2)-dMVSS(3,3)>0) THEN 
+                           temp=1
+                           ELSE IF (dMVSS(2,2)-dMVSS(3,3)==0) THEN
+                           temp=0
+                         END IF                        
+                         yita2=(dMVSS(2,2)+dMVSS(3,3))/2.0_q2-1.0_q2/2.0_q2*temp*&
+SQRT((dMVSS(2,2)-dMVSS(3,3))**2+4*dMVSS(2,3)*dMVSS(3,2))
+                         yita3=dMVSS(2,2)+dMVSS(3,3)-yita2
+                         ! these eigenvalues are shifted by traceOver3
+                         hes%eigval1=yita1+traceOver3
+                         hes%eigval2=yita2+traceOver3
+                         hes%eigval3=yita3+traceOver3                        
+!                         PRINT *,'---------- A NEW ENTRY----'        
+!                         PRINT *, hes%dxdx,hes%dxdy,hes%dxdz
+!                         PRINT *, hes%dxdy,hes%dydy,hes%dydz
+!                         PRINT *, hes%dxdz,hes%dydz,hes%dzdz
+!                         PRINT *, 'EIGENVALUES ARE'
+!                         PRINT *, hes%eigval1,hes%eigval2,hes%eigval3
+!                         PRINT *,'YITA 2 AND 3 ',yita2,yita3       
+!                         PRINT *, dMVSS(2,2),dMVSS(3,3)
+                         ELSE IF (alpha>PI/6.0_q2) THEN
+                           print *, 'ah ha'
+                           ! Start with eigval 3 first
+                           temp=hes%eigval1 
+                           hes%eigval1=hes%eigval3
+                           hes%eigval3=temp
+                           temp=0
+                       END IF
                      END IF
 
 
