@@ -12,7 +12,7 @@ MODULE matrix_mod
   PUBLIC :: matrix_3x3_inverse
   PUBLIC :: scalar_matrix,matrix_addition,matrix_substraction
   PUBLIC :: scalar_vector,vector_addition,vector_substraction
-  PUBLIC :: cross_product
+  PUBLIC :: cross_product,det
   CONTAINS
 
 !-----------------------------------------------------------------------------------!
@@ -282,6 +282,20 @@ MODULE matrix_mod
     RETURN
   END SUBROUTINE
 
+!-----------------------------------------------------------------------------------!
+! det: find the determinant of a 3by3 matrix 
+!-----------------------------------------------------------------------------------!
+  SUBROUTINE det(A,B)
+    REAL(q2),INTENT(IN),DIMENSION(3,3) :: A
+    REAL(q2),INTENT(OUT) :: B
+    B = A(1,1)*A(2,2)*A(3,3) &
+       -A(1,1)*A(2,3)*A(3,2) &
+       -A(1,2)*A(2,1)*A(3,3) &
+       +A(1,2)*A(2,3)*A(3,1) &
+       +A(1,3)*A(2,1)*A(3,2) &
+       -A(1,3)*A(2,2)*A(3,1)
+    RETURN
+    END SUBROUTINE
 
 !-----------------------------------------------------------------------------------!
 

@@ -873,7 +873,7 @@ hes%rho(p(1),pty2(2),ptz1(3))-hes%rho(p(1),pty1(2),ptz2(3))+hes%rho(p(1),pty2(2)
                xy=hes%dxdy
                xz=hes%dxdz
                yz=hes%dydz
-               denom= xz*xz*yy - 2*xy*xz*yz + xx*yz*yz + xy*xy*zz - xx*yy*zz
+               denom= xz*xz*yy - 2.0_q2*xy*xz*yz + xx*yz*yz + xy*xy*zz - xx*yy*zz
                nomx=-xz*y*yz + x*yz*yz + xz*yy*z - xy*yz*z + xy*y*zz - x*yy*zz
                nomy=xz*xz*y - x*xz*yz - xy*xz*z + xx*yz*z + x*xy*zz - xx*y*zz
                nomz=-xy*xz*y + x*xz*yy - x*xy*yz + xx*y*yz + xy*xy*z - xx*yy*z
@@ -885,6 +885,7 @@ hes%rho(p(1),pty2(2),ptz1(3))-hes%rho(p(1),pty1(2),ptz2(3))+hes%rho(p(1),pty2(2)
                  IF (ABS(hes%r2)<=0.5_q2*bdr%stepsize) THEN
                    IF (ABS(hes%r3)<=0.5_q2*bdr%stepsize) THEN  
                      dummy=dummy+1
+!                     print *, 'a new loop',p(1),p(2),p(3) 
                      ! below are eigenstuff
                      trace=hes%dxdx+hes%dydy+hes%dzdz
                      ODS=hes%dxdy**2 + hes%dxdz**2 + hes%dydz**2
@@ -894,6 +895,53 @@ hes%rho(p(1),pty2(2),ptz1(3))-hes%rho(p(1),pty1(2),ptz2(3))+hes%rho(p(1),pty2(2)
                        hes%eigval2=hes%dydy
                        hes%eigval3=hes%dzdz
                        ELSE
+                       ! debug tests
+!                       !-------------------------------
+!                       ! set 1
+!                       !-------------------------------
+!                       hes%dxdx=3
+!                       hes%dxdy=1
+!                       hes%dxdz=1
+!                       hes%dydy=3
+!                       hes%dydz=1
+!                       hes%dzdz=3
+!                       !-------------------------------
+!                       ! set 2
+!                       !-------------------------------
+!                       hes%dxdx=3
+!                       hes%dxdy=1
+!                       hes%dxdz=2
+!                       hes%dydy=3
+!                       hes%dydz=4
+!                       hes%dzdz=3
+!                       !-------------------------------
+!                       ! set 3
+!                       !-------------------------------
+!                       hes%dxdx=3
+!                       hes%dxdy=1
+!                       hes%dxdz=2
+!                       hes%dydy=5
+!                       hes%dydz=4
+!                       hes%dzdz=7
+!                       !-------------------------------
+!                       ! set 4
+!                       !-------------------------------
+!                       hes%dxdx=3
+!                       hes%dxdy=0
+!                       hes%dxdz=0
+!                       hes%dydy=5
+!                       hes%dydz=0
+!                       hes%dzdz=7
+!                       !-------------------------------
+!                       ! set 4
+!                       !-------------------------------
+!                       hes%dxdx=3
+!                       hes%dxdy=11
+!                       hes%dxdz=11
+!                       hes%dydy=5
+!                       hes%dydz=11
+!                       hes%dzdz=7
+
                        traceOver3=(hes%dxdx+hes%dydy+hes%dzdz)/3.0_q2
                        dM(1,1)=hes%dxdx-traceOver3
                        dM(2,2)=hes%dydy-traceOver3
@@ -904,114 +952,104 @@ hes%rho(p(1),pty2(2),ptz1(3))-hes%rho(p(1),pty1(2),ptz2(3))+hes%rho(p(1),pty2(2)
                        dM(2,3)=hes%dydz
                        dM(3,1)=hes%dxdz
                        dM(3,2)=hes%dydz
+!                       print *,'traceOver3 is ', traceOver3
+!                       print *, 'hessian matrix is'
+!                       print *, hes%dxdx,hes%dxdy,hes%dxdz
+!                       print *, hes%dxdy,hes%dydy,hes%dydz
+!                       print *, hes%dxdz,hes%dydz,hes%dzdz
+!                       print *, 'dM is '
                        ! this deviatoric matrix calculation is correct
-
+!                       print *, dM
                        ! Now a loop to calculate the dMSQ
                        temp=0.
                        ! this loop is functional
-                       DO lc1=1, 3
-                         DO lc2=1,3
-                           DO lc3=1,3
-                             temp=temp+dM(lc1,lc3)*dM(lc3,lc2) 
-                           END DO
-                             dMSQ(lc1,lc2)=temp
-                             temp=0
-                         END DO
-                       END DO 
+                       CALL matrix_mult(dM,dM,dMSQ)
+!                       print *, 'dMSQ is '
+!                       print *, dMSQ
                        ! j2 is 1/2 tr(dM dot dM)
                        j2=0.5_q2*(dMSQ(1,1)+dMSQ(2,2)+dMSQ(3,3))
                        ! j3 is det(dM)
-                       j3=-dMSQ(1,3)*dMSQ(1,3)*dMSQ(2,2)+2.0_q2*dMSQ(1,2)*dMSQ(1,3)*dMSQ(2,3)&
--dMSQ(1,1)*dMSQ(2,3)*dMSQ(2,3)-dMSQ(1,2)*dMSQ(1,2)*dMSQ(3,3)+dMSQ(1,1)*dMSQ(2,3)*dMSQ(3,3)
-                       alpha= ACOS(j3/2.0_q2*(3.0_q2/j2)**(3/2))/3.0_q2
-                       hes%eigval1=2.0_q2*SQRT(j2/3.0_q2)*&
-COS(alpha)+traceOver3
-                       hes%eigval2=2.0_q2*SQRT(j2/3.0_q2)*&
-COS(alpha+2.0_q2/3.0_q2*PI)+traceOver3
-                       hes%eigval3=2.0_q2*SQRT(j2/3.0_q2)*&
-COS(alpha+4.0_q2/3.0_q2*PI)+traceOver3
+                       CALL det(dM,j3)
+!                       j3=-dM(1,3)*dM(1,3)*dM(2,2)+2.0_q2*dM(1,2)*dM(1,3)*dM(2,3)&
+!-dM(1,1)*dM(2,3)*dM(2,3)-dM(1,2)*dM(1,2)*dM(3,3)+dM(1,1)*dM(2,3)*dM(3,3)
+!                       print *, 'j2 and j3 are ',j2,j3
+                       alpha= ACOS(j3/2.0_q2*(3.0_q2/j2)**(3.0_q2/2.0_q2))/3.0_q2
+!                       print *, 'j3/2 is',j3/2.0_q2
+!                       print *," cos is ",&
+!j3/2.0_q2*(3.0_q2/j2)**(3.0_q2/2.0_q2)
+!                       print *,'3/j2 is ', 3.0_q2/j2 
+!                       print *,' (3/j2)^(3/2) is ',(3.0_q2/j2)**(3.0_q2/2.0_q2) 
+!                       print *, 'alpha is ',alpha
+!                       hes%eigval1=2.0_q2*SQRT(j2/3.0_q2)*&
+!COS(alpha)+traceOver3
+!                       hes%eigval2=2.0_q2*SQRT(j2/3.0_q2)*&
+!COS(alpha+2.0_q2/3.0_q2*PI)+traceOver3
+!                       hes%eigval3=2.0_q2*SQRT(j2/3.0_q2)*&
+!COS(alpha+4.0_q2/3.0_q2*PI)+traceOver3
                        yita1=2.0_q2*SQRT(j2/3.0_q2)*COS(alpha)
+!                       print *,'yita1 ',yita1
                        ! Find the most distinct eigenvalue first
                        ! every eigenvalue are equaly distinct when alpha = PI/6
                        ! can use the code when alpha < PI/6
-                       IF (alpha<=PI/6.0_q2) THEN
-                         PRINT *, 'A NEW LOOP'
-                         ! Start with eigval 1 first
-                         CALL scalar_matrix(yita1,identityM,nIdentity)
-                         CALL matrix_substraction(dM,nIdentity,devSubNIden)                          
-!                         print *, dM
-!                         print *,' ' 
-!                         print *,nIdentity
-!                         print *,' '
-!                         print *,devSubNIden
-!                         print *,' '
-                         CALL matrix_vector(devSubNIden,cartX,orthoR1)
-!                         print *, cartX
-!                         print *,orthoR1
-                         CALL matrix_vector(devSubNIden,cartY,orthoR2)
-                         CALL matrix_vector(devSubNIden,cartZ,orthoR3)
-                         ! assume r1 is the largest, normalize all orthoR
-                         ! vectors
-                         norm=1.0_q2/SQRT(orthoR1(1)**2+orthoR1(2)**2+orthoR1(3)**2)
-                         CAll scalar_vector(norm,orthoR1,S1)
-                         CALL scalar_vector(DOT_PRODUCT(S1,orthoR2),S1,tempVec)
-                         CALL vector_substraction(orthoR2,tempVec,orT2)
-                         CALL scalar_vector(DOT_PRODUCT(S1,orthoR3),S1,tempVec)
-                         CALL vector_substraction(orthoR3,tempVec,orT3)
-                         ! assume t2 is the larger one, normalize it 
-                         norm=1.0_q2/SQRT(orT2(1)**2+orT2(2)**2+orT2(3)**2)                          
-                         CALL scalar_vector(norm,orT2,S2)
-                         ! eigenvector 1 is the cross product of s1 s2
-                         CALL cross_product(S1,S2,eigvec1)
-                         ! now that I have a eigenvalue and a eigenvector,
-                         ! write the deviatoric matrix using v1,s1,s2 basis
-                         ! hes%eigval1 |         0        |      0
-                         ! 0           | s1 dot dM dot s1 | s1 dot dM dot s2
-                         ! 0           | s2 dot dM dot s1 | s2 dot dM dot s2
-                         DO lc1=1,3
-                           DO lc2=1,3
-                             dMVSS(lc1,lc2)=0  
-                           END DO
-                         END DO 
-                         dMVSS(1,1)=yita1
-                         CALL vector_matrix(S1,dM,tempVec)
-!                         print *, tempVec
-                         dMVSS(2,2)=DOT_PRODUCT(tempVec,S1)
-                         dMVSS(2,3)=DOT_PRODUCT(tempVec,S2)
-                         CALL vector_matrix(S2,dM,tempVec)
-                         dMVSS(3,2)=DOT_PRODUCT(tempVec,S1)
-                         dMVSS(3,3)=DOT_PRODUCT(tempVec,S2)
-                         ! This is a sign function right below
-                         IF (dMVSS(2,2)-dMVSS(3,3)<0) THEN
-                           temp=-1
-                           ELSE IF (dMVSS(2,2)-dMVSS(3,3)>0) THEN 
-                           temp=1
-                           ELSE IF (dMVSS(2,2)-dMVSS(3,3)==0) THEN
-                           temp=0
-                         END IF                        
-                         yita2=(dMVSS(2,2)+dMVSS(3,3))/2.0_q2-1.0_q2/2.0_q2*temp*&
-SQRT((dMVSS(2,2)-dMVSS(3,3))**2+4*dMVSS(2,3)*dMVSS(3,2))
-                         yita3=dMVSS(2,2)+dMVSS(3,3)-yita2
-                         ! these eigenvalues are shifted by traceOver3
-                         hes%eigval1=yita1+traceOver3
-                         hes%eigval2=yita2+traceOver3
-                         hes%eigval3=yita3+traceOver3                        
-!                         PRINT *,'---------- A NEW ENTRY----'        
-!                         PRINT *, hes%dxdx,hes%dxdy,hes%dxdz
-!                         PRINT *, hes%dxdy,hes%dydy,hes%dydz
-!                         PRINT *, hes%dxdz,hes%dydz,hes%dzdz
-!                         PRINT *, 'EIGENVALUES ARE'
-!                         PRINT *, hes%eigval1,hes%eigval2,hes%eigval3
-!                         PRINT *,'YITA 2 AND 3 ',yita2,yita3       
-!                         PRINT *, dMVSS(2,2),dMVSS(3,3)
-                         ELSE IF (alpha>PI/6.0_q2) THEN
-                           print *, 'ah ha'
+                       IF (alpha>PI/6.0_q2) THEN
                            ! Start with eigval 3 first
                            temp=hes%eigval1 
                            hes%eigval1=hes%eigval3
                            hes%eigval3=temp
                            temp=0
                        END IF
+                       ! this is the default when yita1 is the most distinct
+                       CALL scalar_matrix(yita1,identityM,nIdentity)
+                       CALL matrix_substraction(dM,nIdentity,devSubNIden)
+                       CALL matrix_vector(devSubNIden,cartX,orthoR1)
+                       CALL matrix_vector(devSubNIden,cartY,orthoR2)
+                       CALL matrix_vector(devSubNIden,cartZ,orthoR3)
+                       ! assume r1 is the largest, normalize all orthoR
+                       ! vectors
+                       norm=1.0_q2/SQRT(orthoR1(1)**2+orthoR1(2)**2+orthoR1(3)**2)
+                       CAll scalar_vector(norm,orthoR1,S1)
+                       CALL scalar_vector(DOT_PRODUCT(S1,orthoR2),S1,tempVec)
+                       CALL vector_substraction(orthoR2,tempVec,orT2)
+                       CALL scalar_vector(DOT_PRODUCT(S1,orthoR3),S1,tempVec)
+                       CALL vector_substraction(orthoR3,tempVec,orT3)
+                       ! assume t2 is the larger one, normalize it
+                       norm=1.0_q2/SQRT(orT2(1)**2+orT2(2)**2+orT2(3)**2)
+                       CALL scalar_vector(norm,orT2,S2)
+                       ! eigenvector 1 is the cross product of s1 s2
+                       CALL cross_product(S1,S2,eigvec1)
+                       ! now that I have a eigenvalue and a eigenvector,
+                       ! write the deviatoric matrix using v1,s1,s2 basis
+                       ! hes%eigval1 |         0        |      0
+                       ! 0           | s1 dot dM dot s1 | s1 dot dM dot s2
+                       ! 0           | s2 dot dM dot s1 | s2 dot dM dot s2
+                       DO lc1=1,3
+                         DO lc2=1,3
+                           dMVSS(lc1,lc2)=0
+                         END DO
+                       END DO
+                       dMVSS(1,1)=yita1
+                       CALL vector_matrix(S1,dM,tempVec)
+                       dMVSS(2,2)=DOT_PRODUCT(tempVec,S1)
+                       dMVSS(2,3)=DOT_PRODUCT(tempVec,S2)
+                       CALL vector_matrix(S2,dM,tempVec)
+                       dMVSS(3,2)=DOT_PRODUCT(tempVec,S1)
+                       dMVSS(3,3)=DOT_PRODUCT(tempVec,S2)
+                       ! This is a sign function right below
+                       IF (dMVSS(2,2)-dMVSS(3,3)<0) THEN
+                         temp=-1
+                         ELSE IF (dMVSS(2,2)-dMVSS(3,3)>0) THEN
+                         temp=1
+                         ELSE IF (dMVSS(2,2)-dMVSS(3,3)==0) THEN
+                         temp=0
+                       END IF
+                         yita2=(dMVSS(2,2)+dMVSS(3,3))/2.0_q2-1.0_q2/2.0_q2*temp*&
+SQRT((dMVSS(2,2)-dMVSS(3,3))**2+4*dMVSS(2,3)*dMVSS(3,2))
+                       yita3=dMVSS(2,2)+dMVSS(3,3)-yita2
+                       ! these eigenvalues are shifted by traceOver3
+                       hes%eigval1=yita1+traceOver3
+                       hes%eigval2=yita2+traceOver3
+                       hes%eigval3=yita3+traceOver3
+!                       print *, hes%eigval1,hes%eigval2,hes%eigval3
                      END IF
 
 
