@@ -15,6 +15,7 @@ OBJS = kind_mod.obj       \
        chgcar_mod.obj     \
        cube_mod.obj       \
        io_mod.obj         \
+       eigenStuff_mod.o   \
        bader_mod.obj      \
        voronoi_mod.obj    \
        multipole_mod.obj
