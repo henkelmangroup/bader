@@ -12,6 +12,7 @@ MODULE bader_mod
   USE charge_mod
   USE io_mod
   USE chgcar_mod
+  USE eigenStuff_mod
   IMPLICIT NONE
 
 ! Variable descriptions:
@@ -710,8 +711,6 @@ MODULE bader_mod
 
 ! for points, 1 and 2 are +1, -1
     INTEGER,DIMENSION(3) :: p,pt,ptt,ptx1,ptx2,pty1,pty2,ptz1,ptz2
-    REAL(q2),DIMENSION(3,3) :: matrixB,matrixD1,matrixD2,matrixD3
-    REAL(q2),DIMENSION(3,3) :: matrixC1,matrixC2,matrixC3
     REAL(q2),DIMENSION(3,3) :: dM ! the deviatoric matrix
     REAL(q2),DIMENSION(3,3) :: dMSQ,dMVSS ! dM squared and dM in vss basis               
     REAL(q2):: j2,j3 ! second and third invariant of dM
@@ -1049,7 +1048,14 @@ SQRT((dMVSS(2,2)-dMVSS(3,3))**2+4*dMVSS(2,3)*dMVSS(3,2))
                        hes%eigval1=yita1+traceOver3
                        hes%eigval2=yita2+traceOver3
                        hes%eigval3=yita3+traceOver3
+!                       print *, 'eigenvalues are '
 !                       print *, hes%eigval1,hes%eigval2,hes%eigval3
+
+                       CALL find_vector(yita2,identityM,dM,s1,s2,eigvec1,eigvec2,eigvec3) 
+!                       print *, 'eigenvectors are'
+!                       print *, eigvec1
+!                       print *, eigvec2
+!                       print *, eigvec3
                      END IF
 
 
