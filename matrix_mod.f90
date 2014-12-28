@@ -209,7 +209,7 @@ MODULE matrix_mod
   END SUBROUTINE
 
 !-----------------------------------------------------------------------------------!
-! matrix_addition: do I REALLY need to say more?
+! matrix_addition: return C = A + B
 !-----------------------------------------------------------------------------------!
   SUBROUTINE matrix_addition(A,B,C)
     REAL(q2),INTENT(IN),DIMENSION(:,:) :: A,B
@@ -218,15 +218,15 @@ MODULE matrix_mod
     i1=SIZE(A,1)
     i2=SIZE(A,2)
     DO n1=1,i1
-      DO n2=1,i2
-        C(n1,n2)=A(n1,n2)+B(n1,n2)
-      END DO
+        DO n2=1,i2
+            C(n1,n2)=A(n1,n2)+B(n1,n2)
+        END DO
     END DO
     RETURN
   END SUBROUTINE
 
 !-----------------------------------------------------------------------------------!
-! matrix_substraction: do I REALLY need to say more?
+! matrix_substraction: return C = A - B$
 !-----------------------------------------------------------------------------------!
   SUBROUTINE matrix_substraction(A,B,C)
     REAL(q2),INTENT(IN),DIMENSION(:,:) :: A,B
@@ -235,15 +235,15 @@ MODULE matrix_mod
     i1=SIZE(A,1)
     i2=SIZE(A,2)
     DO n1=1,i1
-      DO n2=1,i2
-        C(n1,n2)=A(n1,n2)-B(n1,n2)
-      END DO
+        DO n2=1,i2
+            C(n1,n2)=A(n1,n2)-B(n1,n2)
+        END DO
     END DO
     RETURN
   END SUBROUTINE
 
 !-----------------------------------------------------------------------------------!
-! vector_addition: do I REALLY need to say more?
+! vector_addition: return C = A + B$
 !-----------------------------------------------------------------------------------!
   SUBROUTINE vector_addition(A,B,C)
     REAL(q2),INTENT(IN),DIMENSION(:) :: A,B
@@ -257,7 +257,7 @@ MODULE matrix_mod
   END SUBROUTINE
 
 !-----------------------------------------------------------------------------------!
-! vector_substraction: do I REALLY need to say more?
+! vector_substraction: return C = A - B$
 !-----------------------------------------------------------------------------------!
   SUBROUTINE vector_substraction(A,B,C)
     REAL(q2),INTENT(IN),DIMENSION(:) :: A,B
@@ -283,7 +283,7 @@ MODULE matrix_mod
   END SUBROUTINE
 
 !-----------------------------------------------------------------------------------!
-! det: find the determinant of a 3by3 matrix 
+! det: find the determinant of a 3x3 matrix 
 !-----------------------------------------------------------------------------------!
   SUBROUTINE det(A,B)
     REAL(q2),INTENT(IN),DIMENSION(3,3) :: A
