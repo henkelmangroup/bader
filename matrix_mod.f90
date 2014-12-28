@@ -203,7 +203,7 @@ MODULE matrix_mod
     i1=SIZE(V,1)
 
     DO n1=1,i1
-        VO(n1)=S*V(n1)
+      VO(n1)=S*V(n1)
     END DO
     RETURN
   END SUBROUTINE
@@ -218,9 +218,9 @@ MODULE matrix_mod
     i1=SIZE(A,1)
     i2=SIZE(A,2)
     DO n1=1,i1
-        DO n2=1,i2
-            C(n1,n2)=A(n1,n2)+B(n1,n2)
-        END DO
+      DO n2=1,i2
+        C(n1,n2)=A(n1,n2)+B(n1,n2)
+      END DO
     END DO
     RETURN
   END SUBROUTINE
@@ -235,9 +235,9 @@ MODULE matrix_mod
     i1=SIZE(A,1)
     i2=SIZE(A,2)
     DO n1=1,i1
-        DO n2=1,i2
-            C(n1,n2)=A(n1,n2)-B(n1,n2)
-        END DO
+      DO n2=1,i2
+        C(n1,n2)=A(n1,n2)-B(n1,n2)
+      END DO
     END DO
     RETURN
   END SUBROUTINE
@@ -251,7 +251,7 @@ MODULE matrix_mod
     INTEGER :: i1,n1
     i1=SIZE(A,1)
     DO n1=1,i1
-        C(n1)=A(n1)+B(n1)
+      C(n1)=A(n1)+B(n1)
     END DO
     RETURN
   END SUBROUTINE
@@ -265,7 +265,7 @@ MODULE matrix_mod
     INTEGER :: i1,n1
     i1=SIZE(A,1)
     DO n1=1,i1
-        C(n1)=A(n1)-B(n1)
+      C(n1)=A(n1)-B(n1)
     END DO
     RETURN
   END SUBROUTINE
