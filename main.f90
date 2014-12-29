@@ -52,6 +52,7 @@
      USE chgcar_mod
      USE chgcar_mod
      USE multipole_mod
+     USE critics_mod
      
      IMPLICIT NONE
 
@@ -62,7 +63,7 @@
      TYPE(bader_obj) :: bdr
      TYPE(voronoi_obj) :: vor
      CHARACTER :: A
- 
+     TYPE(charge_obj) :: chgtemp 
     ! Write the version number
      WRITE(*,'(/,2X,A)') 'GRID BASED BADER ANALYSIS  (Version 0.28a 07/12/12)'
 
@@ -86,6 +87,9 @@
      IF (opts%print_sum_bader) CALL write_sum_bader(bdr,opts,ions,chgval)
      IF (opts%print_bader_index) CALL write_bader_index(bdr,opts,ions,chgval)
      IF (opts%print_atom_index) CALL write_atom_index(bdr,opts,ions,chgval)
+     IF (opts%find_stationary) THEN
+       CALL critical_find(bdr,chgval,opts)
+     END IF
      !Q
      IF (opts%refine_edge_itrs==-3) THEN
         PRINT*,'Print bader weights to CHGCAR files? y/n'

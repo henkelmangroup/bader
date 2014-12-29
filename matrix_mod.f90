@@ -12,7 +12,7 @@ MODULE matrix_mod
   PUBLIC :: matrix_3x3_inverse
   PUBLIC :: scalar_matrix,matrix_addition,matrix_substraction
   PUBLIC :: scalar_vector,vector_addition,vector_substraction
-  PUBLIC :: cross_product,det
+  PUBLIC :: cross_product,det,find_vector
   CONTAINS
 
 !-----------------------------------------------------------------------------------!
@@ -203,13 +203,13 @@ MODULE matrix_mod
     i1=SIZE(V,1)
 
     DO n1=1,i1
-      VO(n1)=S*V(n1)
+        VO(n1)=S*V(n1)
     END DO
     RETURN
   END SUBROUTINE
 
 !-----------------------------------------------------------------------------------!
-! matrix_addition: return C = A + B
+! matrix_addition: do I REALLY need to say more?
 !-----------------------------------------------------------------------------------!
   SUBROUTINE matrix_addition(A,B,C)
     REAL(q2),INTENT(IN),DIMENSION(:,:) :: A,B
@@ -226,7 +226,7 @@ MODULE matrix_mod
   END SUBROUTINE
 
 !-----------------------------------------------------------------------------------!
-! matrix_substraction: return C = A - B$
+! matrix_substraction: do I REALLY need to say more?
 !-----------------------------------------------------------------------------------!
   SUBROUTINE matrix_substraction(A,B,C)
     REAL(q2),INTENT(IN),DIMENSION(:,:) :: A,B
@@ -243,7 +243,7 @@ MODULE matrix_mod
   END SUBROUTINE
 
 !-----------------------------------------------------------------------------------!
-! vector_addition: return C = A + B$
+! vector_addition: do I REALLY need to say more?
 !-----------------------------------------------------------------------------------!
   SUBROUTINE vector_addition(A,B,C)
     REAL(q2),INTENT(IN),DIMENSION(:) :: A,B
@@ -251,13 +251,13 @@ MODULE matrix_mod
     INTEGER :: i1,n1
     i1=SIZE(A,1)
     DO n1=1,i1
-      C(n1)=A(n1)+B(n1)
+        C(n1)=A(n1)+B(n1)
     END DO
     RETURN
   END SUBROUTINE
 
 !-----------------------------------------------------------------------------------!
-! vector_substraction: return C = A - B$
+! vector_substraction: do I REALLY need to say more?
 !-----------------------------------------------------------------------------------!
   SUBROUTINE vector_substraction(A,B,C)
     REAL(q2),INTENT(IN),DIMENSION(:) :: A,B
@@ -265,7 +265,7 @@ MODULE matrix_mod
     INTEGER :: i1,n1
     i1=SIZE(A,1)
     DO n1=1,i1
-      C(n1)=A(n1)-B(n1)
+        C(n1)=A(n1)-B(n1)
     END DO
     RETURN
   END SUBROUTINE
@@ -283,7 +283,7 @@ MODULE matrix_mod
   END SUBROUTINE
 
 !-----------------------------------------------------------------------------------!
-! det: find the determinant of a 3x3 matrix 
+! det: find the determinant of a 3by3 matrix 
 !-----------------------------------------------------------------------------------!
   SUBROUTINE det(A,B)
     REAL(q2),INTENT(IN),DIMENSION(3,3) :: A
@@ -296,7 +296,29 @@ MODULE matrix_mod
        -A(1,3)*A(2,2)*A(3,1)
     RETURN
     END SUBROUTINE
+  !----------------------------------------------------------------------
+  ! find_vector : find the eigenvectors
+  !----------------------------------------------------------------------
+  SUBROUTINE find_vector(yita2,iDM,dM,s1,s2,v1,v2,v3)
+    REAL(q2),INTENT(IN):: yita2
+    REAL(q2),INTENT(IN),DIMENSION(3)::s1,s2,v1
+    REAL(q2),INTENT(IN),DIMENSION(3,3)::iDM,dM
+    REAL(q2),INTENT(OUT),DIMENSION(3)::v2,v3
+    REAL(q2):: temp,norm
+    REAL(q2),DIMENSION(3)::tempVec,u1,u2,w1
+    REAL(q2),DIMENSION(3,3)::tempMat
+    CALL scalar_matrix(yita2,iDM,tempMat)
+    CALL matrix_substraction(dM,tempMat,tempMat)
+    CALL matrix_vector(tempMat,s1,u1)
+    CALL matrix_vector(tempMat,s2,u2)
+    norm=1.0_q2/SQRT(u1(1)**2+u1(2)**2+u1(3)**2)
+    CALL scalar_vector(norm,u1,w1)
+    CALL cross_product(w1,v1,v2)
+    CALL cross_product(v1,v2,v3)
+    RETURN
 
+
+  END SUBROUTINE
 !-----------------------------------------------------------------------------------!
 
 END MODULE matrix_mod

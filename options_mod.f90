@@ -615,7 +615,11 @@
       WRITE(*,*) '   -v'
       WRITE(*,*) '        Verbose output.'
       WRITE(*,*) ''
-    
+      WRITE(*,*) '   -stp'
+      WRITE(*,*) '        Find stationary points'
+      WRITE(*,*) '        Calculate eigenvalues and eigenvectors at those points'
+      WRITE(*,*) '        Store results in file named critics'
+      WRITE(*,*) ''    
     END SUBROUTINE write_help
 
 !-----------------------------------------------------------------------------------!

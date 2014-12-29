@@ -14,9 +14,9 @@ OBJS = kind_mod.o       \
        chgcar_mod.o     \
        cube_mod.o       \
        io_mod.o         \
-       eigenStuff_mod.o \
        bader_mod.o      \
        voronoi_mod.o    \
+       critics_mod.o    \
        multipole_mod.o  
 
 %.o %.mod : %.f90
