@@ -87,8 +87,7 @@ nomy,nomz,ODS,trace,num1,num2,num3,phi,PI
 
 
     PRINT *, ' '//achar(27)//'[35;40;1m Doing Honest &
-Critical Finding Buisiness. This function has not been &
-tested by time yet. Bugs may pop up.'//achar(27)//'[0m.'
+Critical Finding Buisiness'//achar(27)//'[0m.'
     ALLOCATE (hes%rho(chg%npts(1),chg%npts(2),chg%npts(3)))
     ALLOCATE (hes%dx(chg%npts(1),chg%npts(2),chg%npts(3)))
     ALLOCATE (hes%dy(chg%npts(1),chg%npts(2),chg%npts(3)))
@@ -120,7 +119,7 @@ tested by time yet. Bugs may pop up.'//achar(27)//'[0m.'
     cartZ(3)=1.0_q2
 
 !****************************************
-    OPEN(97,FILE='critics')
+
     DO n1 = 1,chg%npts(1)
       DO n2 = 1,chg%npts(2)
         DO n3 = 1,chg%npts(3)
@@ -153,7 +152,15 @@ tested by time yet. Bugs may pop up.'//achar(27)//'[0m.'
                  END DO
                END DO
              END DO
-             ! this make sure that all points used are in boundary
+
+
+! now there is a problem.  ptt(1)+1 may get out of boundary. How to do that
+! boundary check? --- by creating points for every point that could possibily be
+! needed and run pbc on it. Freezing is because of points out of boundary.
+! However, the compiler flags seems to not catch this problem.
+
+
+
              DO d1=-1,1
                DO d2=-1,1
                  DO d3=-1,1
@@ -338,6 +345,7 @@ SQRT((dMVSS(2,2)-dMVSS(3,3))**2+4*dMVSS(2,3)*dMVSS(3,2))
                        CALL &
 find_vector(yita2,identityM,dM,s1,s2,eigvec1,eigvec2,eigvec3)
 
+                     OPEN(97,FILE="critics")
                      WRITE(97,*)'*********** A NEW ENTRY *************'
                      WRITE(97,*),dummy
                      WRITE(97,*), p(1),p(2),p(3)
@@ -362,6 +370,7 @@ hes%rho(ptz1(1),ptz1(2),ptz1(3)),hes%rho(ptx2(1),ptx2(2),ptx2(3))
                      WRITE(97,*),eigvec2
                      WRITE(97,*),'eigvenctor 3'
                      WRITE(97,*),eigvec3
+                     CLOSE(97)
                    END IF
                  END IF
                END IF
@@ -369,7 +378,7 @@ hes%rho(ptz1(1),ptz1(2),ptz1(3)),hes%rho(ptx2(1),ptx2(2),ptx2(3))
         END DO
       END DO
     END DO
-    CLOSE(97)
+
     PRINT *, "FOUND STATIONARY POINT NUM: ", dummy
 
     DEALLOCATE (hes%rho)
