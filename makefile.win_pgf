@@ -18,7 +18,7 @@ OBJS = kind_mod.obj       \
        eigenStuff_mod.o   \
        bader_mod.obj      \
        voronoi_mod.obj    \
-       critics_mod.obj    \
+       critpoints_mod.obj \
        multipole_mod.obj
 
 %.obj %.mod : %.f90

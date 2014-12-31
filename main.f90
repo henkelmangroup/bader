@@ -52,7 +52,7 @@
      USE chgcar_mod
      USE chgcar_mod
      USE multipole_mod
-     USE critics_mod
+     USE critpoints_mod
      
      IMPLICIT NONE
 
