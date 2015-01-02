@@ -77,7 +77,6 @@
       opts%badertol = 1.0e-4_q2
       opts%stepsize = 0.0_q2
       opts%ref_flag = .FALSE.
-      opts%find_stationary = .FALSE.
 
 !      n=IARGC()
       n=COMMAND_ARGUMENT_COUNT()
