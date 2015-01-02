@@ -52,7 +52,7 @@
      USE chgcar_mod
      USE chgcar_mod
      USE multipole_mod
-     USE critpoints_mod
+!     USE critpoints_mod
      
      IMPLICIT NONE
 
@@ -78,7 +78,6 @@
        CALL bader_mindist(bdr,ions,chgval)
        CALL bader_output(bdr,ions,chgval)
      END IF
-     PRINT *, opts%find_stationary
 
      IF (opts%print_all_bader) CALL write_all_bader(bdr,opts,ions,chgval)
      IF (opts%print_all_atom) CALL write_all_atom(bdr,opts,ions,chgval)
@@ -88,10 +87,10 @@
      IF (opts%print_sum_bader) CALL write_sum_bader(bdr,opts,ions,chgval)
      IF (opts%print_bader_index) CALL write_bader_index(bdr,opts,ions,chgval)
      IF (opts%print_atom_index) CALL write_atom_index(bdr,opts,ions,chgval)
-     IF (opts%find_stationary) THEN
-       PRINT *, 'This function is still under development. Bugs may be present.'
-       CALL critical_find(bdr,chgval,opts)
-     END IF
+!     IF (opts%find_stationary) THEN
+!       PRINT *, 'This function is still under development. Bugs may be present.'
+!       CALL critical_find(bdr,chgval,opts)
+!     END IF
      !Q
      IF (opts%refine_edge_itrs==-3) THEN
         PRINT*,'Print bader weights to CHGCAR files? y/n'
