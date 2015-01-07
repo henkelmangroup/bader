@@ -63,11 +63,6 @@
     ALLOCATE (hes%dx(chg%npts(1),chg%npts(2),chg%npts(3)))
     ALLOCATE (hes%dy(chg%npts(1),chg%npts(2),chg%npts(3)))
     ALLOCATE (hes%dz(chg%npts(1),chg%npts(2),chg%npts(3)))
-    IF (opts%ref_flag) THEN
-      CALL read_charge_ref(ionstemp,chgtemp,opts)
-    ELSE
-      chgtemp = chgval
-    END IF
     switch = 0
     cptnum = 0
     identityM = 0._q2
@@ -78,11 +73,11 @@
     cartY = (/0._q2,1._q2,0._q2/)
     cartZ = (/0._q2,0._q2,1._q2/)
 
-    OPEN(97,FILE='CPF.dat',STATUS='REPLACE',POSITION='append',ACTION='WRITE')
+    OPEN(97,FILE='CPF.dat',STATUS='REPLACE',ACTION='WRITE')
     DO n1 = 1,chg%npts(1)
       DO n2 = 1,chg%npts(2)
         DO n3 = 1,chg%npts(3)
-            p=(/n1,n2,n3/)
+            p = (/n1,n2,n3/)
             IF (rho_val(chg,p(1),p(2),p(3)) <= opts%vacval) THEN
               CYCLE
             END IF
@@ -229,25 +224,25 @@
                      ! Find the most distinct eigenvalue first
                      ! every eigenvalue are equaly distinct when alpha = pi/6
                      ! can use the code when alpha < pi/6
-                       IF (alpha>pi/6._q2) THEN
-                         ! Start with eigval 3 first
-                         temp = hes%eigval1
-                         hes%eigval1 = hes%eigval3
-                         hes%eigval3 = temp
-                         temp = 0
-                       END IF
-                       ! this is the default when yita1 is the most distinct
-                       CALL scalar_matrix(yita1, identityM, nIdentity)
-                       CALL matrix_substraction(dM, nIdentity, devSubNIden)
-                       CALL matrix_vector(devSubNIden, cartX, orthoR1)
-                       CALL matrix_vector(devSubNIden, cartY, orthoR2)
-                       CALL matrix_vector(devSubNIden, cartZ, orthoR3)
-                       ! assume r1 is the largest, normalize all orthoR vectors
-                       norm = 1._q2/SQRT(SUM(orthoR1(:)*orthoR1(:)))
-                       CAll scalar_vector(norm, orthoR1, S1)
-                       CALL scalar_vector(DOT_PRODUCT(S1, orthoR2), S1, tempVec)
-                       CALL vector_substraction(orthoR2,tempVec,orT2)
-                       CALL scalar_vector(DOT_PRODUCT(S1, orthoR3), S1, tempVec)
+                     IF (alpha>pi/6._q2) THEN
+                       ! Start with eigval 3 first
+                       temp = hes%eigval1
+                       hes%eigval1 = hes%eigval3
+                       hes%eigval3 = temp
+                       temp = 0
+                     END IF
+                     ! this is the default when yita1 is the most distinct
+                     CALL scalar_matrix(yita1, identityM, nIdentity)
+                     CALL matrix_substraction(dM, nIdentity, devSubNIden)
+                     CALL matrix_vector(devSubNIden, cartX, orthoR1)
+                     CALL matrix_vector(devSubNIden, cartY, orthoR2)
+                     CALL matrix_vector(devSubNIden, cartZ, orthoR3)
+                     ! assume r1 is the largest, normalize all orthoR vectors
+                     norm = 1._q2/SQRT(SUM(orthoR1(:)*orthoR1(:)))
+                     CAll scalar_vector(norm, orthoR1, S1)
+                     CALL scalar_vector(DOT_PRODUCT(S1, orthoR2), S1, tempVec)
+                     CALL vector_substraction(orthoR2,tempVec,orT2)
+                     CALL scalar_vector(DOT_PRODUCT(S1, orthoR3), S1, tempVec)
                        CALL vector_substraction(orthoR3, tempVec, orT3)
                        ! assume t2 is the larger one, normalize it
                        norm = 1.0_q2/SQRT(SUM(orT2(:)*orT2(:)))
@@ -267,7 +262,7 @@
                        CALL vector_matrix(S2, dM, tempVec)
                        dMVSS(3,2) = DOT_PRODUCT(tempVec, S1)
                        dMVSS(3,3) = DOT_PRODUCT(tempVec, S2)
-                       ! This is a sign function right below
+                       ! This is a sign function
                        IF (dMVSS(2,2)-dMVSS(3,3) < 0) THEN
                          temp = -1
                          ELSE IF (dMVSS(2,2)-dMVSS(3,3) > 0) THEN
@@ -275,8 +270,8 @@
                          ELSE IF (dMVSS(2,2)-dMVSS(3,3) == 0) THEN
                          temp = 0
                        END IF
-                         yita2 = (dMVSS(2,2) + dMVSS(3,3))/2._q2 - 1._q2/2._q2*temp*&
-                                 SQRT((dMVSS(2,2) - dMVSS(3,3))**2 + 4._q2*dMVSS(2,3)*dMVSS(3,2))
+                       yita2 = (dMVSS(2,2) + dMVSS(3,3))/2._q2 - 1._q2/2._q2*temp*&
+                               SQRT((dMVSS(2,2) - dMVSS(3,3))**2 + 4._q2*dMVSS(2,3)*dMVSS(3,2))
                        yita3 = dMVSS(2,2) + dMVSS(3,3) - yita2
                        ! these eigenvalues are shifted by traceOver3
                        hes%eigval1 = yita1 + traceOver3
