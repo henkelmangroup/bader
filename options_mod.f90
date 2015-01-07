@@ -27,7 +27,7 @@
       LOGICAL :: print_sum_bader, print_sum_atom
       LOGICAL :: print_bader_index, print_atom_index
       LOGICAL :: verbose_flag, ref_flag
-      LOGICAL :: find_stationary
+      LOGICAL :: find_stationary,dallas_weight
     END TYPE options_obj
 
     PRIVATE
@@ -79,6 +79,7 @@
       opts%stepsize = 0.0_q2
       opts%ref_flag = .FALSE.
       opts%find_stationary= .FALSE.
+      opts%dallas_weight=.FALSE.
 !      n=IARGC()
       n=COMMAND_ARGUMENT_COUNT()
       IF (n == 0) THEN
@@ -125,6 +126,10 @@
         ELSEIF (p(1:ip) == '-v') THEN
           opts%verbose_flag = .TRUE.
 
+        ! Dallas' weight method
+        ELSEIF (p(1:ip) == '-dw') THEN
+          opts%dallas_weight = .TRUE.
+        
         ! Vacuum options
         ELSEIF (p(1:ip) == '-vac') THEN
           m=m+1
@@ -619,7 +624,12 @@
       WRITE(*,*) '        Calculate eigenvalues and eigenvectors at those points'
       WRITE(*,*) '        Store results in file named critics'
       WRITE(*,*) ''    
+      WRITE(*,*) '   -dw'
+      WRITE(*,*) '        Trinkle Dallas weight method'
+      WRITE(*,*) ''    
+
     END SUBROUTINE write_help
+
 
 !-----------------------------------------------------------------------------------!
 

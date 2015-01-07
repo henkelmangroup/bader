@@ -207,20 +207,20 @@ MODULE bader_mod
       END DO
     ENDIF
 
-    ! Weight method of Yu and Trinkle
-    IF (opts%refine_edge_itrs == -3) THEN
-      WRITE(*,'(/,2x,A)') 'REFINING USING THE WEIGHT METHOD OF YU AND TRINKLE'
-      ALLOCATE(chgval%weight(chgval%npts(1),chgval%npts(2),chgval%npts(3)))
-      ! allocate space for weight values
-      DO n1=1,chgval%npts(1)
-        DO n2=1,chgval%npts(2)
-          DO n3=1,chgval%npts(3)
-            ALLOCATE (chgval%weight(n1,n2,n3)%w(bdr%bnum))
-          END DO
-        END DO
-      END DO
-      CALL refine_weights(chgval, bdr, p)
-    END IF
+!    ! Weight method of Yu and Trinkle
+!    IF (opts%refine_edge_itrs == -3) THEN
+!      WRITE(*,'(/,2x,A)') 'REFINING USING THE WEIGHT METHOD OF YU AND TRINKLE'
+!      ALLOCATE(chgval%weight(chgval%npts(1),chgval%npts(2),chgval%npts(3)))
+!      ! allocate space for weight values
+!      DO n1=1,chgval%npts(1)
+!        DO n2=1,chgval%npts(2)
+!          DO n3=1,chgval%npts(3)
+!            ALLOCATE (chgval%weight(n1,n2,n3)%w(bdr%bnum))
+!          END DO
+!        END DO
+!      END DO
+!      CALL refine_weights(chgval, bdr, p)
+!    END IF
 
     ! The total number of bader volumes is now known
     bdr%nvols = bdr%bnum
@@ -259,141 +259,7 @@ MODULE bader_mod
   END SUBROUTINE bader_calc
 
 
-!-----------------------------------------------------------------------------------!
-! Weight method by Yu and Trinkle [JCP 134, 064111 (2011)]
-!-----------------------------------------------------------------------------------!
 
-  SUBROUTINE refine_weights(chgval, bdr, p)
-
-    TYPE(bader_obj) :: bdr
-    TYPE(charge_obj) :: chgval
-    INTEGER :: num_edge, n1, n2, n3, d1, d2, d3
-    INTEGER :: i, iter, num_change, mycount
-    INTEGER,DIMENSION(3) :: p, pn
-    REAL(q2) :: sum_top, sum_bottom, length, facet_a, R_
-    REAL(q2) :: new_weight, current_weight, wn
-
-!    write(*,*), ' bnum',bdr%bnum
-
-    DO i = 1,bdr%bnum
-    ! i is the current basin
-
-      num_edge = 0
-
-      ! loop through grid points and assign initial weights
-      DO n1 = 1,chgval%npts(1)
-        DO n2 = 1,chgval%npts(2)
-          DO n3 = 1,chgval%npts(3)
-
-            p = (/n1,n2,n3/)
-            chgval%weight(p(1),p(2),p(3))%w(i) = 0
-
-            ! if p is a vacuum point, skip it
-            !IF (bdr%volnum(n1,n2,n3) == bdr%bnum+1) CYCLE
-
-            !IF ((.NOT. is_vol_edge(bdr,chgval,p)) .AND. &
-            !(bdr%volnum(p(1),p(2),p(3))==i)) THEN
-
-            IF (bdr%volnum(p(1),p(2),p(3)) == i) THEN
-              chgval%weight(p(1),p(2),p(3))%w(i) = 1
-            END IF
-
-            ! count the number of edge points
-            IF (is_vol_edge(bdr, chgval, p) .AND. &
-              &  ((bdr%volnum(p(1),p(2),p(3)) == i) .OR. is_vol_neighbor(bdr, chgval, p, i))) THEN
-            !IF (is_vol_edge(bdr, chgval, p) .AND. &
-            !  &  (bdr%volnum(p(1),p(2),p(3)) == i)) THEN
-
-            !IF (is_vol_edge(bdr, chgval, p)) THEN
-              chgval%weight(p(1),p(2),p(3))%w(i)= 0
-              num_edge = num_edge+1
-            END IF
-
-          END DO
-        END DO
-      END DO
-
-      WRITE(*,'(2x,A,6x,1I8)') 'Volnum = ',i,'EDGE POINTS:',num_edge
-
-      num_change = 1
-      mycount = 1
-      iter = 0
-
-      ! calculate weights; stop when there are no zero weights and no weights change between iterations
-      !DO WHILE (mycount>0 .OR. num_change>0)
-      !Q-
-      DO WHILE (num_change>0)
-
-
-        iter = iter + 1
-        mycount = 0
-        num_change = 0
-
-        DO n1 = 1,chgval%npts(1)
-          DO n2 = 1,chgval%npts(2)
-            DO n3 = 1,chgval%npts(3)
-              p = (/n1,n2,n3/)
-
-              ! skip vacuum points
-              IF (bdr%volnum(n1,n2,n3) == bdr%bnum+1) CYCLE 
-
-              ! must be an edge point and either within volume i or a neighbor to it
-              IF (is_vol_edge(bdr, chgval, p) .AND. &
-                &  ((bdr%volnum(p(1),p(2),p(3)) == i) .OR. is_vol_neighbor(bdr, chgval, p, i))) THEN 
-              !IF (is_vol_edge(bdr, chgval, p) .AND. &
-              !  &  (bdr%volnum(p(1),p(2),p(3)) == i)) THEN
-
-              ! IF (is_vol_edge(bdr, chgval, p)) THEN
-
-                sum_top = 0
-                sum_bottom = 0
-
-                DO d1 = -1,1
-                  DO d2 = -1,1
-                    DO d3 = -1,1
-                      pn = p + (/d1,d2,d3/) !neighbor pt
-                      CALL pbc(pn, chgval%npts) ! just in case pn is out of the boundary
-                      length = bdr%stepsize 
-                      facet_a = facet_area(d1, d2, d3, length)
-                      ! note, area and length defined above only work for cubic lattice
-                      R_ = dim(rho_val(chgval, pn(1), pn(2), pn(3)), rho_val(chgval,p(1),p(2),p(3)))
-                      wn = chgval%weight(pn(1),pn(2),pn(3))%w(i) ! neighbor weight
-                      sum_top = sum_top + facet_a*length*R_*wn
-                      !write(*,*) 'sum_top', sum_top
-                      sum_bottom = sum_bottom + facet_a*length*R_
-                    END DO
-                  END DO
-                END DO
-
-                new_weight = sum_top/sum_bottom
-
-                !mycount=mycount+1
-                current_weight = chgval%weight(p(1),p(2),p(3))%w(i)
-                ! count the unchanged zero weight
-                IF (current_weight==0 .AND. new_weight==0) THEN
-                  mycount = mycount + 1
-                END IF
-
-
-                IF (abs(new_weight - current_weight) > 0.001) THEN
-                  chgval%weight(p(1),p(2),p(3))%w(i) = new_weight
-                  num_change = num_change+1
-                END IF
-
-              END IF
-            END DO
-          END DO
-        END DO
-
-        WRITE(*,'(2x,A,6x,1I8)') 'Weight change', num_change
-        WRITE(*,'(2x,A,6x,1I8)') 'Zero weight left', mycount
-        WRITE(*,'(2x,A,6x,1I8)') 'Iteration', iter
-
-      END DO 
-    END DO
-
-
- END SUBROUTINE
 
 
   REAL FUNCTION facet_area(d1,d2,d3,length)

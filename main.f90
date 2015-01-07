@@ -101,7 +101,9 @@
      !Q
      IF (opts%dipole_flag) CALL multipole_calc(bdr,ions,chgval,opts)
      IF (opts%voronoi_flag) CALL voronoi(vor,ions,chgval)
-
+     IF (opts%dallas_weight) THEN
+       PRINT *, 'error! this function is not finished!'
+     END IF
     WRITE(*,*)
   END PROGRAM Charge
 
