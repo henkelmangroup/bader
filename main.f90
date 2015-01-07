@@ -1,5 +1,5 @@
-! Copyright 2014
-! Wenjie Tang, Andri Arnaldsson, Samuel T. Chill, and Graeme Henkelman
+! Copyright 2006-2015
+! Wenjie Tang, Andri Arnaldsson, Wenrui Chai, Samuel T. Chill, and Graeme Henkelman
 !
 ! Bader is free software: you can redistribute it and/or modify
 ! it under the terms of the GNU General Public License as published by
@@ -11,10 +11,10 @@
 
 !-----------------------------------------------------------------------------------!
 ! Bader charge density analysis program
-! Version 0.28a (07/12/12)
+! Version 0.29 (01/xx/15)
 !
 ! Authors:
-!   Wenjie Tang, Andri Arnaldsson, Samuel T. Chill, and Graeme Henkelman
+!   Wenjie Tang, Andri Arnaldsson, Wenrui Chai, Samuel T. Chill, and Graeme Henkelman
 !
 ! Authors of the multipole code:
 !   Sebastien Lebegue <Sebastien.Lebegue@crm2.uhp-nancy.fr>
@@ -38,6 +38,8 @@
 !   A grid-based Bader analysis algorithm without lattice bias
 !   W. Tang, E. Sanville, and G. Henkelman
 !   J. Phys.: Condens. Matter 21, 084204 (2009)
+!
+!   add Dallas paper here
 !
 !-----------------------------------------------------------------------------------!
 
@@ -65,7 +67,7 @@
      CHARACTER :: A
      TYPE(charge_obj) :: chgtemp 
     ! Write the version number
-     WRITE(*,'(/,2X,A)') 'GRID BASED BADER ANALYSIS  (Version 0.28a 07/12/12)'
+     WRITE(*,'(/,2X,A)') 'GRID BASED BADER ANALYSIS  (Version 0.29 01/xx/15)'
 
      ! Get the control variables
      CALL get_options(opts)
@@ -87,10 +89,7 @@
      IF (opts%print_sum_bader) CALL write_sum_bader(bdr,opts,ions,chgval)
      IF (opts%print_bader_index) CALL write_bader_index(bdr,opts,ions,chgval)
      IF (opts%print_atom_index) CALL write_atom_index(bdr,opts,ions,chgval)
-     IF (opts%find_stationary) THEN
-       PRINT *, 'This function is still under development. Bugs may be present.'
-       CALL critical_find(bdr,chgval,opts)
-     END IF
+     IF (opts%find_stationary) CALL critpoint_find(bdr,chgval,opts)
      !Q
      IF (opts%refine_edge_itrs==-3) THEN
         PRINT*,'Print bader weights to CHGCAR files? y/n'
@@ -100,7 +99,6 @@
         END IF
      END IF
      !Q
-!     IF (opts%dipole_flag) CALL multipole()
      IF (opts%dipole_flag) CALL multipole_calc(bdr,ions,chgval,opts)
      IF (opts%voronoi_flag) CALL voronoi(vor,ions,chgval)
 

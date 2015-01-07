@@ -166,8 +166,8 @@ MODULE chgcar_mod
     WRITE(100,*)'1.00'
     WRITE(100,'(3F13.6)') (ions%lattice(i,1:3) , i=1,3)
     IF(opts%in_opt == opts%in_chgcar5) THEN
-      ions%name_ion=ADJUSTL(ions%name_ion)
-      it=LEN_TRIM(ions%name_ion)
+      ions%name_ion = ADJUSTL(ions%name_ion)
+      it = LEN_TRIM(ions%name_ion)
       WRITE(100,'(3X,A)') ions%name_ion(1:it)
     END IF
     WRITE(100,'(110I4)') ions%num_ion

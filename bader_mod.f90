@@ -75,8 +75,8 @@ MODULE bader_mod
     END IF
 
     CALL SYSTEM_CLOCK(t1,cr,count_max)
-    
-    WRITE(*,'(/,2x,A)')   'CALCULATING BADER CHARGE DISTRIBUTION'
+
+    WRITE(*,'(/,2x,A)') 'CALCULATING BADER CHARGE DISTRIBUTION'
     WRITE(*,'(2x,A)')   '               0  10  25  50  75  100'
     WRITE(*,'(2x,A,$)') 'PERCENT DONE:  **'
 
@@ -409,7 +409,6 @@ MODULE bader_mod
 
 
 
-
 !-----------------------------------------------------------------------------------!
 ! max_offgrid:  From the point p, do a maximization in the charge density
 !-----------------------------------------------------------------------------------!
@@ -719,7 +718,7 @@ MODULE bader_mod
               END DO
               num_check = num_check - 1
               IF (bdr%known(pt(1),pt(2),pt(3)) /= -2) THEN
-                bdr%volnum(p(1),p(2),p(3)) = ABS(bdr%volnum(p(1),p(2),p(3)))         
+                bdr%volnum(p(1),p(2),p(3)) = ABS(bdr%volnum(p(1),p(2),p(3)))
               END IF
               ! end of mark
             END IF
@@ -1108,6 +1107,7 @@ MODULE bader_mod
 
   RETURN
   END SUBROUTINE write_sel_atom
+
 !-----------------------------------------------------------------------------------!
 ! write_sum_atom: Write a CHGCAR file for the charge summed over the user specified 
 ! atomic volumes.
@@ -1259,7 +1259,7 @@ MODULE bader_mod
 ! write_sum_bader: Write a CHGCAR file for the charge summed over the user specified 
 ! bader volumes.
 !-----------------------------------------------------------------------------------!
-        
+
   SUBROUTINE write_sum_bader(bdr, opts, ions, chg)
 
     TYPE(bader_obj) :: bdr
@@ -1283,7 +1283,7 @@ MODULE bader_mod
 
     DO i = 1,bdr%nvols
       IF (bdr%volchg(i) > bdr%tol) THEN
-        bdimsig = bdimsig+1
+        bdimsig = bdimsig + 1
         volsig(bdimsig,1) = bdimsig
         volsig(bdimsig,2) = i
       END IF
@@ -1299,7 +1299,7 @@ MODULE bader_mod
 
     DO i = 1,opts%sumbnum
       DO WHILE ((i*10/opts%sumbnum) > tenths_done)
-        tenths_done = tenths_done+1
+        tenths_done = tenths_done + 1
         WRITE(*,'(A,$)') '**'
       END DO
 
@@ -1353,7 +1353,7 @@ MODULE bader_mod
 
     DO badercur=1,bdr%nvols
     IF(bdr%volchg(badercur) > bdr%tol) THEN
-        atomnum = atomnum+1
+        atomnum = atomnum + 1
         WRITE(atomfilename,'(A4,I4.4,A4)') "Bvol",atomnum,".dat"
         tmp%rho = 0._q2
 !        WHERE (bdr%volnum == badercur) tmp%rho = chg%rho
@@ -1501,7 +1501,7 @@ MODULE bader_mod
       DO n2 = 1,chg%npts(2)
         DO n3 = 1,chg%npts(3)
           ! change to calculate vacuum volume
-          IF (bdr%volnum(n1,n2,n3)/=bdr%nvols+1) THEN
+          IF (bdr%volnum(n1,n2,n3) /= bdr%nvols + 1) THEN
             atom = bdr%nnion(bdr%volnum(n1,n2,n3))
             bdr%ionvol(atom) = bdr%ionvol(atom)+1
           END IF
@@ -1563,7 +1563,7 @@ MODULE bader_mod
     WRITE(100,'(A,A)') '  --------------------------------------------------------',&
     &                  '----------------'
     CLOSE(100)
-    
+
     WRITE(*,'(/,A41)') 'WRITING BADER ATOMIC CHARGES TO ACF.dat'
     WRITE(*,'(A41,/)') 'WRITING BADER VOLUME CHARGES TO BCF.dat'
 
@@ -1589,7 +1589,7 @@ MODULE bader_mod
 
     WRITE(200,556) '#','X','Y','Z','CHARGE','ATOM','DISTANCE'
     556 FORMAT(4X,1A1,9X,1A1,2(11X,1A1),8X,1A6,5X,1A4,4X,1A8)
-    
+
     WRITE(200,'(A,A)') '  ----------------------------------------------------------',&
     &              '---------------'
     DO i = 1,bdr%nvols
@@ -1610,7 +1610,7 @@ MODULE bader_mod
 
   RETURN
   END SUBROUTINE bader_output
-    
+
 !-----------------------------------------------------------------------------------!
 !  rho_val:  Return the density at the point (p1,p2,p3) taking into account the
 !    boundary conditions.  This function is used to address points outside the
@@ -1730,10 +1730,12 @@ MODULE bader_mod
 
   RETURN
   END SUBROUTINE assign_surrounding_pts
+
 !-----------------------------------------------------------------------------------!
 ! assign_surrounding_pts: check the surrounding points of p to see if their volnum
 !                         is known
 !-----------------------------------------------------------------------------------!
+
   SUBROUTINE assign_surrounding_pts2(bdr,chg,p)
 
     TYPE(bader_obj) :: bdr
@@ -1785,7 +1787,7 @@ MODULE bader_mod
     IF (volnum_val(bdr,chg,p1-1,p2,p3) /= volnum) RETURN
 
     bdr%known(p1,p2,p3) = 2
-  
+
   RETURN
   END SUBROUTINE known_volnum_ongrid
 
@@ -1834,7 +1836,7 @@ MODULE bader_mod
     INTEGER,DIMENSION(3),INTENT(IN) :: p
     INTEGER,DIMENSION(3) :: pt
     INTEGER :: volnum,d1,d2,d3,p1,p2,p3
-    
+
     pt = (/p(1)+1,p(2),p(3)/)
     CALL pbc(pt,chg%npts)
     bdr%known(pt(1),pt(2),pt(3)) = 0
@@ -1969,7 +1971,7 @@ MODULE bader_mod
 
     ! only find neighbors, not points in the volume
     IF (bdr%volnum(pt(1),pt(2),pt(3)) == vol) RETURN
-  
+
     neighborloop: DO d1 = -1,1
       DO d2 = -1,1
         DO d3 = -1,1
