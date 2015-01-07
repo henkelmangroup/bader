@@ -96,7 +96,7 @@ Critical Finding Buisiness'//achar(27)//'[0m.'
     cartZ(3)=1.0_q2
 
 !****************************************
-
+    OPEN(97,FILE='CPF.DAT',STATUS='REPLACE',POSITION='append',ACTION='WRITE')   
     DO n1 = 1,chg%npts(1)
       DO n2 = 1,chg%npts(2)
         DO n3 = 1,chg%npts(3)
@@ -137,7 +137,6 @@ Critical Finding Buisiness'//achar(27)//'[0m.'
 ! However, the compiler flags seems to not catch this problem.
 
 
-             OPEN(97,FILE='CPF.DAT')
              DO d1=-1,1
                DO d2=-1,1
                  DO d3=-1,1
@@ -323,7 +322,7 @@ SQRT((dMVSS(2,2)-dMVSS(3,3))**2+4*dMVSS(2,3)*dMVSS(3,2))
 find_vector(yita2,identityM,dM,s1,s2,eigvec1,eigvec2,eigvec3)
 
                      WRITE(97,*)'*********** A NEW ENTRY *************'
-                     WRITE(97,*),dummy
+                     WRITE(97,*),'This is stationary point # ',dummy
                      WRITE(97,*), p(1),p(2),p(3)
                      WRITE(97,*), 'The treshhold is ', 0.5_q2*bdr%stepsize
                      WRITE(97,*), 'r1' , hes%r1
