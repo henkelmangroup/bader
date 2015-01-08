@@ -1,4 +1,10 @@
+!-----------------------------------------------------------------------------------!
+! Bader charge density analysis program
+!  Module implementing the weight method by Yu and Trinkle [JCP 134, 064111 (2011)]
+!-----------------------------------------------------------------------------------!
+
   MODULE weight_mod
+
     USE kind_mod
     USE matrix_mod
     USE bader_mod
@@ -8,64 +14,65 @@
     USE io_mod
     IMPLICIT NONE
     PRIVATE
+
     TYPE weight_obj
       REAL(q2) :: rho
       INTEGER(KIND=8) :: x,y,z
     END TYPE
 
     PUBLIC :: weight_obj
-    PUBLIC :: dallas_weight,merge_sort
+    PUBLIC :: bader_weight_calc
 
   CONTAINS 
-    
-    SUBROUTINE dallas_weight(bdr,chg)
 
-
+  SUBROUTINE bader_weight_calc(bdr,chg)
 
     ! chgList has 4 slots. 1st is rho, 2 3 4 are the coordinate indices.
-    TYPE(weight_obj),ALLOCATABlE,DIMENSION(:) :: chgList,sortedList
+    TYPE(weight_obj),ALLOCATABlE,DIMENSION(:) :: chgList, sortedList
     TYPE(bader_obj) :: bdr
-    TYPE(charge_obj) :: chg  
+    TYPE(charge_obj) :: chg
     TYPE(weight_obj) :: wt
-    INTEGER(KIND=8) :: totalLength,i,j,k,l,n1,n2,n3
-        
-    totalLength=chg%npts(1)*chg%npts(2)*chg%npts(3)
+    INTEGER(KIND=8) :: totalLength, i, j, k, l, n1, n2, n3
+
+    totalLength = chg%npts(1)*chg%npts(2)*chg%npts(3)
     PRINT *, totalLength
     ALLOCATE (chgList(totalLength))
     ALLOCATE (sortedList(totalLength))
-    ! first merge sort   
-    DO n1=1, chg%npts(1)
-      DO n2=1, chg%npts(2)
+    ! first merge sort
+    DO n1=1,chg%npts(1)
+      DO n2=1,chg%npts(2)
         DO n3=1,chg%npts(3)
-          chgList(n1+n2+n3-2)%rho=chg%
+          chgList(n1+n2+n3-2)%rho = chg%
         END DO
       END DO
     END DO
     CALL merge_sort(chgList,sortedList)
- 
 
-    END SUBROUTINE dallas_weight
+    END SUBROUTINE bader_bader_calc
+
 !------------------------------------------------------------------------------------!
 ! merge_sort: sort the array using the 1st element of it. In desending order
 !------------------------------------------------------------------------------------!
+
     SUBROUTINE merge_sort(A,B)
+
       TYPE(weight_obj),DIMENSION(:) :: A,B
       TYPE(weight_obj),ALLOCATABLE,DIMENSION(:) :: C,D,E,F
       REAL(q2) :: totalStep
       INTEGER :: i,j,k,l,walker
-      totalStep=ceiling(Log(Size(A)*1.0_q2)/Log(2.0_q2))
+
+      totalStep = ceiling(Log(Size(A)*1.0_q2)/Log(2.0_q2))
 !      PRINT *, totalStep
 !      PRINT *, ceiling(totalStep)
-      walker=0
+      walker = 0
       DO i=1, totalStep
         ALLOCATE (C(2**i))
         ALLOCATE (D(2**i))
         DO j=1,i*2
-          C(j)=A(walker+j)
+          C(j) = A(walker+j)
         END DO
         DEALLOCATE (C,D)
       END DO
-
 
       ! Each time only 2 arrays will be operated on. The length of the arrays
       ! are 2**n, where n is the number of steps. The first loop over the entire
@@ -73,14 +80,13 @@
       ! loop, each working aray is of half the length of the entire array to be
       ! sorted. There are 2 senarios, the array may be of odd length or even
       ! length.   
-  
+
     END SUBROUTINE
 
-! The entire refine weight subroutine may not be used.   
-!!-----------------------------------------------------------------------------------!
-!! Weight method by Yu and Trinkle [JCP 134, 064111 (2011)]
-!!-----------------------------------------------------------------------------------!
-!
+!-----------------------------------------------------------------------------------!
+! Weight method
+!-----------------------------------------------------------------------------------!
+
 !  SUBROUTINE refine_weights(chgval, bdr, p)
 !
 !    TYPE(bader_obj) :: bdr

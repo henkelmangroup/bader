@@ -39,7 +39,9 @@
 !   W. Tang, E. Sanville, and G. Henkelman
 !   J. Phys.: Condens. Matter 21, 084204 (2009)
 !
-!   add Dallas paper here
+!   Accurate and efficient algorithm for Bader charge integration
+!   M. Yu and D. Trinkle
+!   J. Chem. Phys. 134, 064111 (2011).
 !
 !-----------------------------------------------------------------------------------!
 
@@ -76,10 +78,14 @@
      CALL read_charge(ions,chgval,opts)
 
      IF (opts%bader_flag) THEN
-       CALL bader_calc(bdr,ions,chgval,opts)
+       IF (opts%bader_opt == opts%bader_weight) ! Yu-Trinkle weight method
+         CALL bader_weight_calc(bdr,ions,chgval,opts)
+       ELSE
+         CALL bader_calc(bdr,ions,chgval,opts)
+       ENDIF
        CALL bader_mindist(bdr,ions,chgval)
        CALL bader_output(bdr,ions,chgval)
-       IF (opts%find_stationary) CALL critpoint_find(bdr,chgval,opts)
+       IF (opts%find_critpoints) CALL critpoint_find(bdr,chgval,opts)
      END IF
 
      IF (opts%print_all_bader) CALL write_all_bader(bdr,opts,ions,chgval)
@@ -90,20 +96,8 @@
      IF (opts%print_sum_bader) CALL write_sum_bader(bdr,opts,ions,chgval)
      IF (opts%print_bader_index) CALL write_bader_index(bdr,opts,ions,chgval)
      IF (opts%print_atom_index) CALL write_atom_index(bdr,opts,ions,chgval)
-     !Q
-!     IF (opts%refine_edge_itrs==-3) THEN
-!        PRINT*,'Print bader weights to CHGCAR files? y/n'
-!        READ (*,*) A
-!        IF (A=='y') THEN
-!        CALL write_bader_weight(bdr,opts,ions,chgval)
-!        END IF
-!     END IF
-     !Q
      IF (opts%dipole_flag) CALL multipole_calc(bdr,ions,chgval,opts)
      IF (opts%voronoi_flag) CALL voronoi(vor,ions,chgval)
-     IF (opts%dallas_weight) THEN
-       CALL dallas_weight(bdr,chgval)
-     END IF
 
     WRITE(*,*)
   END PROGRAM Charge

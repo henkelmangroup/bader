@@ -10,28 +10,26 @@
       CHARACTER(LEN=128) :: chargefile, refchgfile
       REAL(q2) :: badertol, stepsize, vacval
       INTEGER :: out_opt, out_auto = 0, out_cube = 1, out_chgcar4 = 2, out_chgcar5 = 3
-      INTEGER :: in_opt, in_auto = 0, in_cube = 1, in_chgcar=2, in_chgcar4 = 3,in_chgcar5 = 4
+      INTEGER :: in_opt, in_auto = 0, in_cube = 1, in_chgcar = 2, in_chgcar4 = 3,in_chgcar5 = 4
       INTEGER :: ref_in_opt
-      INTEGER :: bader_opt, bader_offgrid = 0, bader_ongrid = 1, bader_neargrid = 2
+      INTEGER :: bader_opt, bader_offgrid = 0, bader_ongrid = 1, bader_neargrid = 2, bader_weight = 3
       INTEGER :: quit_opt, quit_max = 0, quit_known = 1
       INTEGER :: refine_edge_itrs
 ! refine_edge_itrs=-1 check points around the reassigned points during refinement
 ! refine_edge_itrs=-2 check every edge point during refinement
-! refine_edge_itrs=-3 Yu and Trinkle weight method
       INTEGER :: selanum, selbnum, sumanum, sumbnum
       INTEGER,ALLOCATABLE,DIMENSION(:) :: selavol, selbvol,sumavol,sumbvol
-      LOGICAL :: vac_flag, weight_flag
+      LOGICAL :: vac_flag
       LOGICAL :: bader_flag, voronoi_flag, dipole_flag, ldos_flag
       LOGICAL :: print_all_bader, print_all_atom
       LOGICAL :: print_sel_bader, print_sel_atom
       LOGICAL :: print_sum_bader, print_sum_atom
       LOGICAL :: print_bader_index, print_atom_index
-      LOGICAL :: verbose_flag, ref_flag
-      LOGICAL :: find_stationary,dallas_weight
+      LOGICAL :: verbose_flag, ref_flag, critpoints_flag
     END TYPE options_obj
 
     PRIVATE
-    PUBLIC :: get_options,options_obj
+    PUBLIC :: get_options, options_obj
 
     CONTAINS
 
@@ -56,7 +54,6 @@
       opts%in_opt = opts%in_auto
       ! print options
       opts%vac_flag = .FALSE.
-      opts%weight_flag = .FALSE.
       opts%vacval = 1E-3
       opts%print_all_atom = .FALSE.
       opts%print_all_bader = .FALSE.
@@ -78,8 +75,7 @@
       opts%badertol = 1.0e-4_q2
       opts%stepsize = 0.0_q2
       opts%ref_flag = .FALSE.
-      opts%find_stationary= .FALSE.
-      opts%dallas_weight=.FALSE.
+      opts%critpoints_flag = .FALSE.
 !      n=IARGC()
       n=COMMAND_ARGUMENT_COUNT()
       IF (n == 0) THEN
@@ -118,18 +114,14 @@
         ELSEIF (p(1:ip) == '-h') THEN
           CALL write_help()
           STOP
-        ! Find stationary point option
-        ELSEIF (p(1:ip) == '-stp') THEN
-          opts%find_stationary = .TRUE.
+        ! Find critical points
+        ELSEIF (p(1:ip) == '-cp') THEN
+          opts%critpoints_flag = .TRUE.
 
         ! Verbose
         ELSEIF (p(1:ip) == '-v') THEN
           opts%verbose_flag = .TRUE.
 
-        ! Dallas' weight method
-        ELSEIF (p(1:ip) == '-dw') THEN
-          opts%dallas_weight = .TRUE.
-        
         ! Vacuum options
         ELSEIF (p(1:ip) == '-vac') THEN
           m=m+1
@@ -158,6 +150,8 @@
             opts%bader_opt = opts%bader_ongrid
           ELSEIF (inc(1:it) == 'NEARGRID' .OR. inc(1:it) == 'neargrid') THEN
             opts%bader_opt = opts%bader_neargrid
+          ELSEIF (inc(1:it) == 'WEIGHT' .OR. inc(1:it) == 'weight') THEN
+            opts%bader_opt = opts%bader_weight
           ELSE
             WRITE(*,'(A,A,A)') ' Unknown option "',inc(1:it),'"'
             STOP
@@ -520,7 +514,7 @@
       WRITE(*,*) 'Usage:'
       WRITE(*,*) '   bader [ -c bader | voronoi ]'
       WRITE(*,*) '         [ -n bader | voronoi ]'
-      WRITE(*,*) '         [ -b neargrid | ongrid ]'
+      WRITE(*,*) '         [ -b neargrid | ongrid | weight]'
       WRITE(*,*) '         [ -r refine_edge_method ]'
       WRITE(*,*) '         [ -ref reference_charge ]'
       WRITE(*,*) '         [ -vac off | auto | vacuum_density ]'
@@ -553,9 +547,10 @@
 !      WRITE(*,*) '           dipole: multiple moments in Bader volumes'
 !      WRITE(*,*) '           ldos: local density of states in Bader volumes'
       WRITE(*,*) ''
-      WRITE(*,*) '   -b < neargrid | ongrid >'
-      WRITE(*,*) '        Use the default near-grid bader partitioning or the'
-      WRITE(*,*) '        original on-grid based algorithm.'
+      WRITE(*,*) '   -b < neargrid | ongrid | weight >'
+      WRITE(*,*) '        Use the default near-grid bader partitioning, the'
+      WRITE(*,*) '        original on-grid based algorithm, or the weight method'
+      WRITE(*,*) '        of Yu and Trinkle'
       WRITE(*,*) ''
 !      WRITE(*,*) '   -s < stepsiz >'
 !      WRITE(*,*) '        Steepest asent trajectory step size.  This parameter is'
@@ -569,8 +564,6 @@
       WRITE(*,*) '        which checks every edge point during each refinement, can'
       WRITE(*,*) '        be enabled using the -r -2 switch:'
       WRITE(*,*) '           bader -r -2 CHGCAR'
-      WRITE(*,*) '        A new weight method developed by Yu and Trinkle and be'
-      WRITE(*,*) '        enabled with the -r -3 switch.'
       WRITE(*,*) ''
       WRITE(*,*) '   -ref < reference_charge >'
       WRITE(*,*) '        Use a reference charge file to do the Bader partitioning.'
@@ -619,13 +612,10 @@
       WRITE(*,*) '   -v'
       WRITE(*,*) '        Verbose output.'
       WRITE(*,*) ''
-      WRITE(*,*) '   -stp'
-      WRITE(*,*) '        Find stationary points'
+      WRITE(*,*) '   -cp'
+      WRITE(*,*) '        Find critical points of the charge density'
       WRITE(*,*) '        Calculate eigenvalues and eigenvectors at those points'
-      WRITE(*,*) '        Store results in file named critics'
-      WRITE(*,*) ''    
-      WRITE(*,*) '   -dw'
-      WRITE(*,*) '        Trinkle Dallas weight method'
+      WRITE(*,*) '        Store results in file named CPF.dat'
       WRITE(*,*) ''    
 
     END SUBROUTINE write_help
