@@ -16,7 +16,7 @@ MODULE charge_mod
   END TYPE
   !Q
   TYPE :: charge_obj
-    TYPE(weight), ALLOCATABLE, DIMENSION(:,:,:) :: weight !Q
+!    TYPE(weight), ALLOCATABLE, DIMENSION(:,:,:) :: weight !Q
     REAL(q2),ALLOCATABLE,DIMENSION(:,:,:) :: rho
     REAL(q2),DIMENSION(3,3) :: lat2car,car2lat
     REAL(q2),DIMENSION(-1:1,-1:1,-1:1) :: lat_dist, lat_i_dist

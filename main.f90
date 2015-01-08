@@ -55,7 +55,7 @@
      USE chgcar_mod
      USE multipole_mod
      USE critpoints_mod
-     
+     USE weight_mod    
      IMPLICIT NONE
 
      ! Variables
@@ -91,19 +91,20 @@
      IF (opts%print_bader_index) CALL write_bader_index(bdr,opts,ions,chgval)
      IF (opts%print_atom_index) CALL write_atom_index(bdr,opts,ions,chgval)
      !Q
-     IF (opts%refine_edge_itrs==-3) THEN
-        PRINT*,'Print bader weights to CHGCAR files? y/n'
-        READ (*,*) A
-        IF (A=='y') THEN
-        CALL write_bader_weight(bdr,opts,ions,chgval)
-        END IF
-     END IF
+!     IF (opts%refine_edge_itrs==-3) THEN
+!        PRINT*,'Print bader weights to CHGCAR files? y/n'
+!        READ (*,*) A
+!        IF (A=='y') THEN
+!        CALL write_bader_weight(bdr,opts,ions,chgval)
+!        END IF
+!     END IF
      !Q
      IF (opts%dipole_flag) CALL multipole_calc(bdr,ions,chgval,opts)
      IF (opts%voronoi_flag) CALL voronoi(vor,ions,chgval)
      IF (opts%dallas_weight) THEN
-       PRINT *, 'error! this function is not finished!'
+       CALL dallas_weight(bdr,chgval)
      END IF
+
     WRITE(*,*)
   END PROGRAM Charge
 
