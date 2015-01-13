@@ -75,13 +75,12 @@
     END DO
     walker = 0
     CALL merge_sort(chgList,sortedList)
-!    DO n1=1,totalLength
-!      PRINT *, 'n1', n1
-!      PRINT *, chgList(n1)%rho
-!      PRINT *, chgList(n1)%x,chgList(n1)%y,chgList(n1)%z
-!      PRINT *, ' '
-!    END DO
-
+    DO n1=1,totalLength
+      PRINT *, 'n1', n1
+      PRINT *, sortedList(n1)%rho
+      PRINT *, sortedList(n1)%x,sortedList(n1)%y,sortedList(n1)%z
+      PRINT *, ' '
+    END DO
     END SUBROUTINE bader_weight_calc
 
 
@@ -98,7 +97,7 @@
       INTEGER :: loopStep ! the steps it takes to go through A once
       totalStep = CEILING(LOG(SIZE(A)*1.0_q2)/LOG(2.0_q2))
       walker = 0
-      DO i=1, totalStep-1
+      DO i=1, totalStep
         PRINT *, 'i is ', i
         length=2**(i-1)
         loopStep=CEILING(SIZE(A)/(2.*length))
@@ -133,14 +132,54 @@
       INTEGER(KIND=8) :: walker,n1,n2,n3
       walker=0
       DO n1=1,length
-        PRINT *, 'getting from A:', (j-1)*length+n1,'and',j*length+n1
+        PRINT *, 'getting from A:', (j-1)*length*2+n1,'and',(2*j-1)*length+n1
         C(n1)=A((j-1)*length*2+n1)
         D(n1)=A((2*j-1)*length+n1)
 !        PRINT *, 'C(',n1,') is ', C(n1)%rho
 !        PRINT *, C(n1)%x,C(n1)%y,C(n1)%z
 !        PRINT *, 'D(',n1,') is ', D(n1)%rho
 !        PRINT *, D(n1)%x,D(n1)%y,D(n1)%z
-        
+      END DO
+      PRINT *, 'FINISHED READING'
+      n1=1
+      n2=1
+      walker=1
+      DO WHILE(n1<=length .AND. n2<=length)
+        IF (C(n1)%rho>=D(n2)%rho) THEN
+          PRINT *, 'C',n1,'is greater than D',n2
+          A((j-1)*length*2+walker)=C(n1)
+          walker=walker+1
+          ! Existing order in A is correct. Check the next element in C agains
+          ! the same element in D
+          IF (n1==length) THEN ! The last element in C is bigger than D(n2). 
+          ! The rest of spaces in A should be written with the rest of the terms
+          ! in D 
+            DO n3=walker,2*length
+              A((j-1)*length*2+walker)=D(n2)
+              n2=n2+1
+              walker=walker+1
+            END DO
+            STOP
+          END IF
+          n1=n1+1
+        ELSE
+          PRINT *, 'D',n2,'is greater than C',n2
+          ! D(n2) is written at the place where C(n1) sits 
+          A((j-1)*length*2+walker)=D(n2)
+          walker=walker+1
+          IF (n2==length) THEN ! The last element in D is bigger than C(n1)
+          ! The rest of spaces in A should be weitten with the rest of the terms
+          ! in C
+            DO n3=n1+n2,length*2
+              PRINT *, 'ENTERED INNER LOOP'
+              A((j-1)*length*2+walker)=C(n1)
+              n1=n1+1
+              walker=walker+1
+            END DO
+          END IF
+          n2=n2+1
+        END IF
+        PRINT *, 'LOOPED ONCE'
       END DO
       B = A
 
