@@ -17,7 +17,7 @@
 
     TYPE weight_obj
       REAL(q2) :: rho
-      INTEGER(KIND=8) :: x,y,z
+      INTEGER(KIND=8) :: x, y, z
     END TYPE
 
     PUBLIC :: weight_obj
@@ -33,10 +33,10 @@
     TYPE(charge_obj) :: chg
     TYPE(weight_obj) :: wt
     INTEGER(KIND=8) :: totalLength
-    INTEGER :: i,j,k,l,n1,n2,n3,walker
+    INTEGER :: i, j, k, l, n1, n2, n3, walker
         
 !    totalLength=chg%npts(1)*chg%npts(2)*chg%npts(3)
-    totalLength=64 ! for testing purpose only
+    totalLength = 64 ! for testing purpose only
     PRINT *, totalLength
     ALLOCATE (chgList(totalLength))
     ALLOCATE (sortedList(totalLength))
@@ -62,16 +62,16 @@
       DO n2=1,4
         DO n3=1,4
         walker=walker+1
-        chgList(walker)%rho=n1*n2*n3
-        chgList(walker)%x=n1
-        chgList(walker)%y=n2
-        chgList(walker)%z=n3
+        chgList(walker)%rho = n1*n2*n3
+        chgList(walker)%x = n1
+        chgList(walker)%y = n2
+        chgList(walker)%z = n3
         PRINT *, 'chgList(',walker,') is, ',chgList(walker)%rho
         PRINT *, chgList(walker)%x, chgList(walker)%y, chgList(walker)%z
         END DO
       END DO
     END DO
-    walker=0
+    walker = 0
     CALL merge_sort(chgList,sortedList)
 !    DO n1=1,totalLength
 !      PRINT *, 'n1', n1
@@ -91,10 +91,10 @@
       TYPE(weight_obj),DIMENSION(:) :: A
       TYPE(weight_obj),INTENT(OUT),DIMENSION(:) :: B
       TYPE(weight_obj) :: tempw
-      REAL(q2) :: totalStep,tempq2
-      INTEGER :: i,j,k,l,walker,n1,n2,n3,length,tempint
+      REAL(q2) :: totalStep, tempq2
+      INTEGER :: i, j, k, l, walker, n1, n2, n3, length, tempint
       INTEGER :: loopStep ! the steps it takes to go through A once
-      totalStep=CEILING(LOG(SIZE(A)*1.0_q2)/LOG(2.0_q2))
+      totalStep = CEILING(LOG(SIZE(A)*1.0_q2)/LOG(2.0_q2))
       walker = 0
       DO i=1, totalStep-1
         PRINT *, 'i is ', i
@@ -129,15 +129,15 @@
       TYPE(weight_obj),DIMENSION(length) :: C,D
       TYPE(weight_obj) :: tempw
       INTEGER(KIND=8) :: walker,n1,n2,n3
-      walker=0
-      DO n1=1,length
-        C(n1)=A((j-1)*length+n1)
-        D(n1)=A(j*length+n1)
+      walker = 0
+      DO n1 = 1,length
+        C(n1) = A((j-1)*length+n1)
+        D(n1) = A(j*length+n1)
         PRINT *, 'C(',n1,') is ', C(n1)
         PRINT *, 'D(',n1,') is ', D(n1)
         
       END DO
-      B=A
+      B = A
 
     END SUBROUTINE
 
