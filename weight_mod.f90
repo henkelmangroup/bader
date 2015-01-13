@@ -25,13 +25,15 @@
 
   CONTAINS 
 
-  SUBROUTINE bader_weight_calc(bdr,chg)
+  SUBROUTINE bader_weight_calc(bdr,ions,chg,opts)
 
     ! chgList has 4 slots. 1st is rho, 2 3 4 are the coordinate indices.
     TYPE(weight_obj),ALLOCATABlE,DIMENSION(:) :: chgList, sortedList
     TYPE(bader_obj) :: bdr
     TYPE(charge_obj) :: chg
     TYPE(weight_obj) :: wt
+    TYPE(ions_obj) :: ions
+    TYPE(options_obj) :: opts
     INTEGER(KIND=8) :: totalLength
     INTEGER :: i, j, k, l, n1, n2, n3, walker
         
@@ -80,7 +82,7 @@
 !      PRINT *, ' '
 !    END DO
 
-    END SUBROUTINE bader_bader_calc
+    END SUBROUTINE bader_weight_calc
 
 
 !------------------------------------------------------------------------------------!
@@ -102,7 +104,7 @@
         loopStep=CEILING(SIZE(A)/(2.*length))
         DO j=1,loopStep
           PRINT *, 'j is ',j
-          PRINT *, 'ACCESSING',(j-1)* length ,' to ',j*length
+          PRINT *, 'ACCESSING',(j-1)* length*2 ,' to ',j*length*2
           CALL sort(A,B,length,i,j)
         END DO
       END DO
@@ -129,12 +131,15 @@
       TYPE(weight_obj),DIMENSION(length) :: C,D
       TYPE(weight_obj) :: tempw
       INTEGER(KIND=8) :: walker,n1,n2,n3
-      walker = 0
-      DO n1 = 1,length
-        C(n1) = A((j-1)*length+n1)
-        D(n1) = A(j*length+n1)
-        PRINT *, 'C(',n1,') is ', C(n1)
-        PRINT *, 'D(',n1,') is ', D(n1)
+      walker=0
+      DO n1=1,length
+        PRINT *, 'getting from A:', (j-1)*length+n1,'and',j*length+n1
+        C(n1)=A((j-1)*length*2+n1)
+        D(n1)=A((2*j-1)*length+n1)
+!        PRINT *, 'C(',n1,') is ', C(n1)%rho
+!        PRINT *, C(n1)%x,C(n1)%y,C(n1)%z
+!        PRINT *, 'D(',n1,') is ', D(n1)%rho
+!        PRINT *, D(n1)%x,D(n1)%y,D(n1)%z
         
       END DO
       B = A

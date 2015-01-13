@@ -78,14 +78,14 @@
      CALL read_charge(ions,chgval,opts)
 
      IF (opts%bader_flag) THEN
-       IF (opts%bader_opt == opts%bader_weight) ! Yu-Trinkle weight method
+       IF (opts%bader_opt == opts%bader_weight) THEN! Yu-Trinkle weight method
          CALL bader_weight_calc(bdr,ions,chgval,opts)
        ELSE
          CALL bader_calc(bdr,ions,chgval,opts)
        ENDIF
        CALL bader_mindist(bdr,ions,chgval)
        CALL bader_output(bdr,ions,chgval)
-       IF (opts%find_critpoints) CALL critpoint_find(bdr,chgval,opts)
+       IF (opts%find_critpoints_flag) CALL critpoint_find(bdr,chgval,opts)
      END IF
 
      IF (opts%print_all_bader) CALL write_all_bader(bdr,opts,ions,chgval)

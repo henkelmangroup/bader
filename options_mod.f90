@@ -25,7 +25,7 @@
       LOGICAL :: print_sel_bader, print_sel_atom
       LOGICAL :: print_sum_bader, print_sum_atom
       LOGICAL :: print_bader_index, print_atom_index
-      LOGICAL :: verbose_flag, ref_flag, critpoints_flag
+      LOGICAL :: verbose_flag, ref_flag, find_critpoints_flag
     END TYPE options_obj
 
     PRIVATE
@@ -75,7 +75,7 @@
       opts%badertol = 1.0e-4_q2
       opts%stepsize = 0.0_q2
       opts%ref_flag = .FALSE.
-      opts%critpoints_flag = .FALSE.
+      opts%find_critpoints_flag = .FALSE.
 !      n=IARGC()
       n=COMMAND_ARGUMENT_COUNT()
       IF (n == 0) THEN
@@ -116,7 +116,7 @@
           STOP
         ! Find critical points
         ELSEIF (p(1:ip) == '-cp') THEN
-          opts%critpoints_flag = .TRUE.
+          opts%find_critpoints_flag = .TRUE.
 
         ! Verbose
         ELSEIF (p(1:ip) == '-v') THEN
