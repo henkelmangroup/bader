@@ -32,47 +32,82 @@
     TYPE(bader_obj) :: bdr
     TYPE(charge_obj) :: chg
     TYPE(weight_obj) :: wt
-    INTEGER(KIND=8) :: totalLength, i, j, k, l, n1, n2, n3
-
-    totalLength = chg%npts(1)*chg%npts(2)*chg%npts(3)
+    INTEGER(KIND=8) :: totalLength
+    INTEGER :: i,j,k,l,n1,n2,n3,walker
+        
+!    totalLength=chg%npts(1)*chg%npts(2)*chg%npts(3)
+    totalLength=64 ! for testing purpose only
     PRINT *, totalLength
     ALLOCATE (chgList(totalLength))
     ALLOCATE (sortedList(totalLength))
-    ! first merge sort
-    DO n1=1,chg%npts(1)
-      DO n2=1,chg%npts(2)
-        DO n3=1,chg%npts(3)
-          chgList(n1+n2+n3-2)%rho = chg%
+    ! first merge sort   
+    ! the lines below are commented out so that the program does not actually
+    ! run using the CHGCAR, but the mannualy put in array A
+!    walker=1  
+!    DO n1=1, chg%npts(1)
+!      DO n2=1, chg%npts(2)
+!        DO n3=1,chg%npts(3)
+!          chgList(walker)%rho=rho_val(chg,n1,n2,n2)
+!          chgList(walker)%x=n1
+!          chgList(walker)%y=n2
+!          chgList(walker)%z=n3
+!          walker=walker+1
+!        END DO
+!      END DO
+!    END DO
+    ! Here begins the manual array
+    PRINT *,'PRINTING THE CONTENT OF chgList'
+    walker=0
+    DO n1=1, 4
+      DO n2=1,4
+        DO n3=1,4
+        walker=walker+1
+        chgList(walker)%rho=n1*n2*n3
+        chgList(walker)%x=n1
+        chgList(walker)%y=n2
+        chgList(walker)%z=n3
+        PRINT *, 'chgList(',walker,') is, ',chgList(walker)%rho
+        PRINT *, chgList(walker)%x, chgList(walker)%y, chgList(walker)%z
         END DO
       END DO
     END DO
+    walker=0
     CALL merge_sort(chgList,sortedList)
+!    DO n1=1,totalLength
+!      PRINT *, 'n1', n1
+!      PRINT *, chgList(n1)%rho
+!      PRINT *, chgList(n1)%x,chgList(n1)%y,chgList(n1)%z
+!      PRINT *, ' '
+!    END DO
 
     END SUBROUTINE bader_bader_calc
+
 
 !------------------------------------------------------------------------------------!
 ! merge_sort: sort the array using the 1st element of it. In desending order
 !------------------------------------------------------------------------------------!
 
     SUBROUTINE merge_sort(A,B)
-
-      TYPE(weight_obj),DIMENSION(:) :: A,B
-      TYPE(weight_obj),ALLOCATABLE,DIMENSION(:) :: C,D,E,F
-      REAL(q2) :: totalStep
-      INTEGER :: i,j,k,l,walker
-
-      totalStep = ceiling(Log(Size(A)*1.0_q2)/Log(2.0_q2))
-!      PRINT *, totalStep
-!      PRINT *, ceiling(totalStep)
+      TYPE(weight_obj),DIMENSION(:) :: A
+      TYPE(weight_obj),INTENT(OUT),DIMENSION(:) :: B
+      TYPE(weight_obj) :: tempw
+      REAL(q2) :: totalStep,tempq2
+      INTEGER :: i,j,k,l,walker,n1,n2,n3,length,tempint
+      INTEGER :: loopStep ! the steps it takes to go through A once
+      totalStep=CEILING(LOG(SIZE(A)*1.0_q2)/LOG(2.0_q2))
       walker = 0
-      DO i=1, totalStep
-        ALLOCATE (C(2**i))
-        ALLOCATE (D(2**i))
-        DO j=1,i*2
-          C(j) = A(walker+j)
+      DO i=1, totalStep-1
+        PRINT *, 'i is ', i
+        length=2**(i-1)
+        loopStep=CEILING(SIZE(A)/(2.*length))
+        DO j=1,loopStep
+          PRINT *, 'j is ',j
+          PRINT *, 'ACCESSING',(j-1)* length ,' to ',j*length
+          CALL sort(A,B,length,i,j)
         END DO
-        DEALLOCATE (C,D)
       END DO
+      B=A
+      PRINT *, 'ALL OVER'
 
       ! Each time only 2 arrays will be operated on. The length of the arrays
       ! are 2**n, where n is the number of steps. The first loop over the entire
@@ -80,6 +115,29 @@
       ! loop, each working aray is of half the length of the entire array to be
       ! sorted. There are 2 senarios, the array may be of odd length or even
       ! length.   
+
+    END SUBROUTINE
+ 
+    SUBROUTINE sort(A,B,length,i,j)
+    ! A is the original chgList, B is partially sorted chgList, it will be
+    ! returned to merge_sort. After merge_sort loop finishes, both B will be
+    ! sortedList. length is the length of array that partially sorts A. The
+    ! length varies every time i changes in merge_sort
+      TYPE(weight_obj),DIMENSION(:) :: A
+      TYPE(weight_obj),INTENT(OUT),DIMENSION(:) :: B
+      INTEGER,INTENT(IN) :: length,i,j
+      TYPE(weight_obj),DIMENSION(length) :: C,D
+      TYPE(weight_obj) :: tempw
+      INTEGER(KIND=8) :: walker,n1,n2,n3
+      walker=0
+      DO n1=1,length
+        C(n1)=A((j-1)*length+n1)
+        D(n1)=A(j*length+n1)
+        PRINT *, 'C(',n1,') is ', C(n1)
+        PRINT *, 'D(',n1,') is ', D(n1)
+        
+      END DO
+      B=A
 
     END SUBROUTINE
 
