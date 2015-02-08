@@ -112,7 +112,7 @@
     END DO
  
     PRINT *, 'going to call weight_calc'
-    CALL weight_calc(chgList,sortedList,bdr,chgtemp)
+    CALL weight_calc(sortedList,bdr,chgtemp)
  
   END SUBROUTINE bader_weight_calc
 
@@ -123,9 +123,9 @@
   !-----------------------------------------------------------------------------------!
   ! weight calc 
   !-----------------------------------------------------------------------------------!
-  SUBROUTINE weight_calc(chgList,sortedList,bdr,chgtemp)
+  SUBROUTINE weight_calc(sortedList,bdr,chgtemp)
       ! apply periodic boudary condition first. 
-    TYPE(weight_obj),DIMENSION(:) :: sortedList,chgList
+    TYPE(weight_obj),DIMENSION(:) :: sortedList
     TYPE(bader_obj) :: bdr
     TYPE(charge_obj) :: chgtemp
     INTEGER :: length,i,n1,n2,n3,temp,tempnvol,tempvolnum,temp2
@@ -133,8 +133,6 @@
     INTEGER,DIMENSION(3) :: npos !neighbor position
     INTEGER,DIMENSION(3) :: xyz ! xyz indexes of current point 
     INTEGER :: nboundary,ninterior
-    LOGICAL :: fb ! first bigger neighbor
-
     PRINT *, 'CALLED'
     bdr%nvols=0 
     length=SIZE(sortedList)
@@ -147,100 +145,43 @@
       ! count number of neighbors with higher density
 !      i=9
       sortedList(i)%hdn=0
-      fb=.TRUE.
       xyz(1)=sortedList(i)%pos(1)
       xyz(2)=sortedList(i)%pos(2)
       xyz(3)=sortedList(i)%pos(3)
+      npos=xyz+(/1,0,0/)
+      CALL  &
+neighbors(bdr,npos,xyz,chgtemp,sortedList,nboundary,ninterior,i,tempnvol)
+      npos=xyz+(/-1,0,0/)
+      CALL  &
+neighbors(bdr,npos,xyz,chgtemp,sortedList,nboundary,ninterior,i,tempnvol)
+      npos=xyz+(/0,1,0/)
+      CALL  &
+neighbors(bdr,npos,xyz,chgtemp,sortedList,nboundary,ninterior,i,tempnvol)
+      npos=xyz+(/0,-1,0/)
+      CALL  &
+neighbors(bdr,npos,xyz,chgtemp,sortedList,nboundary,ninterior,i,tempnvol)
+      npos=xyz+(/0,0,1/)
+      CALL  &
+neighbors(bdr,npos,xyz,chgtemp,sortedList,nboundary,ninterior,i,tempnvol)
+      npos=xyz+(/0,0,-1/)
+      CALL  &
+neighbors(bdr,npos,xyz,chgtemp,sortedList,nboundary,ninterior,i,tempnvol)
 
-      DO n1=-1,1
-        DO n2=-1,1
-          DO n3=-1,1
-            npos=xyz+(/n1,n2,n3/)
-            CALL pbc(npos,chgtemp%npts)
-!            PRINT *,'BEFORE FIRST IF'
-!            PRINT *, 'looking at point',npos(1),npos(2),npos(3)
-!            PRINT *, 'value is',chgtemp%rho(npos(1),npos(2),npos(3))
-!            PRINT *, 'We are sitting on',sortedList(i)%pos(1),&
-!              sortedList(i)%pos(2),sortedList(i)%pos(3)
-            IF (sortedList(i)%rho<chgtemp%rho(npos(1),npos(2),npos(3))) THEN
-              ! 1 neighbor with higher density
-              sortedList(i)%hdn = sortedList(i)%hdn+1
-              ! read its volnum, if is the first, record its volnum
-!              tempvolnum=bdr%volnum(npos(1),npos(2),npos(3))
-!              PRINT *, 'BEFORE SECOND IF'
-              IF (fb) THEN
-                fb=.FALSE.
-                ! The volnum of neighbors need to be kept track of
-                tempnvol=1 !
-                tempvolnum=bdr%volnum(npos(1),npos(2),npos(3))
-                IF (xyz(1)==61 .AND. xyz(2)==61 .AND. xyz(3)==91) THEN
-                  PRINT *,'IF'
-                END IF
-!                PRINT *, 'WE ARE AT POINT',xyz(1),xyz(2),xyz(3)
-!                PRINT *,'WE ARE LOOKING AT POINT',npos(1),npos(2),npos(3)
-!                PRINT *,'bdr%volnum(npos(1),npos(2),npos(3)) IS'
-!                PRINT *,bdr%volnum(npos(1),npos(2),npos(3))
-!                PRINT *, 'and tempvolnum is'
-!                PRINT *, tempvolnum
-!                PRINT *,'91 91 31 has volnum', bdr%volnum(91,91,31)
-!                PRINT *, 'tempvolnum is', tempvolnum
-                ELSE IF(bdr%volnum(npos(1),npos(2),npos(3))/=tempvolnum) THEN
-                  ! More than one neighbors with higher density has been found
-                  IF (xyz(1)==61 .AND. xyz(2)==61 .AND. xyz(3)==91) THEN
-                    PRINT *, 'ELSE IF'
-                  END IF
-                  tempnvol=tempnvol+1
-!                ELSE 
-                  ! All bigger neighbors has the same volnum
-!                  bdr%volnum(npos(1),npos(2),npos(3))=tempvolnum
-!                  PRINT *, 'ELSE'
-              END IF
-              IF (xyz(1)==61 .AND. xyz(2)==61 .AND. xyz(3)==91) THEN
-                PRINT *, 'SITTING ON 61 61 91, SHOULD BE A BOUNDARY POINT'
-                PRINT *, 'LOOKING AT',npos(1),npos(2),npos(3)
-                PRINT *, 'IT HAS bdr volnum',bdr%volnum(npos(1),npos(2),npos(3)) 
-                PRINT *, 'TEMPNVOL IS', tempnvol       
-                PRINT *, 'tempvolnum is', tempvolnum
-              END IF
-!              PRINT *, 'AFTER SECOND IF'  
-            END IF                    
-            !PRINT *, 'AFTER FIRST IF'
-            !PRINT *,'N1 N2 N3 ARE '
-            !PRINT *, n1,n2,n3            
-          END DO
-        END DO
-      END DO
-!      PRINT *,'OUT OF DO'
-!      PRINT *, 'tempnvol is ', tempnvol
-      IF (sortedList(i)%hdn==0) THEN
-!        PRINT *,'FOUND A LOCAL MAXIMUM'
-        bdr%nvols=bdr%nvols+1
-!        PRINT *, 'nvols is now', bdr%nvols
-        bdr%volnum(xyz(1),xyz(2),xyz(3))=bdr%nvols
-!        PRINT *,'TO POINT',xyz(1),xyz(2),xyz(3)
-!        PRINT *, 'it now has volnum',bdr%volnum(xyz(1),xyz(2),xyz(3))
-!        PRINT *, 'GIVEN volnum'
-!        PRINT *, '91,91,31 has volnum',  bdr%volnum(91,91,31)
-      END IF 
-!      PRINT *,'tempnvol is ' ,tempnvol 
-      IF (tempnvol >1 ) THEN
+    IF (tempnvol >1 ) THEN
         ! is a boundary point
-        nboundary=nboundary+1
-      END IF
-      IF (tempnvol==1) THEN
-        ! is an interior point. 
-        bdr%volnum(xyz(1),xyz(2),xyz(3))=tempvolnum
-        ninterior=ninterior+1
-      END IF  
-
+      nboundary=nboundary+1
+    END IF
+    IF (tempnvol==1) THEN
+      ! is an interior point. 
+      bdr%volnum(xyz(1),xyz(2),xyz(3))=tempvolnum
+      ninterior=ninterior+1
+    END IF  
       IF (i>temp) THEN
         temp2=temp2+1
         PRINT *, temp2 ,'percent done'
         temp=temp+SIZE(sortedList)/100
       END IF
-!      PRINT *, 'i is ',i
-!      IF (I>=10) EXIT
-        
+
 
     END DO
     PRINT *, 'the number of boundary points are ', nboundary 
@@ -251,6 +192,90 @@
 !    PRINT *, bdr%volnum(10,10,10)
     !PRINT *, sortedList(990)%pos +(/3,3,3/)
   END SUBROUTINE
+
+  SUBROUTINE  neighbors(bdr,npos,xyz,chgtemp,sortedList,&
+                nboundary,ninterior,i,tempnvol)
+  TYPE(weight_obj),DIMENSION(:) :: sortedList
+  TYPE(bader_obj) :: bdr
+  TYPE(charge_obj) :: chgtemp  
+  INTEGER,DIMENSION(3) :: npos,xyz
+  INTEGER :: nboundary,ninterior
+  LOGICAL :: fb ! first bigger neighbor
+  INTEGER :: temp,tempnvol,tempvolnum,temp2,i
+    fb=.TRUE.
+    CALL pbc(npos,chgtemp%npts)
+!    PRINT *,'BEFORE FIRST IF'
+!    PRINT *, 'looking at point',npos(1),npos(2),npos(3)
+!    PRINT *, 'value is',chgtemp%rho(npos(1),npos(2),npos(3))
+!    PRINT *, 'We are sitting on',sortedList(i)%pos(1),&
+!      sortedList(i)%pos(2),sortedList(i)%pos(3)
+    IF (sortedList(i)%rho<chgtemp%rho(npos(1),npos(2),npos(3))) THEN
+      ! 1 neighbor with higher density
+      sortedList(i)%hdn = sortedList(i)%hdn+1
+      ! read its volnum, if is the first, record its volnum
+!      tempvolnum=bdr%volnum(npos(1),npos(2),npos(3))
+!      PRINT *, 'BEFORE SECOND IF'
+      IF (fb) THEN
+        fb=.FALSE.
+        ! The volnum of neighbors need to be kept track of
+        tempnvol=1 !
+        tempvolnum=bdr%volnum(npos(1),npos(2),npos(3))
+        IF (xyz(1)==61 .AND. xyz(2)==61 .AND. xyz(3)==91) THEN
+          PRINT *,'IF'
+        END IF
+!        PRINT *, 'WE ARE AT POINT',xyz(1),xyz(2),xyz(3)
+!        PRINT *,'WE ARE LOOKING AT POINT',npos(1),npos(2),npos(3)
+!        PRINT *,'bdr%volnum(npos(1),npos(2),npos(3)) IS'
+!        PRINT *,bdr%volnum(npos(1),npos(2),npos(3))
+!        PRINT *, 'and tempvolnum is'
+!        PRINT *, tempvolnum
+!        PRINT *,'91 91 31 has volnum', bdr%volnum(91,91,31)
+!        PRINT *, 'tempvolnum is', tempvolnum
+        ELSE IF(bdr%volnum(npos(1),npos(2),npos(3))/=tempvolnum) THEN
+          ! More than one neighbors with higher density has been found
+          IF (xyz(1)==61 .AND. xyz(2)==61 .AND. xyz(3)==91) THEN
+            PRINT *, 'ELSE IF'
+          END IF
+          tempnvol=tempnvol+1
+!        ELSE 
+          ! All bigger neighbors has the same volnum
+!          bdr%volnum(npos(1),npos(2),npos(3))=tempvolnum
+!          PRINT *, 'ELSE'
+      END IF
+      IF (xyz(1)==61 .AND. xyz(2)==61 .AND. xyz(3)==91) THEN
+        PRINT *, 'SITTING ON 61 61 91, SHOULD BE A BOUNDARY POINT'
+        PRINT *, 'LOOKING AT',npos(1),npos(2),npos(3)
+        PRINT *, 'IT HAS bdr volnum',bdr%volnum(npos(1),npos(2),npos(3)) 
+        PRINT *, 'TEMPNVOL IS', tempnvol       
+        PRINT *, 'tempvolnum is', tempvolnum
+      END IF
+!      PRINT *, 'AFTER SECOND IF'  
+    END IF                    
+    !PRINT *, 'AFTER FIRST IF'
+    !PRINT *,'N1 N2 N3 ARE '
+    !PRINT *, n1,n2,n3            
+!      PRINT *,'OUT OF DO'
+!      PRINT *, 'tempnvol is ', tempnvol
+    IF (sortedList(i)%hdn==0) THEN
+!        PRINT *,'FOUND A LOCAL MAXIMUM'
+      bdr%nvols=bdr%nvols+1
+!        PRINT *, 'nvols is now', bdr%nvols
+      bdr%volnum(xyz(1),xyz(2),xyz(3))=bdr%nvols
+!        PRINT *,'TO POINT',xyz(1),xyz(2),xyz(3)
+!        PRINT *, 'it now has volnum',bdr%volnum(xyz(1),xyz(2),xyz(3))
+!        PRINT *, 'GIVEN volnum'
+!        PRINT *, '91,91,31 has volnum',  bdr%volnum(91,91,31)
+    END IF 
+!      PRINT *,'tempnvol is ' ,tempnvol 
+
+
+
+!    PRINT *, 'i is ',i
+!    IF (I>=10) EXIT
+      
+
+  END SUBROUTINE
+
 
 
   ! This subroutine is not needed. The needed information is in chgtemp
