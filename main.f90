@@ -83,8 +83,10 @@
        ELSE
          CALL bader_calc(bdr,ions,chgval,opts)
        ENDIF
-       CALL bader_mindist(bdr,ions,chgval)
-       CALL bader_output(bdr,ions,chgval)
+       IF (opts%bader_opt /=opts%bader_weight) THEN
+         CALL bader_mindist(bdr,ions,chgval)
+         CALL bader_output(bdr,ions,chgval)
+       END IF
        IF (opts%find_critpoints_flag) CALL critpoint_find(bdr,chgval,opts)
      END IF
 
