@@ -12,7 +12,7 @@ MODULE matrix_mod
   PUBLIC :: matrix_3x3_inverse
   PUBLIC :: scalar_matrix,matrix_addition,matrix_substraction
   PUBLIC :: scalar_vector,vector_addition,vector_substraction
-  PUBLIC :: cross_product,det,find_vector
+  PUBLIC :: cross_product,det,find_vector,find_area
   CONTAINS
 
 !-----------------------------------------------------------------------------------!
@@ -319,6 +319,19 @@ MODULE matrix_mod
 
 
   END SUBROUTINE
+
+!-----------------------------------------------------------------------------------!
+! find_area : find the area of a parallelogram defined by two vectors
+!-----------------------------------------------------------------------------------!
+  SUBROUTINE find_area(v1,v2,area)
+    REAL(q2),INTENT(IN),DIMENSION(3) :: v1,v2
+    REAL(q2),DIMENSION(3) :: tempvec
+    REAL(q2),INTENT(OUT) :: area
+    CALL CROSS_PRODUCT(v1,v2,tempvec)
+    area=SQRT(tempvec(1)**2+tempvec(2)**2+tempvec(3)**2)
+    RETURN
+  END SUBROUTINE
+
 !-----------------------------------------------------------------------------------!
 
 END MODULE matrix_mod

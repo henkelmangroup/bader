@@ -24,7 +24,7 @@
       ! area of the plane shared by two boundary cells will be not calculated
       ! correctly
       INTEGER,DIMENSION(6) :: nbrvol ! volnum of neighbors
-      REAL(q2),DIMENSION(6) :: volwgt ! weight to the basin of the neighbor
+      REAL(q2),DIMENSION(6) :: volwgt,nbrflx,nbrwgt ! weight to the basin and flux to a neighbor
       LOGICAL :: isInterior
     END TYPE
 
@@ -77,6 +77,9 @@
           chgList(walker)%pos(3)=n3
           walker=walker+1
           chgList(walker)%isInterior=.FALSE.
+          chgList(walker)%nbrvol=(/0,0,0,0,0,0/)
+          chgList(walker)%volwgt=(/0,0,0,0,0,0/)
+          chgList(walker)%nbrflx=(/0,0,0,0,0,0/)
         END DO
       END DO
     END DO
@@ -84,6 +87,8 @@
     PRINT *,'THIS IS IN WEIGHT. CHGVAL AT 91 91 31 IS',chgval%rho(91,91,31)
     PRINT *,'THIS IS IN WEIGHT. CHGTEMP AT 90 90 30 IS',chgtemp%rho(90,90,30)
     PRINT *,'THIS IS IN WEIGHT. CHGTEMP AT 91 91 31 IS',chgtemp%rho(91,91,31)
+    PRINT *, 'the lattice vectors are',ions%lattice(1,:)
+    PRINT *, 2/2,3/2,4/2,5/2,6/2,7/2
 
 
 
@@ -118,7 +123,7 @@
     END DO
  
     PRINT *, 'going to call weight_calc'
-    CALL weight_calc(sortedList,bdr,chgtemp,chgval,chgList)
+    CALL weight_calc(sortedList,bdr,chgtemp,chgval,chgList,ions)
  
   END SUBROUTINE bader_weight_calc
 
@@ -129,14 +134,15 @@
   !-----------------------------------------------------------------------------------!
   ! weight calc 
   !-----------------------------------------------------------------------------------!
-  SUBROUTINE weight_calc(sortedList,bdr,chgtemp,chgval,chgList)
-      ! apply periodic boudary condition first. 
+  SUBROUTINE weight_calc(sortedList,bdr,chgtemp,chgval,chgList,ions)
+      ! apply periodic boudary condition first. ?????
     TYPE(weight_obj),DIMENSION(:) :: sortedList,chgList
     TYPE(bader_obj) :: bdr
     TYPE(charge_obj) :: chgtemp,chgval
+    TYPE(ions_obj) :: ions
     INTEGER :: length,i,n1,n2,n3,temp,tempnvol,tempvolnum,temp2,j
-    REAL(q2) :: temprho,denom,rho
-    REAL(q2),DIMENSION(6) :: nom
+    REAL(q2) :: temprho,denom,rho,areasum
+    REAL(q2),DIMENSION(6) :: nom,area
     INTEGER,DIMENSION(3) :: npos !neighbor position
     INTEGER,DIMENSION(3) :: xyz ! xyz indexes of current point 
     INTEGER :: nbd,nin,hdn,temppos,ots ! one to six
@@ -156,8 +162,10 @@
       xyz(1)=sortedList(i)%pos(1)
       xyz(2)=sortedList(i)%pos(2)
       xyz(3)=sortedList(i)%pos(3)
+
       npos=xyz+(/1,0,0/)
       denom=0
+      areasum=0
       DO j=1,6
         nom(j) = 0
         sortedList(i)%nbrvol(j)=0
@@ -167,33 +175,33 @@
       fb=.TRUE.
       ! %nbr(1),%vonwgt(1)
       ots=1  
-      CALL neighbors(bdr,npos,xyz,chgtemp,rho,nbd,nin,i, & 
-tempnvol,tempvolnum,hdn,fb,sortedList,denom,nom,ots)
+      CALL neighbors(bdr,npos,xyz,chgtemp,rho,nbd,nin,i,ions, & 
+tempnvol,tempvolnum,hdn,fb,sortedList,denom,nom,ots,area,areasum)
       npos=xyz+(/-1,0,0/)
       ! %nbr(2),%vonwgt(2)
       ots=2  
-      CALL neighbors(bdr,npos,xyz,chgtemp,rho,nbd,nin,i, & 
-tempnvol,tempvolnum,hdn,fb,sortedList,denom,nom,ots)
+      CALL neighbors(bdr,npos,xyz,chgtemp,rho,nbd,nin,i,ions, & 
+tempnvol,tempvolnum,hdn,fb,sortedList,denom,nom,ots,area,areasum)
       npos=xyz+(/0,1,0/)
       ! %nbr(3),%vonwgt(3)
       ots=3  
-      CALL neighbors(bdr,npos,xyz,chgtemp,rho,nbd,nin,i, & 
-tempnvol,tempvolnum,hdn,fb,sortedList,denom,nom,ots)
+      CALL neighbors(bdr,npos,xyz,chgtemp,rho,nbd,nin,i,ions, & 
+tempnvol,tempvolnum,hdn,fb,sortedList,denom,nom,ots,area,areasum)
       npos=xyz+(/0,-1,0/)
       ! %nbr(4),%vonwgt(4)
       ots=4  
-      CALL neighbors(bdr,npos,xyz,chgtemp,rho,nbd,nin,i, &
-tempnvol,tempvolnum,hdn,fb,sortedList,denom,nom,ots)
+      CALL neighbors(bdr,npos,xyz,chgtemp,rho,nbd,nin,i,ions, &
+tempnvol,tempvolnum,hdn,fb,sortedList,denom,nom,ots,area,areasum)
       npos=xyz+(/0,0,1/)
       ! %nbr(5),%vonwgt(5)
       ots=5  
-      CALL neighbors(bdr,npos,xyz,chgtemp,rho,nbd,nin,i, &
-tempnvol,tempvolnum,hdn,fb,sortedList,denom,nom,ots)
+      CALL neighbors(bdr,npos,xyz,chgtemp,rho,nbd,nin,i,ions, &
+tempnvol,tempvolnum,hdn,fb,sortedList,denom,nom,ots,area,areasum)
       npos=xyz+(/0,0,-1/)
       ! %nbr(6),%vonwgt(6)
       ots=6  
-      CALL neighbors(bdr,npos,xyz,chgtemp,rho,nbd,nin,i, & 
-tempnvol,tempvolnum,hdn,fb,sortedList,denom,nom,ots)
+      CALL neighbors(bdr,npos,xyz,chgtemp,rho,nbd,nin,i,ions, & 
+tempnvol,tempvolnum,hdn,fb,sortedList,denom,nom,ots,area,areasum)
       ! This finds the coresponding entry in chgList before sorting
 !      IF (xyz(1)==1 .AND. xyz(2)==1 .AND. xyz(3)==1) THEN
 !        PRINT *,'------------------- NEW ENTRY ------------------'
@@ -211,11 +219,14 @@ tempnvol,tempvolnum,hdn,fb,sortedList,denom,nom,ots)
 !        PRINT *, 'correspond to this point in chglist', chgList(temppos)%pos
 !        PRINT *, 'tempvolnum is', tempvolnum
 !      END IF
-      IF (tempnvol >1 ) THEN
+      IF (tempnvol >1 .OR. tempvolnum==0 ) THEN
         ! is a boundary point
         nbd=nbd+1
         sortedList(i)%isInterior = .FALSE.
         chgList(temppos)%isInterior=.FALSE.
+        ! Need to calculate the weight for each of those neighbors. denom should
+        ! be working. Need to find area, cross ptoducts of vectors.
+        
       END IF
       IF (tempnvol==1 .AND. tempvolnum/=0 ) THEN
         ! is an interior point. 
@@ -224,11 +235,17 @@ tempnvol,tempvolnum,hdn,fb,sortedList,denom,nom,ots)
 !        nin=nin+1
         sortedList(i)%isInterior= .TRUE.
         chgList(temppos)%isInterior= .TRUE.
+        sortedList(i)%nbrvol(1)=tempvolnum
+        sortedList(i)%volwgt(1)=1
       END IF  
 
       IF (sortedList(i)%isInterior) THEN
         nin=nin+1
       END IF 
+      ! I need to take care of boundary points right here. After ots has went
+      ! from 1 to 6, all flux can be calculated.
+
+
 
 !      IF (xyz(1)==1 .AND. xyz(2)==1 .AND. xyz(3)==1) THEN
 !        PRINT *, 'tempnvol is ',tempnvol
@@ -242,19 +259,19 @@ tempnvol,tempvolnum,hdn,fb,sortedList,denom,nom,ots)
 !      END IF
 
       DO j=1,6
-        sortedList(i)%volwgt(j)=nom(j)/denom
+        sortedList(i)%nbrflx(j)=nom(j)/denom
       END DO
+      ! after all flux is calculated, look at each neighbor's basin assignment
+      ! and weight. Need to look into either chgList or sortedList
+      ! USE some subroutine to do this.
+!      CALL get_neighbor_weight(sortedList,chgList,npos,i,chgtemp)
+
       IF (i>temp) THEN
         temp2=temp2+1
         PRINT *, temp2*20 ,'percent done'
         temp=temp+SIZE(sortedList)/5
       END IF
-      IF (xyz(1)==61 .AND. xyz(2)==61 .AND. xyz(3)==91) THEN
-
-      END IF      
-
-        
-
+       
 
       IF (hdn==0) THEN
 !          PRINT *,'FOUND A LOCAL MAXIMUM'
@@ -268,13 +285,23 @@ tempnvol,tempvolnum,hdn,fb,sortedList,denom,nom,ots)
 !          PRINT *, '91,91,31 has volnum',  bdr%volnum(91,91,31)
       END IF 
 !      PRINT *, sortedList(i)%isInterior
-    END DO
+!      IF (.NOT. sortedList(i)%isInterior .AND. tempnvol<=1) THEN
+!        PRINT *, sortedList(i)%pos
+!      END IF
+!      IF (bdr%volnum(xyz(1),xyz(2),xyz(3))==0) THEN
+!        PRINT *, xyz
+!      END IF
 
+    END DO
     ALLOCATE(bdr%volchg(bdr%nvols))
     bdr%volchg = 0._q2
 !    PRINT *, 'Adding up charges'
 !    PRINT *, 'bdr%nvols is',bdr%nvols
     ! how to go from x y z to sorted i?
+
+    ! This is flux to each neighbor
+
+
     DO n1 = 1,chgval%npts(1)
       DO n2 = 1,chgval%npts(2)
         DO n3 = 1,chgval%npts(3)
@@ -283,6 +310,7 @@ tempnvol,tempvolnum,hdn,fb,sortedList,denom,nom,ots)
           IF (chgList(i)%isInterior==.FALSE.) THEN
             ! Boundary points have a 6 slot array. Some of them have information
             ! about where the density is flowing to. Need to look at all of them
+            ! But first lets find flux
             CYCLE
           END IF
 
@@ -311,76 +339,108 @@ tempnvol,tempvolnum,hdn,fb,sortedList,denom,nom,ots)
     !PRINT *, sortedList(990)%pos +(/3,3,3/)
   END SUBROUTINE
 
-  SUBROUTINE  neighbors(bdr,npos,xyz,chgtemp,rho,&
-                nboundary,ninterior,i,tempnvol,tempvolnum,hdn,fb,sortedList, & 
-                denom,nom,ots)
+  SUBROUTINE  neighbors(bdr,npos,xyz,chgtemp,rho, nboundary,ninterior,i &
+                ,ions,tempnvol,tempvolnum,hdn,fb,sortedList, & 
+                denom,nom,ots,area,areasum )
   TYPE(weight_obj),DIMENSION(:) :: sortedList
   TYPE(bader_obj) :: bdr
   TYPE(charge_obj) :: chgtemp  
+  TYPE(ions_obj) :: ions
   INTEGER,DIMENSION(3) :: npos,xyz
+  REAL(q2),DIMENSION(3) ::  v1,v2,v3
   INTEGER :: nboundary,ninterior,ots
   LOGICAL :: fb ! first bigger neighbor
   INTEGER :: temp,tempnvol,tempvolnum,temp2,i,hdn
-  REAL(q2) :: rho,denom
-  REAL(q2),DIMENSION(6) :: nom
+  REAL(q2) :: rho,denom,areasum
+  REAL(q2),DIMENSION(6) :: nom,area
     CALL pbc(npos,chgtemp%npts)
     IF (rho<chgtemp%rho(npos(1),npos(2),npos(3))) THEN
-      denom=denom+chgtemp%rho(npos(1),npos(2),npos(3))
-      nom(ots)=chgtemp%rho(npos(1),npos(2),npos(3))
+      v1=ions%lattice(1,:)
+      v2=ions%lattice(2,:)
+      v3=ions%lattice(3,:)
+      If (ots ==1 .OR. ots ==2) THEN
+        ! a step taken in the x direction
+        CALL FIND_AREA(v2,v3,area(ots))
+        denom=denom+ SQRT(v1(1)**2+v1(2)**2+v1(3)**2)* &
+          (chgtemp%rho(npos(1),npos(2),npos(3))-rho)*area(ots)
+        nom(ots)=chgtemp%rho(npos(1),npos(2),npos(3))*area(ots)* &
+          (chgtemp%rho(npos(1),npos(2),npos(3))-rho)
+      ELSE IF ( ots == 3 .OR. ots ==4) THEN
+        CALL FIND_AREA(v1,v3,area(ots))
+        denom=denom+ SQRT(v1(1)**2+v1(2)**2+v1(3)**2)* &
+          (chgtemp%rho(npos(1),npos(2),npos(3))-rho)*area(ots)
+        nom(ots)=chgtemp%rho(npos(1),npos(2),npos(3))*area(ots)* &
+          (chgtemp%rho(npos(1),npos(2),npos(3))-rho)
+      ELSE IF ( ots == 5 .OR. ots ==6) THEN
+        CALL FIND_AREA(v1,v2,area(ots))
+        denom=denom+ SQRT(v1(1)**2+v1(2)**2+v1(3)**2)* &
+          (chgtemp%rho(npos(1),npos(2),npos(3))-rho)*area(ots)
+        nom(ots)=chgtemp%rho(npos(1),npos(2),npos(3))*area(ots)* &
+          (chgtemp%rho(npos(1),npos(2),npos(3))-rho)
+      END IF
+      areasum=areasum+area(ots)
       ! 1 neighbor with higher density
       hdn =hdn+1
+      sortedList(i)%nbrvol(ots)=bdr%volnum(npos(1),npos(2),npos(3))
+      ! Thus far I have the information of each cell's flux towards neighbor
+      ! cells. I still need to look up neighbor's weight. It is easy when
+      ! neighbors are interior points. But if neighbor is a boundary point it
+      ! self, then this flux goes to different basis. Need to look up neighbors'
+      ! weight towards each basin. 
+
+
       ! read its volnum, if is the first, record its volnum
       IF (fb) THEN
         fb=.FALSE.
         ! The volnum of neighbors need to be kept track of
         tempnvol=1 !
         tempvolnum=bdr%volnum(npos(1),npos(2),npos(3))
-        sortedList(i)%nbrvol(ots)=bdr%volnum(npos(1),npos(2),npos(3))
 !        IF (xyz(1)== 1 .AND. xyz(2)== 1 .AND. xyz(3)== 1 ) THEN
 !          PRINT *,'1 1 1 in basin', bdr%volnum(1,1,1)
 !          PRINT *,'looking into basin ',bdr%volnum(npos(1),npos(2),npos(3))
 !          PRINT *, 'temp volnum is', tempvolnum
 !        END IF
       ELSE IF(bdr%volnum(npos(1),npos(2),npos(3))/=tempvolnum) THEN
+        ! I'm a boundary point. 
         ! More than one neighbors with higher density has been found
         tempnvol=tempnvol+1
+        sortedList(i)%nbrvol(ots)=bdr%volnum(npos(1),npos(2),npos(3))
       END IF
 
 !      PRINT *, 'AFTER SECOND IF'  
     END IF                    
-!    IF (xyz(1)==1 .AND. xyz(2)==1 .AND. xyz(3)==1) THEN
-!      PRINT *, 'SITTING ON 1 1 1, SHOULD BE A BOUNDARY POINT'
-!      PRINT *, 'LOOKING AT',npos(1),npos(2),npos(3)
-!      PRINT *, 'IT HAS bdr volnum',bdr%volnum(npos(1),npos(2),npos(3)) 
-!      PRINT *, 'TEMPNVOL IS', tempnvol       
-!      PRINT *, 'tempvolnum is', tempvolnum
-!    END IF
+    IF (xyz(1)==31 .AND. xyz(2)==31 .AND. xyz(3)==66) THEN
+      PRINT *, 'SITTING ON 1 1 1, SHOULD BE A BOUNDARY POINT'
+      PRINT *, 'LOOKING AT',npos(1),npos(2),npos(3)
+      PRINT *, 'IT HAS bdr volnum',bdr%volnum(npos(1),npos(2),npos(3)) 
+      PRINT *, 'TEMPNVOL IS', tempnvol       
+      PRINT *, 'tempvolnum is', tempvolnum
+      PRINT *, 'nbrvol of this point is', sortedList(i)%nbrvol
+    END IF
       
 
   END SUBROUTINE
 
 
-
-  ! This subroutine is not needed. The needed information is in chgtemp
-  SUBROUTINE get_unordered_rho(chgList,p1,p2,p3,temprho,chgtemp)
-    INTEGER :: p1,p2,p3,origin_index
-    REAL(q2) :: temprho
-    TYPE(weight_obj),DIMENSION(:) :: chgList
+  SUBROUTINE get_neighbor_weight(sortedList,chgList,npos,i,chgtemp)
+    TYPE(weight_obj),DIMENSION(:) :: sortedList,chgList
     TYPE(charge_obj) :: chgtemp
-    ! find the entry in chgList using coordinates. 
-    origin_index=(p1-1)*chgtemp%npts(2)*chgtemp%npts(3)+chgtemp%npts(3)*(p2-1)+p3
-    temprho=chgList(origin_index)%rho
-    RETURN
-  END SUBROUTINE 
-
-
-
-
-
-
-
-
-
+    INTEGER,DIMENSION(3) :: npos
+    INTEGER :: i,n1,n2,nindex
+    ! Assumes that the neighbor does not have weight to a basin that this
+    ! boundary point has no flux to
+    CALL pbc(npos,chgtemp%npts)
+    nindex=(npos(1)-1)*chgtemp%npts(2)*chgtemp%npts(3)+(npos(2)-1)*chgtemp%npts(3)&
+      +npos(3)
+    DO n1=1,6
+      DO n2=1,6
+        IF (chgList(nindex)%nbrvol(n2)==sortedList(i)%nbrvol(n1)) THEN
+          sortedList(i)%volwgt(n1)=sortedList(i)%nbrflx(n1)*chgList(nindex)%volwgt(n2)
+        
+        END IF
+      END DO
+    END DO
+  END SUBROUTINE
 
   !-----------------------------------------------------------------------------------!
   !Quick_sort: Modified from the original program (info given below)
