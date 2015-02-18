@@ -250,6 +250,8 @@ MODULE bader_mod
       END DO
     END DO
     bdr%volchg = bdr%volchg/REAL(chgval%nrho,q2)
+    PRINT *, 'nrho is', chgval%nrho
+    PRINT *, 'bdr%volchg is', bdr%volchg
 
     ALLOCATE(bdr%nnion(bdr%nvols), bdr%iondist(bdr%nvols), bdr%ionchg(ions%nions))
     CALL assign_chg2atom(bdr,ions,chgval)
