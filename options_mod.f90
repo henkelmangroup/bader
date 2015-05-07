@@ -13,6 +13,7 @@
       INTEGER :: in_opt, in_auto = 0, in_cube = 1, in_chgcar = 2, in_chgcar4 = 3,in_chgcar5 = 4
       INTEGER :: ref_in_opt
       INTEGER :: bader_opt, bader_offgrid = 0, bader_ongrid = 1, bader_neargrid = 2, bader_weight = 3
+      INTEGER :: bader_brute = 4
       INTEGER :: quit_opt, quit_max = 0, quit_known = 1
       INTEGER :: refine_edge_itrs
 ! refine_edge_itrs=-1 check points around the reassigned points during refinement
@@ -152,6 +153,8 @@
             opts%bader_opt = opts%bader_neargrid
           ELSEIF (inc(1:it) == 'WEIGHT' .OR. inc(1:it) == 'weight') THEN
             opts%bader_opt = opts%bader_weight
+          ELSEIF (inc(1:it) == 'BRUTE' .OR. inc(1:it)== 'brute' ) THEN
+            opts%bader_opt = opts%bader_brute
           ELSE
             WRITE(*,'(A,A,A)') ' Unknown option "',inc(1:it),'"'
             STOP

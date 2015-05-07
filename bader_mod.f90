@@ -74,10 +74,6 @@ MODULE bader_mod
       chgtemp = chgval
     END IF
       
-    PRINT *,'THIS IS IN BADER. CHGVAL AT 90 90 30 IS',chgval%rho(90,90,30)
-    PRINT *,'THIS IS IN BADER. CHGVAL AT 91 91 31 IS',chgval%rho(91,91,31)
-    PRINT *,'THIS IS IN BADER. CHGTEMP AT 90 90 30 IS',chgtemp%rho(90,90,30)
-    PRINT *,'THIS IS IN BADER. CHGTEMP AT 91 91 31 IS',chgtemp%rho(91,91,31)    
 
     CALL SYSTEM_CLOCK(t1,cr,count_max)
 
@@ -1450,7 +1446,7 @@ MODULE bader_mod
     sum_ionchg = SUM(bdr%ionchg)
     ne = SUM(bdr%volchg(1:bdr%nvols)) + bdr%vacchg
     DO i = 1,ions%nions
-      WRITE(100,'(1I5,7F12.4)') i,ions%r_car(i,:),bdr%ionchg(i),bdr%minsurfdist(i),bdr%ionvol(i)
+      WRITE(100,'(1I5,7F12.9)') i,ions%r_car(i,:),bdr%ionchg(i),bdr%minsurfdist(i),bdr%ionvol(i)
     END DO
     WRITE(100,'(A,A)') ' ----------------------------------------------------------------',&
     &                  '----------------'

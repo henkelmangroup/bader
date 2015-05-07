@@ -58,6 +58,7 @@
      USE multipole_mod
      USE critpoints_mod
      USE weight_mod    
+     USE brute_mod
      IMPLICIT NONE
 
      ! Variables
@@ -76,10 +77,11 @@
 
      ! Call the read routines from io_mod
      CALL read_charge(ions,chgval,opts)
-     PRINT *, 'THIS IS IN MAIN. CHGVAL AT 91 91 31 IS ',chgval%rho(91,91,31)
      IF (opts%bader_flag) THEN
        IF (opts%bader_opt == opts%bader_weight) THEN! Yu-Trinkle weight method
          CALL bader_weight_calc(bdr,ions,chgval,opts)
+       ELSEIF (opts%bader_opt == opts%bader_brute) THEN
+         CALL brute_force(bdr,ions,chgval,opts)
        ELSE
          CALL bader_calc(bdr,ions,chgval,opts)
        ENDIF

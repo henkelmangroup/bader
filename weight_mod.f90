@@ -40,7 +40,7 @@
     TYPE(options_obj) :: opts
     INTEGER(KIND=8) :: totalLength,temp
     INTEGER :: i, j, k, l, n1, n2, n3, walker
-    REAL(q2) :: tempflx
+    REAL(q2) :: tempflx,totalE
     IF (opts%ref_flag) THEN
       CALL read_charge_ref(ionstemp,chgtemp,opts)
     ELSE
@@ -107,17 +107,16 @@
     bdr%volchg = bdr%volchg/REAL(chgval%nrho,q2)
     PRINT *, 'nrho is ',chgval%nrho
     PRINT *,bdr%volchg
-    PRINT *, 'checking for anormalies'
-    ! nothing obviously wrong with flx
+    totalE=0
+    DO n1=1,bdr%nvols
+      totalE=totalE+bdr%volchg(n1)
+    END DO
+    PRINT *, 'number of electrons:', totalE
     DO n1=1,SIZE(sortedList)
       tempflx=0
       DO n2=1,6
         tempflx=tempflx+sortedList(n1)%flx(n2)
       END DO
-      IF (tempflx>1.0001) THEN
-        PRINT *, 'PROBLEM IN ENTRY',n1
-        PRINT *, 'TOTAL FLUX IS',tempflx
-      END IF   
     END DO
   END SUBROUTINE bader_weight_calc
 
@@ -162,12 +161,7 @@
         sortedList(i)%volwgt(n1)=0 
       END DO
     END DO
-    PRINT *, 'check bounds,size of volwgt',size(chgList(1000)%volwgt)
-    PRINT *,'chgval rho has sizes',size(chgval%rho)
-    PRINT *, 'chgval rho entry 9 9 9 has value', chgval%rho(8,8,8)
     CALL assign_weight(sortedList,chgList,bdr,chgtemp,chgval)
-    PRINT *,'volwgt of 61,31,61', chgList(60*120*120+30*120+61)%volwgt
-    PRINT *,'nin is',nin  
      ! I will not add charges up in the way below
 !    ALLOCATE(bdr%volchg(bdr%nvols))
 !    bdr%volchg = 0._q2
@@ -508,43 +502,9 @@
       END DO
       bein=.FALSE.
       t1=0
-        
-!      DO j=1,6
-!        IF (sortedList(i)%flx(j)/=1.) t1=t1+1
-!      END DO
-!      IF (t1==6) THEN
-!        t2=t2+1
-!        PRINT *, 'i is',i
-!        PRINT *, 'nom is',nom
-!        PRINT *, 'denom is',denom
-!        PRINT *, 'flx is',sortedList(i)%flx
-!      END IF
       IF (ismax) bdr%nvols=bdr%nvols+1
     END DO
-!    PRINT *, t2,t3,120*120*120-t2-t3
   END SUBROUTINE 
-!
-!
-!  SUBROUTINE get_neighbor_weight(sortedList,chgList,npos,i,chgtemp)
-!    TYPE(weight_obj),DIMENSION(:) :: sortedList,chgList
-!    TYPE(charge_obj) :: chgtemp
-!    INTEGER,DIMENSION(3) :: npos
-!    INTEGER :: i,n1,n2,nindex
-!    ! Assumes that the neighbor does not have weight to a basin that this
-!    ! boundary point has no flux to
-!    CALL pbc(npos,chgtemp%npts)
-!    nindex=(npos(1)-1)*chgtemp%npts(2)*chgtemp%npts(3)+(npos(2)-1)*chgtemp%npts(3)&
-!      +npos(3)
-!    DO n1=1,6
-!      DO n2=1,6
-!        IF (chgList(nindex)%nbrvol(n2)==sortedList(i)%nbrvol(n1)) THEN
-!          sortedList(i)%volwgt(n1)=sortedList(i)%nbrflx(n1)*chgList(nindex)%volwgt(n2)
-!        
-!        END IF
-!      END DO
-!    END DO
-!  END SUBROUTINE
-!
   !-----------------------------------------------------------------------------------!
   !Quick_sort: Modified from the original program (info given below)
   !-----------------------------------------------------------------------------------!
@@ -638,5 +598,7 @@
       END SUBROUTINE interchange_sort
     
   END SUBROUTINE quick_sort
+
+
   
   END MODULE
