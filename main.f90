@@ -58,7 +58,6 @@
      USE multipole_mod
      USE critpoints_mod
      USE weight_mod    
-     USE brute_mod
      IMPLICIT NONE
 
      ! Variables
@@ -85,7 +84,7 @@
        ELSE
          CALL bader_calc(bdr,ions,chgval,opts)
        ENDIF
-       IF (opts%bader_opt /=opts%bader_weight) THEN
+       IF (opts%bader_opt /=opts%bader_weight)   THEN
          CALL bader_mindist(bdr,ions,chgval)
          CALL bader_output(bdr,ions,chgval)
        END IF

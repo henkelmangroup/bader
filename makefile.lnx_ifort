@@ -19,7 +19,6 @@ OBJS = kind_mod.o       \
        critpoint_mod.o \
        multipole_mod.o  \
        weight_mod.o \
-       brute_mod.o \
 
 %.o %.mod : %.f90
 	$(FC) $(FFLAGS) -c $*.f90
