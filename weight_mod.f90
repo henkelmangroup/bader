@@ -111,12 +111,16 @@
       totalE=totalE+bdr%volchg(n1)
     END DO
     PRINT *, 'number of electrons:', totalE
-    DO n1=1,SIZE(sortedList)
-      tempflx=0
-      DO n2=1,6
-        tempflx=tempflx+sortedList(n1)%flx(n2)
-      END DO
-    END DO
+!    DO n1=1,6
+!      PRINT *,'sortedList 12 has flx array',n1,'value',sortedList(n1)%flx(n1)
+!    END DO
+!    DO n1=1,SIZE(sortedList)
+!      tempflx=0
+!      DO n2=1,6
+!        tempflx=tempflx+sortedList(n1)%flx(n2)
+!      END DO
+!      IF (tempflx>1) PRINT  *,'high flx in sortedList: ', n1
+!    END DO
   END SUBROUTINE bader_weight_calc
 
   !-----------------------------------------------------------------------------------!
@@ -154,29 +158,16 @@
       ALLOCATE(sortedList(i)%volwgt(bdr%nvols))
       ! Initialize the arrays, fill them with zeros. 
       DO n1=1,bdr%nvols
-        chgList(i)%volnum(n1)=0
+!        chgList(i)%volnum(n1)=0
         chgList(i)%volwgt(n1)=0
-        sortedList(i)%volnum(n1)=0 ! is volnum array really necessary?
+!        sortedList(i)%volnum(n1)=0 ! is volnum array really necessary?
         sortedList(i)%volwgt(n1)=0 
       END DO
     END DO
     CALL assign_weight(sortedList,chgList,bdr,chgtemp,chgval)
-!    DO i=100,length
-!      tempw=0
-!      DO n2=1,bdr%nvols
-!        tempw=tempw+sortedList(i)%volwgt(n2)
-!      END DO
-!      IF (temp /=1) THEN 
-!        PRINT *,'point',i,'in sorted list  has total weight',tempw
-!        PRINT *,'they are'
-!        DO n2=1,bdr%nvols
-!          PRINT *,sortedList(i)%volwgt(n2)
-!        END DO
-!      END IF
-!    END DO
 
     DO i=1,length
-      DEALLOCATE(sortedList(i)%volnum)
+!      DEALLOCATE(sortedList(i)%volnum)
       DEALLOCATE(sortedList(i)%volwgt)
     END DO
   
@@ -185,8 +176,8 @@
   SUBROUTINE assign_weight(sortedList,chgList,bdr,chgtemp,chgval)
     TYPE(bader_obj) :: bdr
     TYPE(charge_obj):: chgtemp,chgval
-    INTEGER         :: i,nvols,cin,ots,n1,n2,n3,n4,sind
-    LOGICAL         :: ismax
+    INTEGER         :: i,nvols,cin,ots,n1,n2,n3,n4,sind,tempvolnum
+    LOGICAL         :: ismax,isbon
     REAL(q2)        :: rho,temp
     INTEGER,DIMENSION(3) :: xyz,p,add
     TYPE(weight_obj),DIMENSION(:) :: sortedList,chgList
@@ -296,14 +287,18 @@
       ! below is the attempt of a better version, not yet successful.
       ots=0
 !      IF (i==20) PRINT *,'point 20 with xyz',xyz 
+!      IF (sortedList(i)%pos(1)==114 .AND. &
+!          sortedList(i)%pos(2)==113 .AND. &
+!          sortedList(i)%pos(3)==38) PRINT *,'i of 114 113 38 is',i
+      isbon=.TRUE.  
+      tempvolnum=0
       DO n1=-1,1
         DO n2=-1,1
           DO n3=-1,1
             add=(/n1,n2,n3/)
             p=xyz+add ! no problem in this
-            IF (i==101) THEN
-              PRINT *,'this is point 101 with xyz',xyz
-            END IF
+!            IF (i==66) PRINT *,'at this point 66 to 2 has wgt', & 
+!                chgList(2581839)%volwgt(2)
             IF (add(1)**2+add(2)**2+add(3)**2 == 0) THEN
               ! self, pass
               CYCLE
@@ -317,10 +312,6 @@
 !                IF (i==20) PRINT *,'found p has higher rho'
                 cin=(p(1)-1)*chgtemp%npts(2)*chgtemp%npts(3)+(p(2)-1)*chgtemp%npts(3)+p(3) 
                 CALL flux_weight(sortedList,i,cin,chgList,bdr,ots,chgtemp,chgval)
-                IF (i==101) THEN
-                  PRINT *,'neighbor p',p,'has higher rho'
-                 
-                END IF
               END IF
             ELSE 
             ! indirect neighbor, only copy info if higher in density
@@ -337,7 +328,17 @@
                      (sortedList(i)%pos(2)-1)*chgtemp%npts(3)+sortedList(i)%pos(3)
                 DO n4=1,bdr%nvols
 !                  sortedList(i)%volwgt(n4)=chgList(cin)%volwgt(n4)
+!                  IF (i==66 .AND. n4==2) THEN
+!                    PRINT *,'getting wgt from a neighbor p and cin',p,cin
+!                    PRINT *,'this neighbor wgt is', chgList(cin)%volwgt(n4)
+!                    PRINT *,'it substract 1 is',chgList(cin)%volwgt(n4)-1
+!                    PRINT *,'this value is 1.', chgList(cin)%volwgt(n4)==1.
+!                  END IF
                   chgList(sind)%volwgt(n4)=chgList(cin)%volwgt(n4)
+!                  IF (i==8) THEN
+!                    PRINT *,'8 got wgt to',n4,'from cin',cin,'of &
+!                                value',chgList(cin)%volwgt(n4)
+!                  END IF
                 END DO
               END IF
             END IF            
@@ -349,8 +350,8 @@
         !print *, 'i is a maximum',i
         cin=(xyz(1)-1)*chgtemp%npts(2)*chgtemp%npts(3)+(xyz(2)-1)*chgtemp%npts(3)+xyz(3)
         !PRINT *,'cin is',cin
-        sortedList(i)%volwgt(nvols)=1
-        chgList(cin)%volwgt(nvols)=1
+!        sortedList(i)%volwgt(nvols)=1
+        chgList(cin)%volwgt(nvols)=1.
         nvols=nvols+1
       END IF
     END DO
@@ -369,47 +370,61 @@
     TYPE(bader_obj) :: bdr
     TYPE(charge_obj) ::chgtemp,chgval
     INTEGER :: n1,ots,sind,i,cin,x,y,z
+    LOGICAL :: templogi
+    REAL(q2) :: temp
       !sind should be sorted list index to CHGLIST index
       sind=(sortedList(i)%pos(1)-1)*chgtemp%npts(2)*chgtemp%npts(3)+(sortedList(i)%pos(2)-1)*chgtemp%npts(3)&
         +sortedList(i)%pos(3)
-!      IF (i==20) THEN
-!        PRINT *,'sind is',sind
-!        PRINT *,'cin is',cin
-!        PRINT *,'this cin has volwgt:'
-!        DO n1=1,bdr%nvols
-!          PRINT *,chgList(cin)%volwgt(n1)
-!        END DO
+!      templogi=.TRUE.
+!      IF (chgList(2581839)%volwgt(2)/=0 .AND. templogi) THEN
+!        PRINT *,'while looking at point i, 66 volwgt to 2 is no longer 0'
+!        templogi=.FALSE.
+!        PRINT *,'it is now ',chgList(2581839)%volwgt(2)
 !      END IF
-      IF (i==101) THEN
-        PRINT *,'looking at point cin',cin
-        PRINT *,'with xyz', & 
-                 chgList(cin)%pos(1),chgList(cin)%pos(2),chgList(cin)%pos(3)
-        PRINT *,'this is weight array of point i'
-        DO n1=1,bdr%nvols
-          PRINT *, sortedList(i)%volwgt(n1)
-        END DO
-        PRINT *,'this is sind',sind
-        PRINT *,'with xyz', chgList(sind)%pos(1), &
-                chgList(sind)%pos(2),chgList(sind)%pos(3)
-      END IF  
       DO n1=1,bdr%nvols
-        
+!        IF (chgList(sind)%volwgt(n1)>1 .AND. i<100) PRINT *,i,n1
+!        IF (i==66) THEN
+!          PRINT *,'sind is',sind
+!          PRINT *,'prexisting weight to n1',n1,' is', chgList(sind)%volwgt(n1)
+!          PRINT *,'this value is 1',chgList(sind)%volwgt(n1)==1.
+!          PRINT *,'the difference is', chgList(sind)%volwgt(n1)-1.
+!          PRINT *,'looking at neighbor cin',cin
+!          PRINT *,'flx to that neighbor is',sortedList(i)%flx(ots)
+!        END IF
         sortedList(i)%volwgt(n1)=sortedList(i)%volwgt(n1)+sortedList(i)%flx(ots)*chgList(cin)%volwgt(n1)
-        IF (i==101) PRINT *,chgList(cin)%volwgt(n1)
-        chgList(sind)%volwgt(n1)=sortedList(i)%volwgt(n1)    
+        chgList(sind)%volwgt(n1)=sortedList(i)%volwgt(n1)   
         x=sortedList(i)%pos(1)
         y=sortedList(i)%pos(2)
         z=sortedList(i)%pos(3)
-        
+!        IF (i==8) PRINT *,'preexisting value is', chgList(sind)%volwgt(n1)
+!        IF (1.-chgList(sind)%volwgt(n1)<=10**(-10)) THEN
+!          CYCLE
+!        ELSE
+!          temp=chgList(sind)%volwgt(n1)+sortedList(i)%flx(ots)*chgList(cin)%volwgt(n1)
+!          chgList(sind)%volwgt(n1)=temp !chgList(sind)%volwgt(n1) +sortedList(i)%flx(ots)*chgList(cin)%volwgt(n1)
+!          IF (i==8)THEN
+!            PRINT *,'8 got weight to ',n1,'from cin',cin, &
+!                       'of value',chgList(sind)%volwgt(n1)
+!            PRINT *,'flx is',sortedList(i)%flx(ots)
+!            PRINT *,'the neighbor has weight',chgList(cin)%volwgt(n1)
+!          END IF
+!        END IF
+!        IF (chgList(sind)%volwgt(n1)>0 .AND. chgList(sind)%volwgt(n1)/=1.) THEN
+!        IF (i<=100 .AND. chgList(sind)%volwgt(n1)>1.) THEN
+!        IF (i==66) THEN
+!          PRINT *,'abnormal weight at point i,xyz,sind',i,x,y,z,sind
+!          PRINT *,'to basin n1',n1
+!          PRINT *,'with value',chgList(sind)%volwgt(n1)
+!          PRINT *,'this is point i',i,'. looking at neighbor cin',cin
+!          PRINT *,'neighbor has volwgt to basin',n1,' of value', &
+!                   chgList(cin)%volwgt(n1)
+!          PRINT *,''
+!        END IF
+!        IF (chgList(sind)%volwgt(n1)/=1. .AND. chgList(sind)%volwgt(n1)/=0. .AND. i<=20 ) THEN 
+!          PRINT *,'point',i,'doesn not have weight 1 or 0'
+!          PRINT *,'IT IS',chgList(sind)%volwgt(n1)
+!        END IF
       END DO
-!      PRINT *,'i is',i,'with xyz',x,y,z
-      
-!      IF (i==20) THEN
-!        PRINT *,'by the end this point has volwgt'
-!        DO n1=1,bdr%nvols
-!          PRINT *,sortedList(i)%volwgt(n1)
-!        END DO
-!      END IF
   END SUBROUTINE
 
 
@@ -424,7 +439,7 @@
     INTEGER :: i,j,n1,n2,n3
     INTEGER,DIMENSION(3) :: xyz,p,p1,p2,p3,p4,p5,p6
     REAL(q2),DIMENSION(3) :: v1,v2,v3
-    REAL(q2) :: area1,area2,area3,rho,denom
+    REAL(q2) :: area1,area2,area3,rho,denom,temp
     REAL(q2),DIMENSION(6) :: nom
     LOGICAL :: ismax,bein
     DO i=1,SIZE(sortedList)
@@ -529,15 +544,22 @@
  
       ! storage sequence should be:
       ! p2,4,6,5,3,1 
-!      DO j=1,6
-!        sortedList(i)%flx(j)=nom(j)/denom
-!      END DO
       sortedList(i)%flx(1)=nom(2)/denom
       sortedList(i)%flx(2)=nom(4)/denom
       sortedList(i)%flx(3)=nom(6)/denom
       sortedList(i)%flx(4)=nom(5)/denom
       sortedList(i)%flx(5)=nom(3)/denom
       sortedList(i)%flx(6)=nom(1)/denom
+!      IF (i==8) THEN
+!        PRINT *,'denom is',denom
+!        temp=0
+!        DO n1=1,6
+!          PRINT *,'nom',n1,'is',nom(n1)
+!          PRINT *,'flx',n1,' is',sortedList(i)%flx(n1)
+!          temp=temp+sortedList(i)%flx(n1)
+!        END DO
+!        PRINT *,'temp is 1',temp==1.
+!      END IF
       bein=.FALSE.
       IF (ismax) THEN
         ! debugging block

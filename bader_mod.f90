@@ -246,8 +246,6 @@ MODULE bader_mod
       END DO
     END DO
     bdr%volchg = bdr%volchg/REAL(chgval%nrho,q2)
-    PRINT *, 'nrho is', chgval%nrho
-    PRINT *, 'bdr%volchg is', bdr%volchg
 
     ALLOCATE(bdr%nnion(bdr%nvols), bdr%iondist(bdr%nvols), bdr%ionchg(ions%nions))
     CALL assign_chg2atom(bdr,ions,chgval)
@@ -704,8 +702,6 @@ MODULE bader_mod
       bdr%iondist(i) = SQRT(dminsq)
       bdr%nnion(i) = dindex
       bdr%ionchg(dindex) = bdr%ionchg(dindex) + bdr%volchg(i)
-      PRINT *,'dindex is', dindex,'i is',i
-      PRINT *, 'ionchg is', bdr%ionchg(dindex),'volchg is', bdr%volchg(i)
     END DO
 
   RETURN
