@@ -41,12 +41,14 @@
     INTEGER(KIND=8) :: totalLength,temp
     INTEGER :: i, j, k, l, n1, n2, n3, walker
     REAL(q2) :: tempflx,totalE,tempw
+    INTEGER :: t1,t2,cr,cm
     LOGICAL :: nbb ! never boundry before
     INTEGER,ALLOCATABLE,DIMENSION(:,:,:) :: indList
     nbb=.TRUE.
     tempw=0
     totalE=0
     bdr%nvols=0
+    CALL SYSTEM_CLOCK(t1,cr,cm)
     IF (opts%ref_flag) THEN
       CALL read_charge_ref(ionstemp,chgtemp,opts)
     ELSE
@@ -109,6 +111,8 @@
       totalE=totalE+bdr%volchg(n1)
     END DO
     PRINT *, 'number of electrons:', totalE
+    CALL SYSTEM_CLOCK(t2,cr,cm)
+    PRINT *,'Time elapsed:',(t2-t1)/REAL(cr,q2),'seconds'
   END SUBROUTINE bader_weight_calc
 
   !-----------------------------------------------------------------------------------!
@@ -178,200 +182,17 @@
     TYPE(ions_obj):: ions
     INTEGER         :: walker,i
     INTEGER,DIMENSION(:,:,:) :: indList
-!    LOGICAL         :: ismax,isbon
-!    REAL(q2)        :: rho,temp
-!    INTEGER,DIMENSION(3) :: xyz,p,add
     TYPE(weight_obj),DIMENSION(:) :: chgList
-!    REAL(q2),DIMENSION(3,3) :: lat
-!      lat(1)=ions%lattice(1,:)
-!      lat(2)=ions%lattice(2,:)
-!      lat(3)=ions%lattice(3,:)
     IF (chgList(walker)%isInterior) THEN
       bdr%volchg(chgList(walker)%volnum)=bdr%volchg(chgList(walker)%volnum)+chgList(walker)%rho
     ELSE
       CALL flux_weight(bdr,chgtemp,chgList,walker,ions,indList)
     END IF
-!    nvols=1
-!    DO i=1, SIZE(sortedList)
-!      xyz(1)=sortedList(i)%pos(1)
-!      xyz(2)=sortedList(i)%pos(2)
-!      xyz(3)=sortedList(i)%pos(3)
-!      ! First assign weights to maximas. This has to be done to both sorted list
-!      ! and chglist
-!      rho=sortedList(i)%rho
-!      ismax=.TRUE.
-!!      ! diagonal neighbors needs to be checked as well
-!!      p=xyz+(/1,0,0/)
-!!      CALL pbc(p,chgtemp%npts)
-!!      IF (rho<chgtemp%rho(p(1),p(2),p(3))) THEN
-!!        ismax=.FALSE.
-!!        ots=1
-!!        cin=(p(1)-1)*chgtemp%npts(2)*chgtemp%npts(3)+(p(2)-1)*chgtemp%npts(3)+p(3)
-!!        CALL flux_weight(sortedList,i,cin,chgList,bdr,ots,chgtemp,chgval)
-!!      END IF
-!!
-!!      p=xyz+(/-1,0,0/)
-!!      CALL pbc(p,chgtemp%npts)
-!!      IF (rho<chgtemp%rho(p(1),p(2),p(3))) THEN
-!!        ismax=.FALSE.
-!!        ots=2
-!!        cin=(p(1)-1)*chgtemp%npts(2)*chgtemp%npts(3)+(p(2)-1)*chgtemp%npts(3)+p(3)
-!!        CALL flux_weight(sortedList,i,cin,chgList,bdr,ots,chgtemp,chgval)
-!!      END IF
-!!
-!!      p=xyz+(/0,1,0/)
-!!      CALL pbc(p,chgtemp%npts)
-!!      IF (rho<chgtemp%rho(p(1),p(2),p(3))) THEN
-!!        ismax=.FALSE.
-!!        ots=3
-!!        cin=(p(1)-1)*chgtemp%npts(2)*chgtemp%npts(3)+(p(2)-1)*chgtemp%npts(3)+p(3)
-!!        CALL flux_weight(sortedList,i,cin,chgList,bdr,ots,chgtemp,chgval)
-!!      END IF
-!!
-!!      p=xyz+(/0,-1,0/)
-!!      CALL pbc(p,chgtemp%npts)
-!!      IF (rho<chgtemp%rho(p(1),p(2),p(3))) THEN
-!!        ismax=.FALSE.
-!!        ots=4
-!!        cin=(p(1)-1)*chgtemp%npts(2)*chgtemp%npts(3)+(p(2)-1)*chgtemp%npts(3)+p(3)
-!!        CALL flux_weight(sortedList,i,cin,chgList,bdr,ots,chgtemp,chgval)
-!!      END IF
-!!
-!!      p=xyz+(/0,0,1/)
-!!      CALL pbc(p,chgtemp%npts)
-!!      IF (rho<chgtemp%rho(p(1),p(2),p(3))) THEN
-!!        ismax=.FALSE.
-!!        ots=5
-!!        cin=(p(1)-1)*chgtemp%npts(2)*chgtemp%npts(3)+(p(2)-1)*chgtemp%npts(3)+p(3)
-!!        CALL flux_weight(sortedList,i,cin,chgList,bdr,ots,chgtemp,chgval)
-!!      END IF
-!!
-!!      p=xyz+(/0,0,-1/)
-!!      CALL pbc(p,chgtemp%npts)
-!!      IF (rho<chgtemp%rho(p(1),p(2),p(3))) THEN
-!!        ismax=.FALSE.
-!!        cin=(p(1)-1)*chgtemp%npts(2)*chgtemp%npts(3)+(p(2)-1)*chgtemp%npts(3)+p(3)
-!!        ots=6
-!!        CALL flux_weight(sortedList,i,cin,chgList,bdr,ots,chgtemp,chgval)
-!!      END IF
-!      ! diagonla neighbors needs to be treated separately. They do not get flux
-!      ! as there is no area between them. Dallas treat them as interior points.
-!      ! I can copy weight and basin info of the higher neighbor to this point.
-!      ! a loop that takes care of all neighbors
-!!      p=xyz+(1,1,0)
-!!      CALL pbc(p,chgtemp%npts)
-!!      IF (rho<chgtemp%rho(p(1),p(2),p(3))) THEN
-!!        ismax=.FALSE.
-!!        cin=(p(1)-1)*chgtemp%npts(2)*chgtemp%npts(3)+(p(2)-1)*chgtemp%npts(3)+p(3)
-!!        ots=6
-!!        CALL flux_weight(sortedList,i,cin,chgList,bdr,ots,chgtemp,chgval)
-!!      END IF
-!!      p=xyz+(1,-1,0)
-!!      CALL pbc(p,chgtemp%npts)
-!!      IF (rho<chgtemp%rho(p(1),p(2),p(3))) THEN
-!!        ismax=.FALSE.
-!!        cin=(p(1)-1)*chgtemp%npts(2)*chgtemp%npts(3)+(p(2)-1)*chgtemp%npts(3)+p(3)
-!!        ots=6
-!!        CALL flux_weight(sortedList,i,cin,chgList,bdr,ots,chgtemp,chgval)
-!!      END IF
-!!      p=xyz+(-1,1,0,)
-!!      p=xyz+(-1,-1,0)
-!!      p=xyz+(1,0,1)
-!!      p=xyz+(1,0,-1)
-!!      p=xyz+(-1,0,1)
-!!      p=xyz+(-1,0,-1)
-!!      p=xyz+(0,1,1)
-!!      p=xyz+(0,1,-1)
-!!      p=xyz+(0,-1,1)
-!!      p=xyz+(0,-1,-1)
-!!      p=xyz+(1,1,1)
-!!      p=xyz+(-1,1,1)
-!!      p=xyz+(1,-1,1)
-!!      p=xyz+(1,1,-1)
-!!      p=xyz+(-1,-1,1)
-!!      p=xyz+(1,-1,-1)
-!!      p=xyz+(-1,1,-1)
-!!      p=xyz+(-1,-1,-1)
-!
-!      ! below is the attempt of a better version, not yet successful.
-!      ots=0
-!!      IF (i==20) PRINT *,'point 20 with xyz',xyz 
-!!      IF (sortedList(i)%pos(1)==114 .AND. &
-!!          sortedList(i)%pos(2)==113 .AND. &
-!!          sortedList(i)%pos(3)==38) PRINT *,'i of 114 113 38 is',i
-!      isbon=.TRUE.  
-!      tempvolnum=0
-!      DO n1=-1,1
-!        DO n2=-1,1
-!          DO n3=-1,1
-!            add=(/n1,n2,n3/)
-!            p=xyz+add ! no problem in this
-!!            IF (i==66) PRINT *,'at this point 66 to 2 has wgt', & 
-!!                chgList(2581839)%volwgt(2)
-!            IF (add(1)**2+add(2)**2+add(3)**2 == 0) THEN
-!              ! self, pass
-!              CYCLE
-!            ELSE IF (add(1)**2+add(2)**2+add(3)**2 == 1) THEN
-!            ! direct neighbor, calculate flux and weight
-!              CALL pbc(p,chgtemp%npts)
-!              ots=ots+1
-!              IF (rho<chgtemp%rho(p(1),p(2),p(3))) THEN
-!                ismax=.FALSE.
-!!                IF (i==20) PRINT *,'looking at direct p',p
-!!                IF (i==20) PRINT *,'found p has higher rho'
-!                cin=(p(1)-1)*chgtemp%npts(2)*chgtemp%npts(3)+(p(2)-1)*chgtemp%npts(3)+p(3) 
-!                CALL flux_weight(sortedList,i,cin,chgList,bdr,ots,chgtemp,chgval)
-!              END IF
-!            ELSE 
-!            ! indirect neighbor, only copy info if higher in density
-!              CALL pbc(p,chgtemp%npts)
-!            ! also only check for indirect neighbors only when there is no known
-!            ! direct neighbor with higher densities.
-!              IF (rho<chgtemp%rho(p(1),p(2),p(3)) .AND. ismax) THEN
-!                ismax=.FALSE.
-!!                IF (i==20) PRINT *, 'looking at diagonal p',p
-!!                IF (i==20) PRINT *,'found p has higher rho'
-!                ! copy all infos from this basin to next
-!                cin=(p(1)-1)*chgtemp%npts(2)*chgtemp%npts(3)+(p(2)-1)*chgtemp%npts(3)+p(3)
-!                sind=(sortedList(i)%pos(1)-1)*chgtemp%npts(2)*chgtemp%npts(3)+ &
-!                     (sortedList(i)%pos(2)-1)*chgtemp%npts(3)+sortedList(i)%pos(3)
-!                DO n4=1,bdr%nvols
-!!                  sortedList(i)%volwgt(n4)=chgList(cin)%volwgt(n4)
-!!                  IF (i==66 .AND. n4==2) THEN
-!!                    PRINT *,'getting wgt from a neighbor p and cin',p,cin
-!!                    PRINT *,'this neighbor wgt is', chgList(cin)%volwgt(n4)
-!!                    PRINT *,'it substract 1 is',chgList(cin)%volwgt(n4)-1
-!!                    PRINT *,'this value is 1.', chgList(cin)%volwgt(n4)==1.
-!!                  END IF
-!                  chgList(sind)%volwgt(n4)=chgList(cin)%volwgt(n4)
-!!                  IF (i==8) THEN
-!!                    PRINT *,'8 got wgt to',n4,'from cin',cin,'of &
-!!                                value',chgList(cin)%volwgt(n4)
-!!                  END IF
-!                END DO
-!              END IF
-!            END IF            
-!          END DO
-!        END DO
-!      END DO
-!!      END IF
-!      IF (ismax==.TRUE.) THEN
-!        !print *, 'i is a maximum',i
-!        cin=(xyz(1)-1)*chgtemp%npts(2)*chgtemp%npts(3)+(xyz(2)-1)*chgtemp%npts(3)+xyz(3)
-!        !PRINT *,'cin is',cin
-!!        sortedList(i)%volwgt(nvols)=1
-!        chgList(cin)%volwgt(nvols)=1.
-!        nvols=nvols+1
-!      END IF
-!    END DO
-!
   END SUBROUTINE boundries
 !
 !-------------------------------------------------------------------!
-! flux_weight: It takes the current position and a target position as in put,
-! adds the target's weight times flux to target to current position's weight.
-! This subroutine needs to be called everytime a neighbor with greater density
-! is called. 
+! flux_weight: It takes the current position which is a boundry pooint, looks at
+! its neighbors to find flx and weight to all basins.
 !-------------------------------------------------------------------!
 
   SUBROUTINE flux_weight(bdr,chgtemp,chgList,walker,ions,indList)
@@ -422,10 +243,6 @@
         END DO
       END DO
     END DO
-!    IF (WALKER==456497) THEN
-!      PRINT *,'456497 denom',denom
-!      PRINT *,'456497 nom',nom
-!    END IF
     counter=0
     DO n1=-1,1
       DO n2=-1,1
@@ -436,31 +253,15 @@
           CALL pbc(p,chgtemp%npts)
 
           IF (chgtemp%rho(p(1),p(2),p(3))>chgList(walker)%rho) THEN
-            IF (walker==456497) THEN
-              PRINT *,'read in nom(conter)',nom(counter)
-              PRINT *,'read in denom',denom
-            END IF
             flx(counter)=nom(counter)/denom
-            IF (walker==456497) THEN
-              
-              PRINT *,'calculated flx',flx(counter)
-              PRINT *,'neighbor has volnum',bdr%volnum(p(1),p(2),p(3))
-            END IF
             ! interior neighbor and boundry neighbor needs to be treated
             ! separately
-            
             IF (bdr%volnum(p(1),p(2),p(3))/=0) THEN !interior neighbor
               chgList(walker)%volwgt(bdr%volnum(p(1),p(2),p(3)))= & 
                 chgList(walker)%volwgt(bdr%volnum(p(1),p(2),p(3)))+ flx(counter)
-            
             ELSE
               ! need to find out that point's position in chgList
-
               nein=indList(p(1),p(2),p(3))
-              IF (WALKER==456497) THEN
-                PRINT *,'neighbor nein is',nein
-                PRINT *,'its wgt is',chgList(nein)%volwgt
-              END IF
               DO n4=1,bdr%nvols
                 chgList(walker)%volwgt(n4)=chgList(walker)%volwgt(n4)+ &
                   chgList(nein)%volwgt(n4)*flx(counter)
@@ -470,229 +271,13 @@
         END DO
       END DO
     END DO
-    IF (walker==456497) THEN
-      PRINT *,'456497 FLX',flx
-      PRINT *,'WGT',chgList(456497)%volwgt
-    END IF
-    temp=0
     DO n1=1,bdr%nvols
       bdr%volchg(n1)=bdr%volchg(n1)+chgList(walker)%rho*chgList(walker)%volwgt(n1)
       temp=temp+chgList(walker)%volwgt(n1)
     END DO
-!    IF ( temp /=1.) THEN
-!      PRINT *,'walker',walker
-!      PRINT *,'have total wgt',temp
-!    END IF
-
-            ! is that point a boundary point or interior point?
-            ! an interior point has bdr%volnum
-!            IF (bdr%volnum(p(1),p(2),p(3))/=0)
-
-
-!    LOGICAL :: templogi
-!    REAL(q2) :: temp
-!      !sind should be sorted list index to CHGLIST index
-!      sind=(sortedList(i)%pos(1)-1)*chgtemp%npts(2)*chgtemp%npts(3)+(sortedList(i)%pos(2)-1)*chgtemp%npts(3)&
-!        +sortedList(i)%pos(3)
-!!      templogi=.TRUE.
-!      DO n1=1,bdr%nvols
-!        sortedList(i)%volwgt(n1)=sortedList(i)%volwgt(n1)+sortedList(i)%flx(ots)*chgList(cin)%volwgt(n1)
-!        chgList(sind)%volwgt(n1)=sortedList(i)%volwgt(n1)   
-!        x=sortedList(i)%pos(1)
-!        y=sortedList(i)%pos(2)
-!        z=sortedList(i)%pos(3)
-!!        IF (i==8) PRINT *,'preexisting value is', chgList(sind)%volwgt(n1)
-!!        IF (1.-chgList(sind)%volwgt(n1)<=10**(-10)) THEN
-!!          CYCLE
-!!        ELSE
-!!          temp=chgList(sind)%volwgt(n1)+sortedList(i)%flx(ots)*chgList(cin)%volwgt(n1)
-!!          chgList(sind)%volwgt(n1)=temp !chgList(sind)%volwgt(n1) +sortedList(i)%flx(ots)*chgList(cin)%volwgt(n1)
-!!          IF (i==8)THEN
-!!            PRINT *,'8 got weight to ',n1,'from cin',cin, &
-!!                       'of value',chgList(sind)%volwgt(n1)
-!!            PRINT *,'flx is',sortedList(i)%flx(ots)
-!!            PRINT *,'the neighbor has weight',chgList(cin)%volwgt(n1)
-!!          END IF
-!!        END IF
-!!        IF (chgList(sind)%volwgt(n1)>0 .AND. chgList(sind)%volwgt(n1)/=1.) THEN
-!!        IF (i<=100 .AND. chgList(sind)%volwgt(n1)>1.) THEN
-!!        IF (i==66) THEN
-!!          PRINT *,'abnormal weight at point i,xyz,sind',i,x,y,z,sind
-!!          PRINT *,'to basin n1',n1
-!!          PRINT *,'with value',chgList(sind)%volwgt(n1)
-!!          PRINT *,'this is point i',i,'. looking at neighbor cin',cin
-!!          PRINT *,'neighbor has volwgt to basin',n1,' of value', &
-!!                   chgList(cin)%volwgt(n1)
-!!          PRINT *,''
-!!        END IF
-!!        IF (chgList(sind)%volwgt(n1)/=1. .AND. chgList(sind)%volwgt(n1)/=0. .AND. i<=20 ) THEN 
-!!          PRINT *,'point',i,'doesn not have weight 1 or 0'
-!!          PRINT *,'IT IS',chgList(sind)%volwgt(n1)
-!!        END IF
-!      END DO
   END SUBROUTINE flux_weight
 
 
-  ! this subroutine finds a points index given its xyz position. 
-  ! to make this faster, we know that the neighbor we are looking at is a
-  ! boundry point. we can start from the first boundry point. 
-  SUBROUTINE find_ind(p,chgList,nein,fbp)
-    TYPE(weight_obj),DIMENSION(:) :: chgList
-    INTEGER,DIMENSION(3) :: p
-    INTEGER :: nein,walker,fbp
-    DO walker=fbp,1000000
-      IF (chgList(walker)%pos(1)==p(1) .AND. &
-          chgList(walker)%pos(2)==p(2) .AND. &
-          chgList(walker)%pos(3)==p(3) ) THEN
-        nein=walker
-        EXIT
-      END IF
-    END DO
-  END SUBROUTINE find_ind
-!
-!
-!
-!  ! This subroutine gets flux as well
-!
-!  SUBROUTINE get_nvols (sortedList,bdr,chgtemp,ions)
-!    TYPE(weight_obj),DIMENSION(:) :: sortedList
-!    TYPE(bader_obj) :: bdr
-!    TYPE(charge_obj) :: chgtemp
-!    TYPE(ions_obj) :: ions
-!    INTEGER :: i,j,n1,n2,n3
-!    INTEGER,DIMENSION(3) :: xyz,p,p1,p2,p3,p4,p5,p6
-!    REAL(q2),DIMENSION(3) :: v1,v2,v3
-!    REAL(q2) :: area1,area2,area3,rho,denom,temp
-!    REAL(q2),DIMENSION(6) :: nom
-!    LOGICAL :: ismax,bein
-!    DO i=1,SIZE(sortedList)
-!      ismax=.TRUE.
-!      xyz(1)=sortedList(i)%pos(1)
-!      xyz(2)=sortedList(i)%pos(2)
-!      xyz(3)=sortedList(i)%pos(3)
-!      p1=xyz+(/1,0,0/)
-!      p2=xyz+(/-1,0,0/)
-!      p3=xyz+(/0,1,0/)
-!      p4=xyz+(/0,-1,0/)
-!      p5=xyz+(/0,0,1/)
-!      p6=xyz+(/0,0,-1/)
-!      CALL pbc(p1,chgtemp%npts)
-!      CALL pbc(p2,chgtemp%npts)
-!      CALL pbc(p3,chgtemp%npts)
-!      CALL pbc(p4,chgtemp%npts)
-!      CALL pbc(p5,chgtemp%npts)
-!      CALL pbc(p6,chgtemp%npts)
-!      v1=ions%lattice(1,:)
-!      v2=ions%lattice(2,:)
-!      v3=ions%lattice(3,:)
-!      CALL find_area(v2,v3,area1)
-!      CALL find_area(v1,v3,area2)
-!      CALL find_area(v1,v2,area3)
-!      area1=ABS(area1) ! for x directions
-!      area2=ABS(area2) ! for y directions
-!      area3=ABS(area3) ! for z directions
-!      ! in assign weight, the access to these fluxes are in order:
-!      ! -1,0,0 | 0,-1,0 | 0,0,-1
-!      !  0,0,1 | 0, 1,0 | 1,0, 0
-!      ! that is :
-!      ! 1,2,3,3,2,1
-!      ! or p2,p4,p6,p5,p3,p1
-!      denom=0
-!      nom=(/0,0,0,0,0,0/)
-!      rho=sortedList(i)%rho
-!      IF (rho<chgtemp%rho(p1(1),p1(2),p1(3))) THEN
-!        ismax=.FALSE.
-!        nom(1)=SQRT(v1(1)**2+v1(2)**2+v1(3)**2)* &
-!         &(chgtemp%rho(p1(1),p1(2),p1(3))-rho)*area1
-!        denom=denom+SQRT(v1(1)**2+v1(2)**2+v1(3)**2)* &
-!         &(chgtemp%rho(p1(1),p1(2),p1(3))-rho)*area1
-!      END IF
-!
-!      IF (rho<chgtemp%rho(p2(1),p2(2),p2(3))) THEN
-!        ismax=.FALSE.
-!        nom(2)=SQRT(v1(1)**2+v1(2)**2+v1(3)**2)* &
-!         &(chgtemp%rho(p2(1),p2(2),p2(3))-rho)*area1
-!        denom=denom+SQRT(v1(1)**2+v1(2)**2+v1(3)**2)* &
-!         &(chgtemp%rho(p2(1),p2(2),p2(3))-rho)*area1
-!      END IF
-!
-!      IF (rho<chgtemp%rho(p3(1),p3(2),p3(3))) THEN
-!        ismax=.FALSE.
-!        nom(3)=SQRT(v2(1)**2+v2(2)**2+v2(3)**2)* &
-!         &(chgtemp%rho(p3(1),p3(2),p3(3))-rho)*area2
-!        denom=denom+SQRT(v2(1)**2+v2(2)**2+v2(3)**2)* &
-!         &(chgtemp%rho(p3(1),p3(2),p3(3))-rho)*area2
-!      END IF
-!
-!      IF (rho<chgtemp%rho(p4(1),p4(2),p4(3))) THEN
-!        nom(4)=SQRT(v2(1)**2+v2(2)**2+v2(3)**2)* &
-!         &(chgtemp%rho(p4(1),p4(2),p4(3))-rho)*area2
-!        ismax=.FALSE.
-!        denom=denom+SQRT(v2(1)**2+v2(2)**2+v2(3)**2)* &
-!         &(chgtemp%rho(p4(1),p4(2),p4(3))-rho)*area2
-!      END IF
-!
-!      IF (rho<chgtemp%rho(p5(1),p5(2),p5(3))) THEN
-!        ismax=.FALSE.
-!        nom(5)=SQRT(v3(1)**2+v3(2)**2+v3(3)**2)* &
-!         &(chgtemp%rho(p5(1),p5(2),p5(3))-rho)*area3
-!        denom=denom+SQRT(v3(1)**2+v3(2)**2+v3(3)**2)* &
-!         &(chgtemp%rho(p5(1),p5(2),p5(3))-rho)*area3
-!      END IF
-!
-!      IF (rho<chgtemp%rho(p6(1),p6(2),p6(3))) THEN
-!        ismax=.FALSE.
-!        nom(6)=SQRT(v3(1)**2+v3(2)**2+v3(3)**2)* &
-!         &(chgtemp%rho(p6(1),p6(2),p6(3))-rho)*area3
-!        denom=denom+SQRT(v3(1)**2+v3(2)**2+v3(3)**2)* &
-!         &(chgtemp%rho(p6(1),p6(2),p6(3))-rho)*area3
-!      END IF
-!
-!      DO n1=-1,1
-!        DO n2=-1,1
-!          DO n3=-1,1
-!            p=xyz+(/n1,n2,n3/)
-!            CALL pbc(p,chgtemp%npts)
-!            IF (n1**2+n2**2+n3**2 > 1 .AND. &
-!                rho<chgtemp%rho(p(1),p(2),p(3))) THEN
-!              ismax=.FALSE.
-!              ! no nom and denom calc as there is no flx
-!            END IF
-!          END DO
-!        END DO
-!      END DO
-!
-!      ! can't know if a point is interior here because there may be a point with
-!      ! flux to 2 points but to the same basin
-! 
-!      ! storage sequence should be:
-!      ! p2,4,6,5,3,1 
-!      sortedList(i)%flx(1)=nom(2)/denom
-!      sortedList(i)%flx(2)=nom(4)/denom
-!      sortedList(i)%flx(3)=nom(6)/denom
-!      sortedList(i)%flx(4)=nom(5)/denom
-!      sortedList(i)%flx(5)=nom(3)/denom
-!      sortedList(i)%flx(6)=nom(1)/denom
-!!      IF (i==8) THEN
-!!        PRINT *,'denom is',denom
-!!        temp=0
-!!        DO n1=1,6
-!!          PRINT *,'nom',n1,'is',nom(n1)
-!!          PRINT *,'flx',n1,' is',sortedList(i)%flx(n1)
-!!          temp=temp+sortedList(i)%flx(n1)
-!!        END DO
-!!        PRINT *,'temp is 1',temp==1.
-!!      END IF
-!      bein=.FALSE.
-!      IF (ismax) THEN
-!        ! debugging block
-!        PRINT *,xyz,'is a maximum'
-!        !PRINT *, 'and the rho is', rho
-!        ! end block
-!        bdr%nvols=bdr%nvols+1
-!      END IF
-!    END DO
-!  END SUBROUTINE get_nvols
   !-----------------------------------------------------------------------------------!
   !Quick_sort: Modified from the original program (info given below)
   !-----------------------------------------------------------------------------------!

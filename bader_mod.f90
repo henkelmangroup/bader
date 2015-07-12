@@ -1191,59 +1191,6 @@ MODULE bader_mod
   RETURN
   END SUBROUTINE write_sum_bader
 
-!!-----------------------------------------------------------------------------------!
-!! write_bader_weight: Write out a CHGCAR type file with weights for each of the Bader 
-!! volumes found.
-!!-----------------------------------------------------------------------------------!
-!
-!  SUBROUTINE write_bader_weight(bdr,opts,ions,chg)
-!
-!    TYPE(bader_obj) :: bdr
-!    TYPE(options_obj) :: opts
-!    TYPE(ions_obj) :: ions
-!    TYPE(charge_obj) :: chg
-!
-!    TYPE(charge_obj) :: tmp
-!    INTEGER :: nx,ny,nz,i,atomnum,badercur,tenths_done,t1,t2,cr,count_max
-!    INTEGER :: n1,n2,n3
-!    CHARACTER(LEN=128) :: atomfilename
-!    
-!    CALL SYSTEM_CLOCK(t1,cr,count_max)
-!
-!    WRITE(*,'(/,2x,A)') 'WRITING BADER VOLUMES'
-!    WRITE(*,'(2x,A)')   '               0  10  25  50  75  100'
-!    WRITE(*,'(2x,A,$)') 'PERCENT DONE:  **'
-!
-!    tmp=chg
-!    atomnum=0
-!    tenths_done=0
-!
-!    DO badercur=1,bdr%nvols
-!    IF(bdr%volchg(badercur) > bdr%tol) THEN
-!        atomnum = atomnum + 1
-!        WRITE(atomfilename,'(A4,I4.4,A4)') "Bvol",atomnum,".dat"
-!        tmp%rho = 0._q2
-!!        WHERE (bdr%volnum == badercur) tmp%rho = chg%rho
-!        ! Replace for ifort/x86_32
-!        DO n1=1,chg%npts(1)
-!          DO n2=1,chg%npts(2)
-!            DO n3=1,chg%npts(3)
-!             ! IF (bdr%volnum(n1,n2,n3) == badercur) tmp%rho(n1,n2,n3) = chg%rho(n1,n2,n3)
-!             IF (bdr%volnum(n1,n2,n3) == badercur) tmp%rho(n1,n2,n3) = chg%weight(n1,n2,n3)%w(badercur)
-!            END DO
-!          END DO
-!        END DO
-!        CALL write_charge(ions,tmp,opts,atomfilename)
-!      END IF
-!    END DO
-!
-!    DEALLOCATE(tmp%rho)
-!
-!    CALL SYSTEM_CLOCK(t2,cr,count_max)
-!    WRITE(*,'(2/,1A12,1F7.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
-!
-!  RETURN
-!  END SUBROUTINE write_bader_weight
 
 !-----------------------------------------------------------------------------------!
 ! write_bader_index: Write out a CHGCAR type file that the value at each point is
