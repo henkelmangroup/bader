@@ -56,7 +56,6 @@
     END IF
     totalLength=chgtemp%npts(1)*chgtemp%npts(2)*chgtemp%npts(3)
     ALLOCATE (sortedList(totalLength)) ! sortedList should have the correct size
-    PRINT *,'assigned totalLength', totalLength
 !    temp=totalLength
     ALLOCATE (chgList(totalLength))
     ALLOCATE (bdr%volnum(chgtemp%npts(1),chgtemp%npts(2),chgtemp%npts(3)))
@@ -86,13 +85,15 @@
     PRINT *,'DONE.'
     ! firsst loop,deal with all interior points.
     PRINT *,'looking through for interior points'
+    i=0
     DO walker=1,totalLength
       indList(chgList(walker)%pos(1), &
               chgList(walker)%pos(2), &
               chgList(walker)%pos(3) &
              )=walker
-      CALL interiors(bdr,chgtemp,chgList(walker))
-    END DO  
+      CALL interiors(bdr,chgtemp,chgList(walker),walker,indList)
+      
+    END DO
     ALLOCATE (bdr%volchg(bdr%nvols))
     DO walker=1,bdr%nvols
       bdr%volchg(walker)=0
@@ -119,11 +120,12 @@
   ! interiors: this subroutine loops through all grid points, finding out which
   ! are interiors and which are boundries, and number of basins.
   !-----------------------------------------------------------------------------------!
-  SUBROUTINE interiors(bdr,chgtemp,cLW) ! chgListWalker
+  SUBROUTINE interiors(bdr,chgtemp,cLW,walker,indList) ! chgListWalker
+    INTEGER,ALLOCATABLE,DIMENSION(:,:,:) :: indList
     TYPE(weight_obj) :: cLW
     TYPE(bader_obj) :: bdr
     TYPE(charge_obj) :: chgtemp,chgval
-    INTEGER :: length,i,n1,n2,n3,temp,tempnvol,tempvolnum,temp2,j
+    INTEGER :: length,i,n1,n2,n3,temp,tempnvol,tempvolnum,temp2,j,walker
     REAL(q2) :: temprho,denom,rho,areasum,tempw
     INTEGER :: neivolnum,nbd,nin,hdn,temppos,ots ! one to six
     INTEGER,DIMENSION(3) :: xyz,p
@@ -168,8 +170,8 @@
       cLW%isInterior=.FALSE.
     END IF
     IF (.NOT. cLW%isInterior) THEN
-      cLW%volnum=bdr%volnum(p(1),p(2),p(3))
-      bdr%volnum(cLW%pos(1),cLW%pos(2),cLW%pos(3))=bdr%volnum(p(1),p(2),p(3))
+      cLW%volnum=0
+      bdr%volnum(cLW%pos(1),cLW%pos(2),cLW%pos(3))=0
     END IF      
   END SUBROUTINE interiors
 

@@ -40,7 +40,7 @@ MODULE bader_mod
   PUBLIC :: bader_obj
   PUBLIC :: bader_calc, bader_mindist, bader_output, write_all_atom, write_all_bader
   PUBLIC :: write_sel_atom, write_sel_bader, write_atom_index, write_bader_index
-  PUBLIC :: write_sum_atom, write_sum_bader!, write_bader_weight
+  PUBLIC :: write_sum_atom, write_sum_bader, assign_chg2atom, cal_atomic_vol
 
   CONTAINS
 

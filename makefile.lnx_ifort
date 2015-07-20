@@ -24,7 +24,7 @@ OBJS = kind_mod.o       \
 	$(FC) $(FFLAGS) -c $*.f90
 
 bader: $(OBJS) main.o
-	rm -f bader
+	rm -f bader 
 	$(FC) $(LINK) main.o -o $@ $(OBJS) 
 
 dist: bader
@@ -33,3 +33,4 @@ dist: bader
 
 clean:
 	rm -f *.o *.mod bader bader_lnx_64.tar.gz
+
