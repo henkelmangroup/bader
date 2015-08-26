@@ -8,8 +8,8 @@ MODULE matrix_mod
 
   PRIVATE
   PUBLIC :: matrix_mult,matrix_vector,vector_matrix
-  PUBLIC :: matrix_transpose,matrix_volume
-  PUBLIC :: matrix_3x3_inverse
+  PUBLIC :: matrix_transpose,matrix_volume,triple_product
+  PUBLIC :: matrix_3x3_inverse,inverse,mult_vect,mult_vect2
   PUBLIC :: scalar_matrix,matrix_addition,matrix_substraction
   PUBLIC :: scalar_vector,vector_addition,vector_substraction
   PUBLIC :: cross_product,det,find_vector,find_area
@@ -57,7 +57,6 @@ MODULE matrix_mod
     INTEGER :: i,n
 
     n=SIZE(V)
-
 !    IF(n .ne. SIZE(M,2)) THEN
 !      WRITE(*,*) 'ERROR: matrix-vector multiplication dimensions do not match'
 !      STOP
@@ -70,6 +69,25 @@ MODULE matrix_mod
 
   RETURN
   END SUBROUTINE matrix_vector
+
+  ! for testing purposes, may be useful
+  SUBROUTINE mult_vect(a,b,c)
+    REAL(q2),INTENT(IN),DIMENSION(:,:) :: a
+    REAL(q2),INTENT(IN),DIMENSION(:) :: b
+    REAL(q2),INTENT(OUT),DIMENSION(3) :: c
+    c(1)=a(1,1)*b(1)+a(2,1)*b(2)+a(3,1)*b(3)    
+    c(2)=a(1,2)*b(1)+a(2,2)*b(2)+a(2,3)*b(3)    
+    c(3)=a(1,3)*b(1)+a(3,2)*b(2)+a(3,3)*b(3)    
+  END SUBROUTINE mult_vect
+
+  SUBROUTINE mult_vect2(a,b,c)
+    REAL(q2),INTENT(IN),DIMENSION(:,:) :: a
+    REAL(q2),INTENT(IN),DIMENSION(:) :: b
+    REAL(q2),INTENT(OUT),DIMENSION(3) :: c
+    c(1)=a(1,1)*b(1)+a(1,2)*b(2)+a(1,3)*b(3)
+    c(2)=a(2,1)*b(1)+a(2,2)*b(2)+a(2,3)*b(3)
+    c(3)=a(3,1)*b(1)+a(3,2)*b(2)+a(3,3)*b(3)
+  END SUBROUTINE
 
 !-----------------------------------------------------------------------------------!
 ! vector_matrix:  Multiply the vector V with the matrix M and return the product Vp
@@ -153,6 +171,45 @@ MODULE matrix_mod
   RETURN
   END SUBROUTINE matrix_3x3_inverse
 
+  ! This is just for testing, potentially useful
+  SUBROUTINE inverse(x,inv)
+    REAL(q2),INTENT(IN),DIMENSION(3,3) :: x
+    REAL(q2),INTENT(OUT),DIMENSION(3,3) :: inv
+  !  for this notation:
+     ! 1 2 3
+     ! 4 5 6
+     ! 7 8 9
+     inv(1,1) = x(2,2)*x(3,3) - x(2,3)*x(3,2);
+     inv(1,2) = x(1,3)*x(3,2) - x(1,2)*x(3,3);
+     inv(1,3) = x(1,2)*x(2,3) - x(1,3)*x(2,2);
+  
+     inv(2,1) = x(2,3)*x(3,1) - x(2,1)*x(3,3);
+     inv(2,2) = x(1,1)*x(3,3) - x(1,3)*x(3,1);
+     inv(2,3) = x(1,3)*x(2,1) - x(1,1)*x(2,3);
+  
+     inv(3,1) = x(2,1)*x(3,2) - x(2,2)*x(3,1);
+     inv(3,2) = x(1,2)*x(3,1) - x(1,1)*x(3,2);
+     inv(3,3) = x(1,1)*x(2,2) - x(1,2)*x(2,1);
+
+
+
+!    below is for this notation:
+     ! 1 4 7
+     ! 2 5 8
+     ! 3 6 9
+!    inv(1,1)=x(2,2)*x(3,3)-x(3,2)*x(2,3)
+!    inv(2,1)=x(2,1)*x(3,1)-x(1,1)*x(3,2)
+!    inv(3,1)=x(2,1)*x(3,2)-x(3,1)*x(2,1)
+!    inv(1,2)=x(3,2)*x(1,3)-x(2,1)*x(3,3)
+!    inv(2,2)=x(1,1)*x(3,3)-x(3,1)*x(1,3)
+!    inv(3,2)=x(3,1)*x(2,1)-x(1,1)*x(3,2)
+!    inv(1,3)=x(2,1)*x(2,3)-x(2,2)*x(1,3)
+!    inv(2,3)=x(2,1)*x(1,3)-x(1,1)*x(2,3)
+!    inv(3,3)=x(1,1)*x(2,2)-x(2,1)*x(2,1)
+
+  END SUBROUTINE
+
+
 !-----------------------------------------------------------------------------------!
 ! matrix_volume: Function returning the triple product of the lattice vectors.
 !-----------------------------------------------------------------------------------!
@@ -170,7 +227,16 @@ MODULE matrix_mod
 
   RETURN
   END FUNCTION matrix_volume
-
+  
+  ! for test purposes. may be useful. produces triple product
+  SUBROUTINE triple_product(a,b,c,val)
+    REAL(q2),INTENT(IN),DIMENSION(:) :: a,b,c
+    REAL(q2),INTENT(OUT) :: val
+    val= c(1)*(a(2)*b(3)-a(3)*b(2))+ & 
+         c(2)*(a(3)*b(1)-a(1)*b(3))+ &
+         c(3)*(a(1)*b(2)-a(2)*b(1)) 
+  END SUBROUTINE
+ 
 !-----------------------------------------------------------------------------------!
 ! scalar_matrix: multiply the matrix with a scalar and return the matrix
 !-----------------------------------------------------------------------------------!
