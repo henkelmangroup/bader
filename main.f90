@@ -79,6 +79,7 @@
      IF (opts%bader_flag) THEN
        IF (opts%bader_opt == opts%bader_weight) THEN! Yu-Trinkle weight method
          CALL bader_weight_calc(bdr,ions,chgval,opts)
+         CALL bader_output(bdr,ions,chgval)
        ELSE
          CALL bader_calc(bdr,ions,chgval,opts)
        ENDIF

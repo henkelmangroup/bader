@@ -44,7 +44,7 @@
     TYPE(options_obj) :: opts
     INTEGER(KIND=8) :: totalLength,temp
     INTEGER :: i, j, k, l, n1, n2, n3, walker,nnvect
-    REAL(q2) :: tempflx,totalE,tempw
+    REAL(q2) :: tempflx,totalE,tempw,vol
     INTEGER :: t1,t2,cr,cm,Nneighvect
     LOGICAL :: nbb ! never boundry before
     INTEGER,ALLOCATABLE,DIMENSION(:,:,:) :: indList
@@ -68,6 +68,8 @@
     ALLOCATE (chgList(totalLength))
     ALLOCATE (bdr%volnum(chgtemp%npts(1),chgtemp%npts(2),chgtemp%npts(3)))
     ALLOCATE (indlist(chgtemp%npts(1),chgtemp%npts(2),chgtemp%npts(3)))
+    bdr%bdim=1
+    ALLOCATE(bdr%volpos_lat(bdr%bdim,3)) ! will be expanded as needed
     walker=1  
     DO n1=1, chgtemp%npts(1)
       DO n2=1, chgtemp%npts(2)
@@ -103,6 +105,7 @@
       
     END DO
     ALLOCATE (bdr%volchg(bdr%nvols))
+    ALLOCATE (bdr%ionvol(bdr%nvols))
     DO walker=1,bdr%nvols
       bdr%volchg(walker)=0
     END DO
@@ -114,14 +117,27 @@
     END DO
     PRINT *,'DONE'
     bdr%volchg = bdr%volchg/REAL(chgval%nrho,q2)
-    PRINT *,bdr%volchg
-    totalE=0
-    DO n1=1,bdr%nvols
-      totalE=totalE+bdr%volchg(n1)
-    END DO
-    PRINT *, 'number of electrons:', totalE
+    vol=matrix_volume(ions%lattice)
+    vol=vol/chgtemp%nrho
+    bdr%ionvol = bdr%ionvol*vol
+!    totalE=0
+!    DO n1=1,bdr%nvols
+!      totalE=totalE+bdr%volchg(n1)
+!    END DO
     CALL SYSTEM_CLOCK(t2,cr,cm)
     PRINT *,'Time elapsed:',(t2-t1)/REAL(cr,q2),'seconds'
+    ALLOCATE(bdr%nnion(bdr%nvols), bdr%iondist(bdr%nvols), bdr%ionchg(ions%nions))
+    ALLOCATE(bdr%volpos_dir(bdr%nvols,3))
+    ALLOCATE(bdr%volpos_car(bdr%nvols,3))
+    DO i=1,bdr%nvols
+      bdr%volpos_dir(i,:) = lat2dir(chgtemp, bdr%volpos_lat(i,:))
+      bdr%volpos_car(i,:) = lat2car(chgtemp, bdr%volpos_lat(i,:))
+    END DO
+    CALL assign_chg2atom(bdr,ions,chgval)
+    CALL bader_mindist(bdr,ions,chgtemp)
+
+    ! output part
+    
   END SUBROUTINE bader_weight_calc
 
   !-----------------------------------------------------------------------------------!
@@ -176,8 +192,13 @@
           max_count=0
         ELSE
           bdr%nvols=bdr%nvols+1
+          bdr%bnum=bdr%nvols
           cLW%volnum=bdr%nvols
           bdr%volnum(cLW%pos(1),cLW%pos(2),cLW%pos(3))=bdr%nvols
+          bdr%volpos_lat(bdr%nvols,1) = REAL(cLW%pos(1),q2)
+          bdr%volpos_lat(bdr%nvols,2) = REAL(cLW%pos(2),q2)
+          bdr%volpos_lat(bdr%nvols,3) = REAL(cLW%pos(3),q2)
+          CALL reallocate_volpos(bdr, bdr%nvols+1)
         END IF
     ELSEIF (neivolnum==0) THEN
       cLW%isInterior=.FALSE.
@@ -202,6 +223,7 @@
     REAL(q2),DIMENSION(:) :: alpha 
     IF (chgList(walker)%isInterior) THEN
       bdr%volchg(chgList(walker)%volnum)=bdr%volchg(chgList(walker)%volnum)+chgList(walker)%rho
+      bdr%ionvol(chgList(walker)%volnum)=bdr%ionvol(chgList(walker)%volnum)+1
     ELSE
       CALL flux_weight(bdr,chgtemp,chgList,walker,ions,indList,nnvect,vect,alpha)
     END IF
@@ -267,8 +289,19 @@
     END DO
     DO n1=1,bdr%nvols
       bdr%volchg(n1)=bdr%volchg(n1)+chgList(walker)%rho*chgList(walker)%volwgt(n1)
+      bdr%ionvol(n1)=bdr%ionvol(n1)+chgList(walker)%volwgt(n1)
       temp=temp+chgList(walker)%volwgt(n1)
     END DO
+    ! once its all finished, rewrite bader%volnum to enable output generating
+    temp=0
+    DO n1=1,bdr%nvols
+      IF (chgList(walker)%volwgt(n1)>temp) THEN
+        temp=chgList(walker)%volwgt(n1)
+        bdr%volnum(chgList(walker)%pos(1),chgList(walker)%pos(2),chgList(walker)%pos(3)) &
+            = n1
+      END IF
+    END DO
+
   END SUBROUTINE flux_weight
  
   ! modified version to sort rvert

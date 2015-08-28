@@ -41,7 +41,7 @@ MODULE bader_mod
   PUBLIC :: bader_calc, bader_mindist, bader_output, write_all_atom, write_all_bader
   PUBLIC :: write_sel_atom, write_sel_bader, write_atom_index, write_bader_index
   PUBLIC :: write_sum_atom, write_sum_bader, assign_chg2atom, cal_atomic_vol
-
+  PUBLIC :: reallocate_volpos
   CONTAINS
 
 !-----------------------------------------------------------------------------------!
@@ -723,9 +723,10 @@ MODULE bader_mod
     REAL :: dist
     INTEGER :: i, atom, n1, n2, n3, d1, d2, d3
     INTEGER :: cr, count_max, t1, t2, tenths_done
-
+    
     CALL SYSTEM_CLOCK(t1, cr, count_max)
 
+ 
     WRITE(*,'(/,2x,A)') 'CALCULATING MINIMUM DISTANCES TO ATOMS'
     WRITE(*,'(2x,A)')   '               0  10  25  50  75  100'
     WRITE(*,'(2x,A,$)') 'PERCENT DONE:  **'
@@ -747,7 +748,7 @@ MODULE bader_mod
           IF (bdr%volnum(n1,n2,n3) == bdr%nvols+1) CYCLE
 
 !         If this is an edge cell, check if it is the closest to the atom so far
-          IF (is_atm_edge(bdr,chg,p,atom)) THEN
+          IF(  is_atm_edge(bdr,chg,p,atom)) THEN 
             v = REAL((/n1,n2,n3/),q2)
             dv_dir = (v-chg%org_lat)/REAL(chg%npts,q2) - ions%r_dir(atom,:)
 !            CALL dpbc_dir(ions,dv_dir)
@@ -795,7 +796,7 @@ MODULE bader_mod
     WRITE(*,'(/,2x,A)') 'WRITING BADER VOLUMES'
     WRITE(*,'(2x,A)')   '               0  10  25  50  75  100'
     WRITE(*,'(2x,A,$)') 'PERCENT DONE:  **'
-
+    
     tmp = chg
     atomnum = 0
     tenths_done = 0
@@ -1389,7 +1390,7 @@ MODULE bader_mod
     sum_ionchg = SUM(bdr%ionchg)
     ne = SUM(bdr%volchg(1:bdr%nvols)) + bdr%vacchg
     DO i = 1,ions%nions
-      WRITE(100,'(1I5,7F12.9)') i,ions%r_car(i,:),bdr%ionchg(i),bdr%minsurfdist(i),bdr%ionvol(i)
+      WRITE(100,'(1I5,7F12.7)') i,ions%r_car(i,:),bdr%ionchg(i),bdr%minsurfdist(i),bdr%ionvol(i)
     END DO
     WRITE(100,'(A,A)') ' ----------------------------------------------------------------',&
     &                  '----------------'
@@ -1746,7 +1747,7 @@ MODULE bader_mod
     INTEGER,DIMENSION(3) ::pt
     INTEGER :: d1, d2, d3, atmnum, atmnbr
     INTEGER,INTENT(INOUT) ::atom 
-
+    
     atom = bdr%nnion(bdr%volnum(p(1),p(2),p(3)))
     is_atm_edge = .FALSE.
     neighborloop: DO d1 = -1,1
@@ -1762,7 +1763,7 @@ MODULE bader_mod
         END DO
       END DO
     END DO neighborloop
-
+    
     RETURN
     END FUNCTION is_atm_edge
 
@@ -1810,7 +1811,7 @@ MODULE bader_mod
   SUBROUTINE reallocate_volpos(bdr,newsize)
 
     TYPE(bader_obj) :: bdr
-    INTEGER :: newsize
+    INTEGER :: newsize,n,n2
 
     !STC: tmpvolpos was INTEGER should have been REAL(q2), this caused a crash
     !STC: when bader was run with -ref and compiled with floating point
