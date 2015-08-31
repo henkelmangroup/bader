@@ -570,7 +570,7 @@
             CALL matrix_transpose(Rinv,tempM)
             Rinv=tempM
             tempR=(/0,0,0/)
-            CALL mult_vect2(Rinv,R2,tempR)
+            CALL matrix_vector(Rinv,R2,tempR)
             DO i=1,3
               rvert(nvert)%ot3(i)=tempR(i)/detR
             END DO

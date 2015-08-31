@@ -9,7 +9,7 @@ MODULE matrix_mod
   PRIVATE
   PUBLIC :: matrix_mult,matrix_vector,vector_matrix
   PUBLIC :: matrix_transpose,matrix_volume,triple_product
-  PUBLIC :: matrix_3x3_inverse,inverse,mult_vect,mult_vect2
+  PUBLIC :: matrix_3x3_inverse,inverse,mult_vect
   PUBLIC :: scalar_matrix,matrix_addition,matrix_substraction
   PUBLIC :: scalar_vector,vector_addition,vector_substraction
   PUBLIC :: cross_product,det,find_vector,find_area
@@ -80,14 +80,6 @@ MODULE matrix_mod
     c(3)=a(1,3)*b(1)+a(3,2)*b(2)+a(3,3)*b(3)    
   END SUBROUTINE mult_vect
 
-  SUBROUTINE mult_vect2(a,b,c)
-    REAL(q2),INTENT(IN),DIMENSION(:,:) :: a
-    REAL(q2),INTENT(IN),DIMENSION(:) :: b
-    REAL(q2),INTENT(OUT),DIMENSION(3) :: c
-    c(1)=a(1,1)*b(1)+a(1,2)*b(2)+a(1,3)*b(3)
-    c(2)=a(2,1)*b(1)+a(2,2)*b(2)+a(2,3)*b(3)
-    c(3)=a(3,1)*b(1)+a(3,2)*b(2)+a(3,3)*b(3)
-  END SUBROUTINE
 
 !-----------------------------------------------------------------------------------!
 ! vector_matrix:  Multiply the vector V with the matrix M and return the product Vp
