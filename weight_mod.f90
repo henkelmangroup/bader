@@ -19,6 +19,7 @@
     TYPE weight_obj
       REAL(q2) :: rho
       INTEGER,DIMENSION(3) :: pos
+      INTEGER :: tempvolnum
       INTEGER :: volnum !  similar to bader volnum
       REAL(q2),DIMENSION(:),ALLOCATABLE :: volwgt ! weight to the bader volume
       LOGICAL :: isInterior
@@ -120,12 +121,15 @@
     vol=matrix_volume(ions%lattice)
     vol=vol/chgtemp%nrho
     bdr%ionvol = bdr%ionvol*vol
-!    totalE=0
-!    DO n1=1,bdr%nvols
-!      totalE=totalE+bdr%volchg(n1)
-!    END DO
     CALL SYSTEM_CLOCK(t2,cr,cm)
     PRINT *,'Time elapsed:',(t2-t1)/REAL(cr,q2),'seconds'
+    ! rewrite bdr%volnum on boundary points to enable output generating
+    DO walker=1,totalLength
+      IF (bdr%volnum(chgList(walker)%pos(1),chgList(walker)%pos(2),chgList(walker)%pos(3)) == 0) THEN
+        bdr%volnum(chgList(walker)%pos(1),chgList(walker)%pos(2),chgList(walker)%pos(3))=chgList(walker)%tempvolnum
+      END IF
+ 
+    END DO
     ALLOCATE(bdr%nnion(bdr%nvols), bdr%iondist(bdr%nvols), bdr%ionchg(ions%nions))
     ALLOCATE(bdr%volpos_dir(bdr%nvols,3))
     ALLOCATE(bdr%volpos_car(bdr%nvols,3))
@@ -292,17 +296,16 @@
       bdr%ionvol(n1)=bdr%ionvol(n1)+chgList(walker)%volwgt(n1)
       temp=temp+chgList(walker)%volwgt(n1)
     END DO
-    ! once its all finished, rewrite bader%volnum to enable output generating
     temp=0
     DO n1=1,bdr%nvols
       IF (chgList(walker)%volwgt(n1)>temp) THEN
         temp=chgList(walker)%volwgt(n1)
-        bdr%volnum(chgList(walker)%pos(1),chgList(walker)%pos(2),chgList(walker)%pos(3)) &
-            = n1
+        chgList(walker)%tempvolnum=n1
+!        bdr%volnum(chgList(walker)%pos(1),chgList(walker)%pos(2),chgList(walker)%pos(3)) &
+!            = n1
       END IF
     END DO
-
-  END SUBROUTINE flux_weight
+     END SUBROUTINE flux_weight
  
   ! modified version to sort rvert
   RECURSIVE SUBROUTINE rvert_sort(list,length)
