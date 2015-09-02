@@ -36,25 +36,19 @@
 
   SUBROUTINE bader_weight_calc(bdr,ions,chgval,opts)
 
-    TYPE(weight_obj),ALLOCATABlE,DIMENSION(:) :: chgList, sortedList
+    TYPE(weight_obj),ALLOCATABlE,DIMENSION(:) :: chgList
     TYPE(weight_obj) :: tempwobj
     TYPE(bader_obj) :: bdr
     TYPE(charge_obj) :: chgval,chgtemp
-    TYPE(weight_obj) :: wt
     TYPE(ions_obj) :: ions,ionstemp
     TYPE(options_obj) :: opts
-    INTEGER(KIND=8) :: totalLength,temp
-    INTEGER :: i, j, k, l, n1, n2, n3, walker,nnvect
-    REAL(q2) :: tempflx,totalE,tempw,vol
+    INTEGER(KIND=8) :: totalLength
+    INTEGER :: i, n1, n2, n3, walker,nnvect
+    REAL(q2) :: vol
     INTEGER :: t1,t2,cr,cm,Nneighvect
-    LOGICAL :: nbb ! never boundry before
     INTEGER,ALLOCATABLE,DIMENSION(:,:,:) :: indList
-    INTEGER,ALLOCATABLE,DIMENSION(:,:) :: atomList ! stores pos of sig. max. 
     INTEGER,ALLOCATABLE,DIMENSION(:,:) :: vect
     REAL(q2),ALLOCATABLE,DIMENSION(:) :: alpha
-    nbb=.TRUE.
-    tempw=0
-    totalE=0
     bdr%nvols=0
     CALL ws_voronoi(ions,nnvect,vect,alpha)
     CALL SYSTEM_CLOCK(t1,cr,cm)
@@ -64,8 +58,6 @@
       chgtemp = chgval
     END IF
     totalLength=chgtemp%npts(1)*chgtemp%npts(2)*chgtemp%npts(3)
-    ALLOCATE (sortedList(totalLength)) ! sortedList should have the correct size
-!    temp=totalLength
     ALLOCATE (chgList(totalLength))
     ALLOCATE (bdr%volnum(chgtemp%npts(1),chgtemp%npts(2),chgtemp%npts(3)))
     ALLOCATE (indlist(chgtemp%npts(1),chgtemp%npts(2),chgtemp%npts(3)))
@@ -96,7 +88,6 @@
     PRINT *,'DONE.'
     ! firsst loop,deal with all interior points.
     PRINT *,'looking through for interior points'
-    i=0
     DO walker=1,totalLength
       indList(chgList(walker)%pos(1), &
               chgList(walker)%pos(2), &
@@ -602,7 +593,7 @@
         rx(i)=rx(i)*1/rdRn
         tempR(i)=R(n,i)
       END DO
-      CALL CROSS_PRODUCT(tempR,rx,ry)    
+      CALL cross_product(tempR,rx,ry)    
       rdRn=SQRT(ry(1)**2+ry(2)**2+ry(3)**2)
       DO i=1,3
         ry(i)=ry(i)*1/rdRn
