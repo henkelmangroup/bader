@@ -93,7 +93,7 @@
               chgList(walker)%pos(2), &
               chgList(walker)%pos(3) &
              )=walker
-      CALL interiors(bdr,chgtemp,chgList(walker),walker,indList,nnvect,vect)
+      CALL interiors(bdr,chgtemp,chgList(walker),nnvect,vect)
       
     END DO
     ALLOCATE (bdr%volchg(bdr%nvols))
@@ -139,17 +139,16 @@
   ! interiors: this subroutine loops through all grid points, finding out which
   ! are interiors and which are boundries, and number of basins.
   !-----------------------------------------------------------------------------------!
-  SUBROUTINE interiors(bdr,chgtemp,cLW,walker,indList,nnvect,vect) ! chgListWalker
-    INTEGER,ALLOCATABLE,DIMENSION(:,:,:) :: indList
+  SUBROUTINE interiors(bdr,chgtemp,cLW,nnvect,vect) 
     INTEGER,DIMENSION(:,:) :: vect
     INTEGER :: nnvect
     TYPE(weight_obj) :: cLW
     TYPE(bader_obj) :: bdr
-    TYPE(charge_obj) :: chgtemp,chgval
-    INTEGER :: length,i,n1,n2,n3,temp,tempnvol,tempvolnum,temp2,j,walker
-    REAL(q2) :: temprho,denom,rho,areasum,tempw
-    INTEGER :: neivolnum,max_count
-    INTEGER,DIMENSION(3) :: xyz,p
+    TYPE(charge_obj) :: chgtemp
+    INTEGER :: n1,temp
+    REAL(q2) :: denom,rho
+    INTEGER :: neivolnum
+    INTEGER,DIMENSION(3) :: p
     LOGICAL :: ismax
     ismax=.TRUE.
     neivolnum=0
@@ -184,7 +183,6 @@
         IF (clW%rho<bdr%tol ) THEN
           ! probably just flucuations in vacuum
           ! assign it to closest real max
-          max_count=0
         ELSE
           bdr%nvols=bdr%nvols+1
           bdr%bnum=bdr%nvols
@@ -234,16 +232,15 @@
     TYPE(bader_obj) :: bdr
     TYPE(charge_obj) ::chgtemp
     TYPE(ions_obj) :: ions
-    INTEGER :: n1,n2,n3,n4,walker,nein,counter
+    INTEGER :: n1,n4,walker,nein
     INTEGER,DIMENSION(:,:,:) :: indList
     INTEGER,DIMENSION(:,:) :: vect
     INTEGER :: nnvect
     REAL(q2),DIMENSION(:) :: alpha
     INTEGER,DIMENSION(3) :: p
-    REAL(q2) :: denom,area,length,temp
+    REAL(q2) :: denom,temp
     REAL(q2),DIMENSION(nnvect) :: flx,nom
     denom=0
-    counter=0
     temp=0
     ALLOCATE(chgList(walker)%volwgt(bdr%nvols))
     DO n1=1,bdr%nvols
@@ -257,11 +254,10 @@
       n4=n4+1
       CALL pbc(p,chgtemp%npts)
       IF (chgtemp%rho(p(1),p(2),p(3))>chgList(walker)%rho) THEN
-        nom(n1)=alpha(n1)*(chgtemp%rho(p(1),p(2),p(3))-chgList(walker)%rho) !*length
+        nom(n1)=alpha(n1)*(chgtemp%rho(p(1),p(2),p(3))-chgList(walker)%rho) 
         denom=denom+nom(n1)
       END IF 
     END DO
-    counter=0
     DO n1=1,nnvect
       p=chgList(walker)%pos+(/vect(n1,1),vect(n1,2),vect(n1,3)/)
       CALL pbc(p,chgtemp%npts)
@@ -483,14 +479,13 @@
   SUBROUTINE ws_voronoi(ions,nnvect,vect,alpha)
     TYPE(ions_obj) :: ions
     TYPE(rvert_obj),ALLOCATABLE,DIMENSION(:) :: rvert
-    REAL(q2),ALLOCATABLE,DIMENSION(:,:) :: R,tR
-    INTEGER,ALLOCATABLE,DIMENSION(:,:) :: nvect,tnvect  
-    INTEGER,ALLOCATABLE,DIMENSION(:,:) :: vect
+    REAL(q2),ALLOCATABLE,DIMENSION(:,:) :: R
+    INTEGER,ALLOCATABLE,DIMENSION(:,:) :: nvect,vect
     REAL(q2),DIMENSION(3) :: nv,tempR,R2,rx,ry,tempR2,tempR3
-    REAL(q2),DIMENSION(3,3) :: Rdot,Rinv,tempM
+    REAL(q2),DIMENSION(3,3) :: Rdot,Rinv
     REAL(q2),ALLOCATABLE,DIMENSION(:) :: alph,alpha
     REAL(q2) :: detR,tol,temp,rdRn
-    INTEGER :: nv1,nv2,nv3,i,n,j
+    INTEGER :: nv1,nv2,nv3,i,n
     INTEGER :: Nrange,Nneigh,maxvert,nnvect,nvert
     INTEGER :: prunN,zeroarea,nvi
     LOGICAL :: ic
