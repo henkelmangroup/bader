@@ -520,6 +520,7 @@
             nvect(Nneigh,2)=nv2
             nvect(Nneigh,3)=nv3
             nv=(/nv1,nv2,nv3/)
+            !CALL matrix_vector(ions%lattice,nv,tempR)
             CALL mult_vect(ions%lattice,nv,tempR)
             DO i=1,3
               R(Nneigh,i)=tempR(i)
@@ -551,24 +552,23 @@
     DO n=1,Nneigh
       nvert=1
       DO nv1=1,3
-        Rdot(nv1,1)=R(n,nv1)
+        Rdot(1,nv1)=R(n,nv1)
       END DO
       R2(1)=R(N,4)
       DO nv1=1,Nneigh
         DO i=1,3
-          Rdot(i,2)=R(nv1,i)
+          Rdot(2,i)=R(nv1,i)
         END DO
         R2(2)=R(nv1,4)
         DO nv2=nv1+1,Nneigh
           DO i=1,3
-            Rdot(i,3)=R(nv2,i)
+            Rdot(3,i)=R(nv2,i)
           END DO
           R2(3)=R(nv2,4)
-          CALL inverse(Rdot,Rinv)
           CALL det(Rdot,detR)
           IF (ABS(detR)>=tol) THEN
-            CALL matrix_transpose(Rinv,tempM)
-            Rinv=tempM
+            CALL matrix_3x3_inverse(Rdot,Rinv)
+            Rinv=Rinv*detR
             tempR=(/0,0,0/)
             CALL matrix_vector(Rinv,R2,tempR)
             DO i=1,3

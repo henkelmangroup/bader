@@ -9,7 +9,7 @@ MODULE matrix_mod
   PRIVATE
   PUBLIC :: matrix_mult,matrix_vector,vector_matrix
   PUBLIC :: matrix_transpose,matrix_volume,triple_product
-  PUBLIC :: matrix_3x3_inverse,inverse,mult_vect
+  PUBLIC :: matrix_3x3_inverse,mult_vect
   PUBLIC :: scalar_matrix,matrix_addition,matrix_substraction
   PUBLIC :: scalar_vector,vector_addition,vector_substraction
   PUBLIC :: cross_product,det,find_vector,find_area
@@ -162,44 +162,6 @@ MODULE matrix_mod
 
   RETURN
   END SUBROUTINE matrix_3x3_inverse
-
-  ! This is just for testing, potentially useful
-  SUBROUTINE inverse(x,inv)
-    REAL(q2),INTENT(IN),DIMENSION(3,3) :: x
-    REAL(q2),INTENT(OUT),DIMENSION(3,3) :: inv
-  !  for this notation:
-     ! 1 2 3
-     ! 4 5 6
-     ! 7 8 9
-     inv(1,1) = x(2,2)*x(3,3) - x(2,3)*x(3,2);
-     inv(1,2) = x(1,3)*x(3,2) - x(1,2)*x(3,3);
-     inv(1,3) = x(1,2)*x(2,3) - x(1,3)*x(2,2);
-  
-     inv(2,1) = x(2,3)*x(3,1) - x(2,1)*x(3,3);
-     inv(2,2) = x(1,1)*x(3,3) - x(1,3)*x(3,1);
-     inv(2,3) = x(1,3)*x(2,1) - x(1,1)*x(2,3);
-  
-     inv(3,1) = x(2,1)*x(3,2) - x(2,2)*x(3,1);
-     inv(3,2) = x(1,2)*x(3,1) - x(1,1)*x(3,2);
-     inv(3,3) = x(1,1)*x(2,2) - x(1,2)*x(2,1);
-
-
-
-!    below is for this notation:
-     ! 1 4 7
-     ! 2 5 8
-     ! 3 6 9
-!    inv(1,1)=x(2,2)*x(3,3)-x(3,2)*x(2,3)
-!    inv(2,1)=x(2,1)*x(3,1)-x(1,1)*x(3,2)
-!    inv(3,1)=x(2,1)*x(3,2)-x(3,1)*x(2,1)
-!    inv(1,2)=x(3,2)*x(1,3)-x(2,1)*x(3,3)
-!    inv(2,2)=x(1,1)*x(3,3)-x(3,1)*x(1,3)
-!    inv(3,2)=x(3,1)*x(2,1)-x(1,1)*x(3,2)
-!    inv(1,3)=x(2,1)*x(2,3)-x(2,2)*x(1,3)
-!    inv(2,3)=x(2,1)*x(1,3)-x(1,1)*x(2,3)
-!    inv(3,3)=x(1,1)*x(2,2)-x(2,1)*x(2,1)
-
-  END SUBROUTINE
 
 
 !-----------------------------------------------------------------------------------!
