@@ -18,10 +18,10 @@
 
     TYPE weight_obj
       REAL(q2), DIMENSION(:), ALLOCATABLE :: volwgt ! weight to the bader volume
+      REAL(q2), DIMENSION(:), ALLOCATABLE :: flx
       REAL(q2) :: rho
       INTEGER, DIMENSION(3) :: pos
-      INTEGER :: tempvolnum, volnum !  similar to bader volnum
-      LOGICAL :: isInterior
+      INTEGER ::  volnum !  similar to bader volnum
     END TYPE
 
     TYPE rvert_obj
@@ -42,13 +42,24 @@
     TYPE(charge_obj) :: chgval,chgtemp
     TYPE(ions_obj) :: ions,ionstemp
     TYPE(options_obj) :: opts
-    INTEGER :: totalLength
+    INTEGER :: totalLength,tempvolnum
     INTEGER :: i, n1, n2, n3, walker, nnvect
-    REAL(q2) :: vol
-    INTEGER :: t1, t2, cr, cm, Nneighvect
+    REAL(q2) :: vol, tsum, tw, temp
+    INTEGER :: t1, t2, cr, cm, nabove, tbasin,counter,m
     INTEGER, ALLOCATABLE, DIMENSION(:,:,:) :: indList
-    INTEGER, ALLOCATABLE, DIMENSION(:,:) :: vect
+    INTEGER, ALLOCATABLE, DIMENSION(:,:) :: vect,neigh
+    INTEGER, ALLOCATABLE, DIMENSION(:) :: numbelow, basin, above
+    INTEGER, DIMENSION(3) :: p
     REAL(q2), ALLOCATABLE, DIMENSION(:) :: alpha
+    REAL(q2), ALLOCATABLE, DIMENSION(:) :: t, w
+    REAL(q2), ALLOCATABLE, DIMENSION(:,:) :: prob
+    LOGICAL :: boundary
+    ! above : an array of idexes of cells with higher rho
+    ! tbasin : a temperary basin entry
+    ! basin : an array used to store basin info of all neighbors with higher
+    ! rho
+    ! numbelow : 
+    counter=0
     bdr%nvols = 0
     CALL ws_voronoi(ions, nnvect, vect, alpha)
     CALL SYSTEM_CLOCK(t1, cr, cm)
@@ -58,19 +69,45 @@
       chgtemp = chgval
     END IF
     totalLength = chgtemp%npts(1)*chgtemp%npts(2)*chgtemp%npts(3)
+    bdr%tol = opts%badertol
+    ALLOCATE (numbelow(totalLength))
+    ALLOCATE (w(totalLength))
+    ALLOCATE (neigh(totalLength,nnvect))
+    ALLOCATE (prob(totalLength,nnvect))
+    ALLOCATE (basin(totalLength))
     ALLOCATE (chgList(totalLength))
     ALLOCATE (bdr%volnum(chgtemp%npts(1), chgtemp%npts(2), chgtemp%npts(3)))
-    ALLOCATE (indlist(chgtemp%npts(1), chgtemp%npts(2), chgtemp%npts(3)))
-    bdr%bdim = 1
+    ALLOCATE (indList(chgtemp%npts(1), chgtemp%npts(2), chgtemp%npts(3)))
+    bdr%bdim = 64 ! will expand if needed
     ALLOCATE (bdr%volpos_lat(bdr%bdim, 3)) ! will be expanded as needed
+!    DO walker = 2, totalLength
+!      neigh(walker) = neigh(walker-1)+nnvect
+!      prob(walker) = prob(walker-1)+nnvect
+!    END DO
+    ! Find vacuum points
+    IF (opts%vac_flag) THEN
+      DO n1=1,chgval%npts(1)
+        DO n2=1,chgval%npts(2)
+          DO n3=1,chgval%npts(3)
+            IF (ABS(rho_val(chgval,n1,n2,n3)/vol) <= opts%vacval) THEN
+               bdr%volnum(n1,n2,n3) = -1
+               bdr%vacchg = bdr%vacchg+chgval%rho(n1,n2,n3)
+               bdr%vacvol = bdr%vacvol+1
+            END IF
+          END DO
+        END DO
+      END DO
+    END IF
+    bdr%vacchg = bdr%vacchg/REAL(chgval%nrho,q2)
+    bdr%vacvol = bdr%vacvol*vol/chgval%nrho
     walker = 1
     DO n1=1, chgtemp%npts(1)
       DO n2=1, chgtemp%npts(2)
         DO n3=1, chgtemp%npts(3)
           chgList(walker)%rho = chgtemp%rho(n1,n2,n3)
           chgList(walker)%pos = (/n1,n2,n3/)
-          chgList(walker)%isInterior = .TRUE.
           chgList(walker)%volnum = 0
+          ALLOCATE (chgList(walker)%flx(nnvect))
           walker = walker + 1
         END DO
       END DO
@@ -85,40 +122,141 @@
       chgList(totalLength + 1 - walker) = chgList(walker)
       chgList(walker) = tempwobj
     END DO
-    PRINT *,'DONE.'
-    ! first loop, deal with all interior points
-    PRINT *,'looking for interior points'
     DO walker = 1, totalLength
       indList(chgList(walker)%pos(1), &
               chgList(walker)%pos(2), &
               chgList(walker)%pos(3)) = walker
-      CALL interiors(bdr, chgtemp, chgList(walker), nnvect, vect)
-
     END DO
+    PRINT *,'DONE.'
+    ! first loop, deal with all interior points
+    PRINT *,'calculating flux for each cell...'
+    DO n1 = 1, totalLength
+      basin(n1) = 0
+      numbelow(n1) = 0
+      nabove = 0
+      tsum = 0
+      ALLOCATE (t(nnvect))
+      ALLOCATE (above(nnvect))
+      DO n2 = 1, nnvect
+        p = chgList(n1)%pos + vect(n2,:)
+        CALL pbc(p, chgtemp%npts)
+        m = indList(p(1),p(2),p(3))
+       IF (m < n1 ) THEN ! point p has higher rho
+         nabove = nabove+1
+         above(nabove) = m 
+         t(nabove) = alpha(n2)*(chgList(m)%rho-chgList(n1)%rho)
+         tsum = tsum+t(nabove)
+       END IF
+      END DO
+      IF (nabove == 0) THEN ! maxima
+        bdr%bnum = bdr%bnum+1
+        bdr%nvols = bdr%nvols+1
+        basin(n1) = bdr%nvols
+        bdr%volnum(chgList(n1)%pos(1),chgList(n1)%pos(2),chgList(n1)%pos(3)) = bdr%nvols 
+        IF (bdr%bnum >= bdr%bdim) THEN
+          CALL reallocate_volpos(bdr,bdr%bdim*2)
+        END  IF
+        DEALLOCATE(t)
+        DEALLOCATE(above)
+        bdr%volpos_lat(bdr%bnum,:) = REAL(p,q2)
+        CYCLE
+      END IF
+      tbasin= basin(above(1))
+      boundary=.FALSE.
+      DO n2=1,nabove
+        IF (basin(above(n2))/=tbasin .OR. tbasin==0) THEN 
+          boundary=.TRUE.
+        END IF
+      END DO 
+      IF (boundary) THEN ! boundary
+        basin(n1) = 0
+        counter = counter + 1
+        temp = 0
+        DO n2 = 1, nabove
+          m = above(n2)
+          numbelow(m) = numbelow(m)+1
+          neigh(m,numbelow(m)) = n1
+          prob(m,numbelow(m)) = t(n2) / tsum
+          IF (prob(m,numbelow(m)) > temp) THEN
+            temp = prob(m,numbelow(m))
+            bdr%volnum( &
+              chgList(n1)%pos(1),chgList(n1)%pos(2),chgList(n1)%pos(3)) = &
+              bdr%volnum( &
+              chgList(m)%pos(1),chgList(m)%pos(2),chgList(m)%pos(3) )
+          END IF
+        END DO
+      ELSE ! interior
+        basin(n1) = tbasin
+        bdr%volnum(chgList(n1)%pos(1),chgList(n1)%pos(2),chgList(n1)%pos(3)) = &
+          tbasin
+      END IF
+      DEALLOCATE(t)
+      DEALLOCATE(above)
+    END DO
+    ! restore chglist rho to values from chgval
+    DO walker = 1, totalLength
+      n1 = chgList(walker)%pos(1)
+      n2 = chgList(walker)%pos(2)
+      n3 = chgList(walker)%pos(3)
+      chgList(walker)%rho=chgval%rho(n1,n2,n3)
+    END DO 
+
+    PRINT *,'DONE. Integrating charges'
     ALLOCATE (bdr%volchg(bdr%nvols))
     ALLOCATE (bdr%ionvol(bdr%nvols))
-    DO walker = 1, bdr%nvols
-      bdr%volchg(walker) = 0
+    ! bdr%volnum is written here during integration. so that each cell is
+    ! assigned to the basin where it has most of the weight to. This should not
+    ! affect the result of the integration.
+    DO n1 = 1, bdr%nvols
+      DO n2 = 1, totalLength
+        IF (basin(n2) == n1) THEN
+          w(n2) = 1
+        ELSE
+          w(n2) = 0
+        END IF
+      END DO
+      DO n2 = 1,totalLength
+        tw = w(n2)
+        IF (tw /= 0) THEN
+          DO walker = 1, numbelow(n2)
+            w(neigh(n2, walker)) = w(neigh(n2, walker)) + prob(n2, walker) * tw
+          END DO
+          bdr%volchg(n1) = bdr%volchg(n1) + tw * chgList(n2)%rho
+          bdr%ionvol(n1) = bdr%ionvol(n1) + tw
+        END IF
+      END DO
     END DO
+    bdr%volchg = bdr%volchg / REAL(chgval%nrho,q2)
+!    DO walker = 1, bdr%nvols ! why the hell did I do this
+!      bdr%volchg(walker) = 0
+!    END DO
     !second loop
     PRINT *,'DONE'
-    PRINT *,'Running through all boundry points'
-    DO walker = 1, totalLength
-      CALL boundries(bdr, chgtemp, chgList, walker, ions, indList, nnvect, vect, alpha)
-    END DO
-    PRINT *,'DONE'
-    bdr%volchg = bdr%volchg/REAL(chgval%nrho,q2)
     vol = matrix_volume(ions%lattice)
-    vol = vol/chgtemp%nrho
-    bdr%ionvol = bdr%ionvol*vol
+    vol = vol / chgtemp%nrho
+    bdr%ionvol = bdr%ionvol * vol
     CALL SYSTEM_CLOCK(t2, cr, cm)
     PRINT *,'Time elapsed:', (t2-t1)/REAL(cr,q2), 'seconds'
     ! rewrite bdr%volnum on boundary points to enable output generation
+!    DO walker = 1, totalLength
+!      IF (bdr%volnum(chgList(walker)%pos(1), chgList(walker)%pos(2), chgList(walker)%pos(3)) == 0) THEN
+!        temp = 0
+!        tempvolnum=0
+!        DO n1 = 1, bdr%nvols
+!          IF (chgList(walker)%volwgt(n1)>temp) THEN
+!          temp = chgList(walker)%volwgt(n1)
+!          tempvolnum = n1
+!!         bdr%volnum(chgList(walker)%pos(1),chgList(walker)%pos(2),chgList(walker)%pos(3)) = n1
+!          END IF
+!        END DO
+!        bdr%volnum(chgList(walker)%pos(1), chgList(walker)%pos(2), chgList(walker)%pos(3)) = tempvolnum        
+!      END IF
+!    END DO
     DO walker = 1, totalLength
-      IF (bdr%volnum(chgList(walker)%pos(1), chgList(walker)%pos(2), chgList(walker)%pos(3)) == 0) THEN
-        bdr%volnum(chgList(walker)%pos(1), chgList(walker)%pos(2), chgList(walker)%pos(3)) = chgList(walker)%tempvolnum
+      IF (bdr%volnum(chgList(walker)%pos(1), chgList(walker)%pos(2), &
+          chgList(walker)%pos(3)) == 0) THEN
+        PRINT *,'still zero'
       END IF
- 
     END DO
     ALLOCATE (bdr%nnion(bdr%nvols), bdr%iondist(bdr%nvols), bdr%ionchg(ions%nions))
     ALLOCATE (bdr%volpos_dir(bdr%nvols, 3))
@@ -128,6 +266,7 @@
       bdr%volpos_car(i,:) = lat2car(chgtemp, bdr%volpos_lat(i,:))
     END DO
     CALL assign_chg2atom(bdr, ions, chgval)
+!    CALL cal_atomic_vol(bdr,ions,chgval)
     CALL bader_mindist(bdr, ions, chgtemp)
 
     ! output part
@@ -156,7 +295,7 @@
         ismax = .FALSE.
         IF (bdr%volnum(p(1),p(2),p(3)) == 0) THEN 
           ! neighbor is a boundary point
-          cLW%isInterior = .FALSE.
+          !cLW%isInterior = .FALSE.
           cLW%volnum = 0
           EXIT
           ! this subroutine can now be stopped
@@ -167,35 +306,35 @@
           ! if this point turns out to be a boundary point, this will be erased
           CYCLE
         ELSEIF (neivolnum/=bdr%volnum(p(1),p(2),p(3))) THEN
-          cLW%isInterior = .FALSE.
+          !cLW%isInterior = .FALSE.
           cLW%volnum = 0
           EXIT
         END IF
       END IF
     END DO
     ! by the end if the point gets no basin assignment, it is boundary
-    IF (ismax .AND. cLW%isInterior) THEN
-        ! a maximum; need to test if it is significant
-        IF (clW%rho<bdr%tol) THEN
-          ! probably just flucuations in vacuum
-          ! assign it to closest real max
-        ELSE
-          bdr%nvols = bdr%nvols + 1
-          bdr%bnum = bdr%nvols
-          cLW%volnum = bdr%nvols
-          bdr%volnum(cLW%pos(1),cLW%pos(2),cLW%pos(3)) = bdr%nvols
-          bdr%volpos_lat(bdr%nvols,1) = REAL(cLW%pos(1),q2)
-          bdr%volpos_lat(bdr%nvols,2) = REAL(cLW%pos(2),q2)
-          bdr%volpos_lat(bdr%nvols,3) = REAL(cLW%pos(3),q2)
-          CALL reallocate_volpos(bdr, bdr%nvols+1)
-        END IF
-    ELSEIF (neivolnum == 0) THEN
-      cLW%isInterior = .FALSE.
-    END IF
-    IF (.NOT. cLW%isInterior) THEN
-      cLW%volnum = 0
-      bdr%volnum(cLW%pos(1),cLW%pos(2),cLW%pos(3))=0
-    END IF
+    !IF (ismax .AND. cLW%isInterior) THEN
+    !    ! a maximum; need to test if it is significant
+    !    IF (clW%rho<bdr%tol) THEN
+    !      ! probably just flucuations in vacuum
+    !      ! assign it to closest real max
+    !    ELSE
+    !      bdr%nvols = bdr%nvols + 1
+    !      bdr%bnum = bdr%nvols
+    !      cLW%volnum = bdr%nvols
+    !      bdr%volnum(cLW%pos(1),cLW%pos(2),cLW%pos(3)) = bdr%nvols
+    !      bdr%volpos_lat(bdr%nvols,1) = REAL(cLW%pos(1),q2)
+    !      bdr%volpos_lat(bdr%nvols,2) = REAL(cLW%pos(2),q2)
+    !      bdr%volpos_lat(bdr%nvols,3) = REAL(cLW%pos(3),q2)
+    !      CALL reallocate_volpos(bdr, bdr%nvols+1)
+    !    END IF
+    !ELSEIF (neivolnum == 0) THEN
+    !  cLW%isInterior = .FALSE.
+    !END IF
+    !IF (.NOT. cLW%isInterior) THEN
+    !  cLW%volnum = 0
+    !  bdr%volnum(cLW%pos(1),cLW%pos(2),cLW%pos(3))=0
+    !END IF
   END SUBROUTINE interiors
 
   ! This subroutine goes through all grid points, adds up the density of the interior points,
@@ -209,12 +348,12 @@
     INTEGER :: walker, i, nnvect
     TYPE(weight_obj), DIMENSION(:) :: chgList
     REAL(q2), DIMENSION(:) :: alpha
-    IF (chgList(walker)%isInterior) THEN
-      bdr%volchg(chgList(walker)%volnum) = bdr%volchg(chgList(walker)%volnum) + chgList(walker)%rho
-      bdr%ionvol(chgList(walker)%volnum) = bdr%ionvol(chgList(walker)%volnum) + 1
-    ELSE
-      CALL flux_weight(bdr, chgtemp, chgList, walker, ions, indList, nnvect, vect, alpha)
-    END IF
+    !IF (chgList(walker)%isInterior) THEN
+    !  bdr%volchg(chgList(walker)%volnum) = bdr%volchg(chgList(walker)%volnum) + chgList(walker)%rho
+    !  bdr%ionvol(chgList(walker)%volnum) = bdr%ionvol(chgList(walker)%volnum) + 1
+    !ELSE
+    !  CALL flux_weight(bdr, chgtemp, chgList, walker, ions, indList, nnvect, vect, alpha)
+    !END IF
   END SUBROUTINE boundries
 !
 !-------------------------------------------------------------------!
@@ -280,7 +419,7 @@
     DO n1 = 1, bdr%nvols
       IF (chgList(walker)%volwgt(n1)>temp) THEN
         temp = chgList(walker)%volwgt(n1)
-        chgList(walker)%tempvolnum = n1
+!        chgList(walker)%tempvolnum = n1
 !        bdr%volnum(chgList(walker)%pos(1),chgList(walker)%pos(2),chgList(walker)%pos(3)) = n1
       END IF
     END DO
