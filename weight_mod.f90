@@ -204,9 +204,15 @@
     PRINT *,'DONE. Integrating charges'
     ALLOCATE (bdr%volchg(bdr%nvols))
     ALLOCATE (bdr%ionvol(bdr%nvols))
+    DO n1=1,bdr%nvols
+      bdr%volchg(n1)=0
+      bdr%ionvol(n1)=0
+    END DO
     ! bdr%volnum is written here during integration. so that each cell is
     ! assigned to the basin where it has most of the weight to. This should not
     ! affect the result of the integration.
+    temp=0
+    counter=0
     DO n1 = 1, bdr%nvols
       DO n2 = 1, totalLength
         IF (basin(n2) == n1) THEN
@@ -224,6 +230,7 @@
           bdr%volchg(n1) = bdr%volchg(n1) + tw * chgList(n2)%rho
           bdr%ionvol(n1) = bdr%ionvol(n1) + tw
         END IF
+     
       END DO
     END DO
     bdr%volchg = bdr%volchg / REAL(chgval%nrho,q2)
