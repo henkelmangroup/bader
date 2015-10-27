@@ -17,8 +17,6 @@
     PRIVATE
 
     TYPE weight_obj
-      REAL(q2), DIMENSION(:), ALLOCATABLE :: volwgt ! weight to the bader volume
-      REAL(q2), DIMENSION(:), ALLOCATABLE :: flx
       REAL(q2) :: rho
       INTEGER, DIMENSION(3) :: pos
       INTEGER ::  volnum !  similar to bader volnum
@@ -42,10 +40,10 @@
     TYPE(charge_obj) :: chgval,chgtemp
     TYPE(ions_obj) :: ions,ionstemp
     TYPE(options_obj) :: opts
-    INTEGER :: totalLength,tempvolnum
+    INTEGER :: totalLength
     INTEGER :: i, n1, n2, n3, walker, nnvect
     REAL(q2) :: vol, tsum, tw, temp
-    INTEGER :: t1, t2, cr, cm, nabove, tbasin,counter,m
+    INTEGER :: t1, t2, cr, cm, nabove, tbasin, m
     INTEGER, ALLOCATABLE, DIMENSION(:,:,:) :: indList
     INTEGER, ALLOCATABLE, DIMENSION(:,:) :: vect,neigh
     INTEGER, ALLOCATABLE, DIMENSION(:) :: numbelow, basin, above
@@ -59,7 +57,6 @@
     ! basin : an array used to store basin info of all neighbors with higher
     ! rho
     ! numbelow : 
-    counter=0
     bdr%nvols = 0
     CALL ws_voronoi(ions, nnvect, vect, alpha)
     CALL SYSTEM_CLOCK(t1, cr, cm)
@@ -80,10 +77,6 @@
     ALLOCATE (indList(chgtemp%npts(1), chgtemp%npts(2), chgtemp%npts(3)))
     bdr%bdim = 64 ! will expand if needed
     ALLOCATE (bdr%volpos_lat(bdr%bdim, 3)) ! will be expanded as needed
-!    DO walker = 2, totalLength
-!      neigh(walker) = neigh(walker-1)+nnvect
-!      prob(walker) = prob(walker-1)+nnvect
-!    END DO
     ! Find vacuum points
     IF (opts%vac_flag) THEN
       DO n1=1,chgval%npts(1)
@@ -107,7 +100,6 @@
           chgList(walker)%rho = chgtemp%rho(n1,n2,n3)
           chgList(walker)%pos = (/n1,n2,n3/)
           chgList(walker)%volnum = 0
-          ALLOCATE (chgList(walker)%flx(nnvect))
           walker = walker + 1
         END DO
       END DO
@@ -170,7 +162,6 @@
       END DO 
       IF (boundary) THEN ! boundary
         basin(n1) = 0
-        counter = counter + 1
         temp = 0
         DO n2 = 1, nabove
           m = above(n2)
@@ -212,7 +203,6 @@
     ! assigned to the basin where it has most of the weight to. This should not
     ! affect the result of the integration.
     temp=0
-    counter=0
     DO n1 = 1, bdr%nvols
       DO n2 = 1, totalLength
         IF (basin(n2) == n1) THEN
@@ -234,31 +224,12 @@
       END DO
     END DO
     bdr%volchg = bdr%volchg / REAL(chgval%nrho,q2)
-!    DO walker = 1, bdr%nvols ! why the hell did I do this
-!      bdr%volchg(walker) = 0
-!    END DO
-    !second loop
     PRINT *,'DONE'
     vol = matrix_volume(ions%lattice)
     vol = vol / chgtemp%nrho
     bdr%ionvol = bdr%ionvol * vol
     CALL SYSTEM_CLOCK(t2, cr, cm)
     PRINT *,'Time elapsed:', (t2-t1)/REAL(cr,q2), 'seconds'
-    ! rewrite bdr%volnum on boundary points to enable output generation
-!    DO walker = 1, totalLength
-!      IF (bdr%volnum(chgList(walker)%pos(1), chgList(walker)%pos(2), chgList(walker)%pos(3)) == 0) THEN
-!        temp = 0
-!        tempvolnum=0
-!        DO n1 = 1, bdr%nvols
-!          IF (chgList(walker)%volwgt(n1)>temp) THEN
-!          temp = chgList(walker)%volwgt(n1)
-!          tempvolnum = n1
-!!         bdr%volnum(chgList(walker)%pos(1),chgList(walker)%pos(2),chgList(walker)%pos(3)) = n1
-!          END IF
-!        END DO
-!        bdr%volnum(chgList(walker)%pos(1), chgList(walker)%pos(2), chgList(walker)%pos(3)) = tempvolnum        
-!      END IF
-!    END DO
     DO walker = 1, totalLength
       IF (bdr%volnum(chgList(walker)%pos(1), chgList(walker)%pos(2), &
           chgList(walker)%pos(3)) == 0) THEN
@@ -275,162 +246,17 @@
     CALL assign_chg2atom(bdr, ions, chgval)
 !    CALL cal_atomic_vol(bdr,ions,chgval)
     CALL bader_mindist(bdr, ions, chgtemp)
-
+    DEALLOCATE (numbelow)
+    DEALLOCATE (w)
+    DEALLOCATE (neigh)
+    DEALLOCATE (prob)
+    DEALLOCATE (chgList)
+    DEALLOCATE (indList)
+    DEALLOCATE (basin)
     ! output part
 
   END SUBROUTINE bader_weight_calc
 
-  !-----------------------------------------------------------------------------------!
-  ! interiors: this subroutine loops through all grid points, finding out which
-  ! are interior and which are boundary points, as well as the number of basins.
-  !-----------------------------------------------------------------------------------!
-  SUBROUTINE interiors(bdr, chgtemp, cLW, nnvect, vect) 
-    TYPE(bader_obj) :: bdr
-    TYPE(charge_obj) :: chgtemp
-    TYPE(weight_obj) :: cLW
-    INTEGER, DIMENSION(:,:) :: vect
-    INTEGER, DIMENSION(3) :: p
-    INTEGER :: n1, temp, nnvect, neivolnum
-    REAL(q2) :: denom, rho
-    LOGICAL :: ismax
-    ismax = .TRUE.
-    neivolnum = 0
-    DO n1=1,nnvect
-      p = cLW%pos + (/vect(n1,1),vect(n1,2),vect(n1,3)/)
-      CALL pbc(p,chgtemp%npts)
-      IF (cLW%rho < chgtemp%rho(p(1),p(2),p(3))) THEN
-        ismax = .FALSE.
-        IF (bdr%volnum(p(1),p(2),p(3)) == 0) THEN 
-          ! neighbor is a boundary point
-          !cLW%isInterior = .FALSE.
-          cLW%volnum = 0
-          EXIT
-          ! this subroutine can now be stopped
-        ELSEIF (neivolnum == 0) THEN 
-          neivolnum = bdr%volnum(p(1),p(2),p(3))
-          cLW%volnum = bdr%volnum(p(1),p(2),p(3))
-          bdr%volnum(cLW%pos(1),cLW%pos(2),cLW%pos(3)) = bdr%volnum(p(1),p(2),p(3))
-          ! if this point turns out to be a boundary point, this will be erased
-          CYCLE
-        ELSEIF (neivolnum/=bdr%volnum(p(1),p(2),p(3))) THEN
-          !cLW%isInterior = .FALSE.
-          cLW%volnum = 0
-          EXIT
-        END IF
-      END IF
-    END DO
-    ! by the end if the point gets no basin assignment, it is boundary
-    !IF (ismax .AND. cLW%isInterior) THEN
-    !    ! a maximum; need to test if it is significant
-    !    IF (clW%rho<bdr%tol) THEN
-    !      ! probably just flucuations in vacuum
-    !      ! assign it to closest real max
-    !    ELSE
-    !      bdr%nvols = bdr%nvols + 1
-    !      bdr%bnum = bdr%nvols
-    !      cLW%volnum = bdr%nvols
-    !      bdr%volnum(cLW%pos(1),cLW%pos(2),cLW%pos(3)) = bdr%nvols
-    !      bdr%volpos_lat(bdr%nvols,1) = REAL(cLW%pos(1),q2)
-    !      bdr%volpos_lat(bdr%nvols,2) = REAL(cLW%pos(2),q2)
-    !      bdr%volpos_lat(bdr%nvols,3) = REAL(cLW%pos(3),q2)
-    !      CALL reallocate_volpos(bdr, bdr%nvols+1)
-    !    END IF
-    !ELSEIF (neivolnum == 0) THEN
-    !  cLW%isInterior = .FALSE.
-    !END IF
-    !IF (.NOT. cLW%isInterior) THEN
-    !  cLW%volnum = 0
-    !  bdr%volnum(cLW%pos(1),cLW%pos(2),cLW%pos(3))=0
-    !END IF
-  END SUBROUTINE interiors
-
-  ! This subroutine goes through all grid points, adds up the density of the interior points,
-  ! calculates flux and weight for boundry points and then adds up their density
-  SUBROUTINE boundries(bdr, chgtemp, chgList, walker, ions, indList, nnvect, vect, alpha)
-    TYPE(bader_obj) :: bdr
-    TYPE(charge_obj) :: chgtemp
-    TYPE(ions_obj) :: ions
-    INTEGER, DIMENSION(:,:,:) :: indList
-    INTEGER, DIMENSION(:,:) :: vect
-    INTEGER :: walker, i, nnvect
-    TYPE(weight_obj), DIMENSION(:) :: chgList
-    REAL(q2), DIMENSION(:) :: alpha
-    !IF (chgList(walker)%isInterior) THEN
-    !  bdr%volchg(chgList(walker)%volnum) = bdr%volchg(chgList(walker)%volnum) + chgList(walker)%rho
-    !  bdr%ionvol(chgList(walker)%volnum) = bdr%ionvol(chgList(walker)%volnum) + 1
-    !ELSE
-    !  CALL flux_weight(bdr, chgtemp, chgList, walker, ions, indList, nnvect, vect, alpha)
-    !END IF
-  END SUBROUTINE boundries
-!
-!-------------------------------------------------------------------!
-! flux_weight: takes the position of a boundary pooint and looks at
-! its neighbors to find the flux and weight to all basins.
-!-------------------------------------------------------------------!
-
-  SUBROUTINE flux_weight(bdr, chgtemp, chgList, walker, ions, indList, nnvect, vect, alpha)
-    TYPE(weight_obj),DIMENSION(:) :: chgList
-    TYPE(bader_obj) :: bdr
-    TYPE(charge_obj) :: chgtemp
-    TYPE(ions_obj) :: ions
-    INTEGER, DIMENSION(:,:,:) :: indList
-    INTEGER, DIMENSION(:,:) :: vect
-    INTEGER, DIMENSION(3) :: p
-    INTEGER :: n1, n4, walker, nein, nnvect
-    REAL(q2), DIMENSION(:) :: alpha
-    REAL(q2), DIMENSION(nnvect) :: flux, nom
-    REAL(q2) :: denom, temp
-    denom = 0
-    temp = 0
-    ALLOCATE (chgList(walker)%volwgt(bdr%nvols))
-    DO n1 = 1, bdr%nvols
-      chgList(walker)%volwgt(n1) = 0
-    END DO
-    n4 = 0
-    DO n1 = 1, nnvect
-      nom(n1) = 0
-      flux(n1) = 0
-      p = chgList(walker)%pos + (/vect(n1,1), vect(n1,2), vect(n1,3)/)
-      n4 = n4 + 1
-      CALL pbc(p,chgtemp%npts)
-      IF (chgtemp%rho(p(1),p(2),p(3)) > chgList(walker)%rho) THEN
-        nom(n1) = alpha(n1)*(chgtemp%rho(p(1),p(2),p(3)) - chgList(walker)%rho) 
-        denom = denom + nom(n1)
-      END IF
-    END DO
-    DO n1 = 1, nnvect
-      p = chgList(walker)%pos + (/vect(n1,1), vect(n1,2), vect(n1,3)/)
-      CALL pbc(p, chgtemp%npts)
-      IF (chgtemp%rho(p(1),p(2),p(3)) > chgList(walker)%rho) THEN
-        flux(n1) = nom(n1)/denom
-        ! interior neighbor and boundry neighbor needs to be treated separately
-        IF (bdr%volnum(p(1),p(2),p(3)) /= 0) THEN !interior neighbor
-          chgList(walker)%volwgt(bdr%volnum(p(1),p(2),p(3))) = & 
-            chgList(walker)%volwgt(bdr%volnum(p(1),p(2),p(3))) + flux(n1)
-        ELSE
-          ! need to find the position of the point in chgList
-          nein = indList(p(1),p(2),p(3))
-          DO n4 = 1, bdr%nvols
-            chgList(walker)%volwgt(n4) = chgList(walker)%volwgt(n4) + &
-              chgList(nein)%volwgt(n4)*flux(n1)
-          END DO
-        END IF
-      END IF
-    END DO
-    DO n1 = 1, bdr%nvols
-      bdr%volchg(n1) = bdr%volchg(n1) + chgList(walker)%rho*chgList(walker)%volwgt(n1)
-      bdr%ionvol(n1) = bdr%ionvol(n1) + chgList(walker)%volwgt(n1)
-      temp = temp + chgList(walker)%volwgt(n1)
-    END DO
-    temp = 0
-    DO n1 = 1, bdr%nvols
-      IF (chgList(walker)%volwgt(n1)>temp) THEN
-        temp = chgList(walker)%volwgt(n1)
-!        chgList(walker)%tempvolnum = n1
-!        bdr%volnum(chgList(walker)%pos(1),chgList(walker)%pos(2),chgList(walker)%pos(3)) = n1
-      END IF
-    END DO
-    END SUBROUTINE flux_weight
 
   ! modified version to sort rvert
   RECURSIVE SUBROUTINE rvert_sort(list,length)
