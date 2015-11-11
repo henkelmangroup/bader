@@ -10,11 +10,6 @@ MODULE charge_mod
   USE ions_mod
   IMPLICIT NONE
 
-  !Q define weight type.
-  TYPE, PUBLIC :: weight
-    real(q2),ALLOCATABLE, DIMENSION(:) :: w
-  END TYPE
-
   TYPE :: charge_obj
     REAL(q2),ALLOCATABLE,DIMENSION(:,:,:) :: rho
     REAL(q2),DIMENSION(3,3) :: lat2car, car2lat
