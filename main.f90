@@ -77,16 +77,13 @@
      ! Call the read routines from io_mod
      CALL read_charge(ions,chgval,opts)
      IF (opts%bader_flag) THEN
-       IF (opts%bader_opt == opts%bader_weight) THEN! Yu-Trinkle weight method
-         CALL bader_weight_calc(bdr,ions,chgval,opts)
-         CALL bader_output(bdr,ions,chgval)
+       IF (opts%bader_opt == opts%bader_weight) THEN
+         CALL bader_weight_calc(bdr,ions,chgval,opts)  ! Yu-Trinkle weight method
        ELSE
-         CALL bader_calc(bdr,ions,chgval,opts)
+         CALL bader_calc(bdr,ions,chgval,opts)  ! regular grid-based methods
        ENDIF
-       IF (opts%bader_opt /=opts%bader_weight)   THEN
-         CALL bader_mindist(bdr,ions,chgval)
-         CALL bader_output(bdr,ions,chgval)
-       END IF
+       CALL bader_mindist(bdr,ions,chgval)
+       CALL bader_output(bdr,ions,chgval)
        IF (opts%find_critpoints_flag) CALL critpoint_find(bdr,chgval,opts)
      END IF
 

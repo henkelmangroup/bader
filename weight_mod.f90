@@ -30,41 +30,54 @@
     PUBLIC :: weight_obj
     PUBLIC :: bader_weight_calc, quick_sort
 
-  CONTAINS 
+  CONTAINS
 
   SUBROUTINE bader_weight_calc(bdr, ions, chgval, opts)
 
     TYPE(weight_obj), ALLOCATABlE, DIMENSION(:) :: chgList
     TYPE(weight_obj) :: tempwobj
     TYPE(bader_obj) :: bdr
-    TYPE(charge_obj) :: chgval,chgtemp
-    TYPE(ions_obj) :: ions,ionstemp
+    TYPE(charge_obj) :: chgval, chgtemp
+    TYPE(ions_obj) :: ions, ionstemp
     TYPE(options_obj) :: opts
     INTEGER :: totalLength
     INTEGER :: i, n1, n2, n3, walker, nnvect
     REAL(q2) :: vol, tsum, tw, temp
     INTEGER :: t1, t2, cr, cm, nabove, tbasin, m
     INTEGER, ALLOCATABLE, DIMENSION(:,:,:) :: indList
-    INTEGER, ALLOCATABLE, DIMENSION(:,:) :: vect,neigh
+    INTEGER, ALLOCATABLE, DIMENSION(:,:) :: vect, neigh
     INTEGER, ALLOCATABLE, DIMENSION(:) :: numbelow, basin, above
     INTEGER, DIMENSION(3) :: p
     REAL(q2), ALLOCATABLE, DIMENSION(:) :: alpha
     REAL(q2), ALLOCATABLE, DIMENSION(:) :: t, w
     REAL(q2), ALLOCATABLE, DIMENSION(:,:) :: prob
     LOGICAL :: boundary
+
     ! above : an array of idexes of cells with higher rho
     ! tbasin : a temperary basin entry
     ! basin : an array used to store basin info of all neighbors with higher
     ! rho
     ! numbelow : 
+
     bdr%nvols = 0
+
     CALL ws_voronoi(ions, nnvect, vect, alpha)
     CALL SYSTEM_CLOCK(t1, cr, cm)
+
     IF (opts%ref_flag) THEN
       CALL read_charge_ref(ionstemp, chgtemp, opts)
+      ! Assert that chgval and chgtemp are of the same size
+      IF ((chgval%npts(1) /= chgtemp%npts(1)) .OR. &
+          (chgval%npts(2) /= chgtemp%npts(2)) .OR. &
+          (chgval%npts(3) /= chgtemp%npts(3))) THEN
+         WRITE(*,'(/,2x,A,/)') 'The dimensions of the main and reference charge density files must be the same, stopping.'
+         STOP
+      END IF
     ELSE
       chgtemp = chgval
     END IF
+
+
     totalLength = chgtemp%npts(1)*chgtemp%npts(2)*chgtemp%npts(3)
     bdr%tol = opts%badertol
     ALLOCATE (numbelow(totalLength))
@@ -75,7 +88,7 @@
     ALLOCATE (chgList(totalLength))
     ALLOCATE (bdr%volnum(chgtemp%npts(1), chgtemp%npts(2), chgtemp%npts(3)))
     ALLOCATE (indList(chgtemp%npts(1), chgtemp%npts(2), chgtemp%npts(3)))
-    bdr%bdim = 64 ! will expand if needed
+    bdr%bdim = 64 ! will expand as needed
     ALLOCATE (bdr%volpos_lat(bdr%bdim, 3)) ! will be expanded as needed
     ! Find vacuum points
     IF (opts%vac_flag) THEN

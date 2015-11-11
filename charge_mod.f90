@@ -14,13 +14,12 @@ MODULE charge_mod
   TYPE, PUBLIC :: weight
     real(q2),ALLOCATABLE, DIMENSION(:) :: w
   END TYPE
-  !Q
+
   TYPE :: charge_obj
-!    TYPE(weight), ALLOCATABLE, DIMENSION(:,:,:) :: weight !Q
     REAL(q2),ALLOCATABLE,DIMENSION(:,:,:) :: rho
-    REAL(q2),DIMENSION(3,3) :: lat2car,car2lat
+    REAL(q2),DIMENSION(3,3) :: lat2car, car2lat
     REAL(q2),DIMENSION(-1:1,-1:1,-1:1) :: lat_dist, lat_i_dist
-    REAL(q2),DIMENSION(3) :: org_lat, org_car !,org_dir
+    REAL(q2),DIMENSION(3) :: org_lat, org_car
     REAL(q2),DIMENSION(3) :: i_npts
     INTEGER,DIMENSION(3) :: npts
     INTEGER :: nrho
@@ -51,7 +50,6 @@ MODULE charge_mod
     chg1%lat2car = chg2%lat2car
     chg1%car2lat = chg2%car2lat
     chg1%org_lat = chg2%org_lat
-!    chg1%org_dir = chg2%org_dir
     chg1%org_car = chg2%org_car
     chg1%lat_dist = chg2%lat_dist
     chg1%lat_i_dist = chg2%lat_i_dist
@@ -400,19 +398,16 @@ MODULE charge_mod
     f = r - REAL(p0,q2)
     dsq_min = 0._q2
 
-!    write(*,*) 'into to_lat'
     DO p1=0,1
       DO p2=0,1
         DO p3=0,1
           p=(/p1,p2,p3/)
-!          write(*,*) 'testing p',p
           d_lat = REAL(p,q2)-f
           CALL matrix_vector(chg%lat2car, d_lat, d_car)
           dsq = SUM(d_car*d_car)
           IF ((dsq<dsq_min) .OR. init_flag) THEN
             init_flag = .FALSE.
             pmin = p
-!            write(*,'(A,3I4,F12.4)') '   pmin: ',p1,p2,p3,dsq
             dsq_min = dsq
           END IF
         END DO
@@ -420,9 +415,6 @@ MODULE charge_mod
     END DO
     to_lat = p0 + pmin
     CALL pbc(to_lat, chg%npts)
-!    write(*,*) ' pmin: ',pmin
-
-!    write(*,*) 'out to_lat'
 
   RETURN
   END FUNCTION to_lat
@@ -445,16 +437,13 @@ MODULE charge_mod
     p2 = p(2)
     p3 = p(3)
     rho=rho_val(chg,p1,p2,p3)
-!    write(*,*) 'rho: ',rho
     DO d1=-1,1
       p1=p(1)+d1
       DO d2=-1,1
         p2=p(2)+d2
         DO d3=-1,1
           p3=p(3)+d3
-!          write(*,*) ' ',d1,d2,d3,rho_val(chg,p1,p2,p3)
           IF(rho_val(chg,p1,p2,p3) > rho) THEN
-!            write(*,*) ' false'
             is_max = .FALSE.
           END IF
         END DO
@@ -481,7 +470,6 @@ MODULE charge_mod
     p3 = p(3)
     is_max_ongrid = .FALSE.
 
-! see which of these is more efficient:
     rho000=rho_val(chg,p1,p2,p3)
     IF(rho_val(chg,p1,p2,p3+1) > rho000) RETURN
     IF(rho_val(chg,p1,p2,p3-1) > rho000) RETURN

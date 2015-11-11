@@ -52,7 +52,7 @@ MODULE chgcar_mod
 
     IF(opts%in_opt == opts%in_chgcar5) THEN
       READ(100,'(1X,330A)') ions%name_ion
-      write(*,*) 'VASP5 format'
+      WRITE(*,'(2x,A)') 'VASP5 format'
     END IF
 !GH: vasp switched to I6 from I4 at 5.2.11; to be compatible with both
 !    use free format.  But, will fail for >999 atoms with vasp4.x
@@ -96,8 +96,8 @@ MODULE chgcar_mod
     ALLOCATE(chg%rho(chg%npts(1),chg%npts(2),chg%npts(3)))
     READ(100,*) (((chg%rho(n1,n2,n3), &
     &  n1=1,chg%npts(1)),n2=1,chg%npts(2)),n3=1,chg%npts(3))
-    WRITE(*,'(1A12,1I5,1A2,1I4,1A2,1I4)') &
-    &  'Density-grid: ',chg%npts(1),'x',chg%npts(2),'x',chg%npts(3)
+    WRITE(*,'(2X,1A13,1I5,1A2,1I4,1A2,1I4)') &
+    &  'DENSITY-GRID:',chg%npts(1),'x',chg%npts(2),'x',chg%npts(3)
     WRITE(*,'(2x,A,1A20)') 'CLOSE ... ', chargefile
     CLOSE(100)
     DO i=1,3

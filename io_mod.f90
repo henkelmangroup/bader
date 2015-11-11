@@ -14,7 +14,7 @@ MODULE io_mod
   IMPLICIT NONE
 
   PRIVATE
-  PUBLIC :: read_charge,read_charge_ref,write_charge
+  PUBLIC :: read_charge, read_charge_ref, write_charge
 
   CONTAINS
 
@@ -71,9 +71,10 @@ MODULE io_mod
    
   RETURN
   END SUBROUTINE read_charge
+
 !-----------------------------------------------------------------------------------!
-! read_charge_ref: Reads the charge density from a file in vasp or Gaussian cube format,
-!    by first reading the header, and then charges
+! read_charge_ref: Reads the reference charge density from a file in vasp or
+!    Gaussian cube format, by first reading the header, and then the charge density
 !-----------------------------------------------------------------------------------!
 
   SUBROUTINE read_charge_ref(ions,chg,opts)

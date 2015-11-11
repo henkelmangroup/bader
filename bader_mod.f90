@@ -70,10 +70,16 @@ MODULE bader_mod
 
     IF (opts%ref_flag) THEN
       CALL read_charge_ref(ionstemp,chgtemp,opts)
+      ! Assert that the charge and reference files are the same dimension
+      IF ((chgval%npts(1) /= chgtemp%npts(1)) .OR. &
+          (chgval%npts(2) /= chgtemp%npts(2)) .OR. &
+          (chgval%npts(3) /= chgtemp%npts(3))) THEN
+         WRITE(*,'(/,2x,A,/)') 'The dimensions of the main and reference charge density files must be the same, stopping.'
+         STOP
+      END IF
     ELSE
       chgtemp = chgval
     END IF
-      
 
     CALL SYSTEM_CLOCK(t1,cr,count_max)
 
@@ -101,7 +107,7 @@ MODULE bader_mod
     bdr%volnum = 0
     bdr%known = 0
     bdr%bnum = 0
-    bdr%nvols = 0  ! True number of Bader volumes
+    bdr%nvols = 0  ! true number of Bader volumes
 
     ! find vacuum points, get the charge and volume
     bdr%vacchg = 0.0_q2
@@ -188,7 +194,7 @@ MODULE bader_mod
       END DO
     END IF
 
-    ! make a temproary variable which can be changed to indicate convergence
+    ! make a temporary variable which can be changed to indicate convergence
     bdr%refine_edge_itrs = opts%refine_edge_itrs
 
 !    IF(opts%refine_edge_itrs == -1 .OR. opts%refine_edge_itrs == -2) THEN
@@ -208,22 +214,7 @@ MODULE bader_mod
       END DO
     ENDIF
 
-!    ! Weight method of Yu and Trinkle
-!    IF (opts%refine_edge_itrs == -3) THEN
-!      WRITE(*,'(/,2x,A)') 'REFINING USING THE WEIGHT METHOD OF YU AND TRINKLE'
-!      ALLOCATE(chgval%weight(chgval%npts(1),chgval%npts(2),chgval%npts(3)))
-!      ! allocate space for weight values
-!      DO n1=1,chgval%npts(1)
-!        DO n2=1,chgval%npts(2)
-!          DO n3=1,chgval%npts(3)
-!            ALLOCATE (chgval%weight(n1,n2,n3)%w(bdr%bnum))
-!          END DO
-!        END DO
-!      END DO
-!      CALL refine_weights(chgval, bdr, p)
-!    END IF
-
-    ! The total number of bader volumes is now known
+    ! total number of bader volumes is now known
     bdr%nvols = bdr%bnum
     CALL reallocate_volpos(bdr, bdr%nvols)
     ALLOCATE(bdr%volpos_dir(bdr%nvols,3))
@@ -258,23 +249,6 @@ MODULE bader_mod
 
   RETURN
   END SUBROUTINE bader_calc
-
-
-
-
-
-  REAL FUNCTION facet_area(d1,d2,d3,length)
-      INTEGER d1, d2, d3
-      REAL(q2) length
-      IF (abs(d1)+abs(d2)+abs(d3) == 1) THEN
-         facet_area = length*length
-      ELSE
-         facet_area = 0
-      END IF
-      RETURN
-   END FUNCTION
-
-
 
 !-----------------------------------------------------------------------------------!
 ! max_offgrid:  From the point p, do a maximization in the charge density
@@ -504,7 +478,7 @@ MODULE bader_mod
 
     CALL pbc(pm,chg%npts)
     IF (bdr%known(pm(1),pm(2),pm(3)) == 1) THEN
-      pm=p
+      pm = p
       CALL step_ongrid(chg,pm)
       dr = (/0._q2,0._q2,0._q2/)
     END IF
@@ -553,7 +527,7 @@ MODULE bader_mod
       WRITE(*,'(2x,A,6x,1I8)') 'EDGE POINTS:',num_edge
     END IF
 
-    IF((opts%refine_edge_itrs==-1 .OR. opts%refine_edge_itrs==-3) .AND. ref_itrs>1) THEN
+    IF(opts%refine_edge_itrs==-1 .AND. ref_itrs>1) THEN
       num_check=0
       DO n1 = 1,chg%npts(1)
         DO n2 = 1,chg%npts(2)
