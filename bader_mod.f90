@@ -1292,7 +1292,7 @@ MODULE bader_mod
           ! change to calculate vacuum volume
           IF (bdr%volnum(n1,n2,n3) /= bdr%nvols + 1) THEN
             atom = bdr%nnion(bdr%volnum(n1,n2,n3))
-            bdr%ionvol(atom) = bdr%ionvol(atom)+1
+            bdr%ionvol(atom) = bdr%ionvol(atom) + 1
           END IF
         END DO
       END DO

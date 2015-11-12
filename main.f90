@@ -69,7 +69,7 @@
      CHARACTER :: A
      TYPE(charge_obj) :: chgtemp 
     ! Write the version number
-     WRITE(*,'(/,2X,A)') 'GRID BASED BADER ANALYSIS  (Version 0.29 01/xx/15)'
+     WRITE(*,'(/,2X,A)') 'GRID BASED BADER ANALYSIS  (Version 0.30 11/12/15)'
 
      ! Get the control variables
      CALL get_options(opts)

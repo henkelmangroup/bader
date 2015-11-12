@@ -46,14 +46,17 @@ MODULE chgcar_mod
 
     OPEN(100,FILE=chargefile,STATUS='old',ACTION='read',BLANK='null',PAD='yes')
     WRITE(*,'(/,1A11,1A20)') 'OPEN ... ',chargefile
-    WRITE(*,'(2x,A)') 'VASP-STYLE INPUT FILE'
+!    WRITE(*,'(2x,A)') 'VASP-STYLE INPUT FILE'
     READ(100,'(/,1F20.16)') scalefactor
     READ(100,'(3F13.6)') (ions%lattice(i,1:3) , i=1,3)
 
     IF(opts%in_opt == opts%in_chgcar5) THEN
       READ(100,'(1X,330A)') ions%name_ion
-      WRITE(*,'(2x,A)') 'VASP5 format'
+      WRITE(*,'(2x,A)') 'VASP5-STYLE INPUT FILE'
+    ELSE
+      WRITE(*,'(2x,A)') 'VASP4-STYLE INPUT FILE'
     END IF
+
 !GH: vasp switched to I6 from I4 at 5.2.11; to be compatible with both
 !    use free format.  But, will fail for >999 atoms with vasp4.x
 

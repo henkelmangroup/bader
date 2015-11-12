@@ -97,8 +97,8 @@
           DO n3=1,chgval%npts(3)
             IF (ABS(rho_val(chgval,n1,n2,n3)/vol) <= opts%vacval) THEN
                bdr%volnum(n1,n2,n3) = -1
-               bdr%vacchg = bdr%vacchg+chgval%rho(n1,n2,n3)
-               bdr%vacvol = bdr%vacvol+1
+               bdr%vacchg = bdr%vacchg + chgval%rho(n1,n2,n3)
+               bdr%vacvol = bdr%vacvol + 1
             END IF
           END DO
         END DO
@@ -117,11 +117,10 @@
         END DO
       END DO
     END DO
-    PRINT *, 'sorting...'
+    WRITE(*,'(/,2x,A,$)') 'SORTING CHARGE VALUES ... '
     CALL quick_sort(chgList)
     ! this is an ascending loop. so future loop starts from the end
     ! or flipping it should be faster
-    PRINT *,'DONE, recording indicies'
     DO walker = 1, totalLength/2
       tempwobj = chgList(totalLength + 1 - walker)
       chgList(totalLength + 1 - walker) = chgList(walker)
@@ -132,9 +131,10 @@
               chgList(walker)%pos(2), &
               chgList(walker)%pos(3)) = walker
     END DO
-    PRINT *,'DONE.'
+    WRITE(*,'(A)'), 'DONE'
+
     ! first loop, deal with all interior points
-    PRINT *,'calculating flux for each cell...'
+    WRITE(*,'(2x,A,$)') 'CALCULATING FLUX ... '
     DO n1 = 1, totalLength
       basin(n1) = 0
       numbelow(n1) = 0
@@ -147,15 +147,15 @@
         CALL pbc(p, chgtemp%npts)
         m = indList(p(1),p(2),p(3))
        IF (m < n1 ) THEN ! point p has higher rho
-         nabove = nabove+1
+         nabove = nabove + 1
          above(nabove) = m 
          t(nabove) = alpha(n2)*(chgList(m)%rho-chgList(n1)%rho)
-         tsum = tsum+t(nabove)
+         tsum = tsum + t(nabove)
        END IF
       END DO
       IF (nabove == 0) THEN ! maxima
-        bdr%bnum = bdr%bnum+1
-        bdr%nvols = bdr%nvols+1
+        bdr%bnum = bdr%bnum + 1
+        bdr%nvols = bdr%nvols + 1
         basin(n1) = bdr%nvols
         bdr%volnum(chgList(n1)%pos(1),chgList(n1)%pos(2),chgList(n1)%pos(3)) = bdr%nvols 
         IF (bdr%bnum >= bdr%bdim) THEN
@@ -166,11 +166,11 @@
         bdr%volpos_lat(bdr%bnum,:) = REAL(p,q2)
         CYCLE
       END IF
-      tbasin= basin(above(1))
-      boundary=.FALSE.
+      tbasin = basin(above(1))
+      boundary = .FALSE.
       DO n2=1,nabove
         IF (basin(above(n2))/=tbasin .OR. tbasin==0) THEN 
-          boundary=.TRUE.
+          boundary = .TRUE.
         END IF
       END DO 
       IF (boundary) THEN ! boundary
@@ -185,14 +185,12 @@
             temp = prob(m,numbelow(m))
             bdr%volnum( &
               chgList(n1)%pos(1),chgList(n1)%pos(2),chgList(n1)%pos(3)) = &
-              bdr%volnum( &
-              chgList(m)%pos(1),chgList(m)%pos(2),chgList(m)%pos(3) )
+              bdr%volnum( chgList(m)%pos(1),chgList(m)%pos(2),chgList(m)%pos(3) )
           END IF
         END DO
       ELSE ! interior
         basin(n1) = tbasin
-        bdr%volnum(chgList(n1)%pos(1),chgList(n1)%pos(2),chgList(n1)%pos(3)) = &
-          tbasin
+        bdr%volnum(chgList(n1)%pos(1),chgList(n1)%pos(2),chgList(n1)%pos(3)) = tbasin
       END IF
       DEALLOCATE(t)
       DEALLOCATE(above)
@@ -203,19 +201,20 @@
       n2 = chgList(walker)%pos(2)
       n3 = chgList(walker)%pos(3)
       chgList(walker)%rho=chgval%rho(n1,n2,n3)
-    END DO 
+    END DO
+    WRITE(*,'(A)'), 'DONE'
 
-    PRINT *,'DONE. Integrating charges'
+    WRITE(*,'(2x,A,$)') 'INTEGRATING CHARGES ... '
     ALLOCATE (bdr%volchg(bdr%nvols))
     ALLOCATE (bdr%ionvol(bdr%nvols))
-    DO n1=1,bdr%nvols
-      bdr%volchg(n1)=0
-      bdr%ionvol(n1)=0
+    DO n1 = 1,bdr%nvols
+      bdr%volchg(n1) = 0
+      bdr%ionvol(n1) = 0
     END DO
     ! bdr%volnum is written here during integration. so that each cell is
     ! assigned to the basin where it has most of the weight to. This should not
     ! affect the result of the integration.
-    temp=0
+    temp = 0
     DO n1 = 1, bdr%nvols
       DO n2 = 1, totalLength
         IF (basin(n2) == n1) THEN
@@ -237,12 +236,15 @@
       END DO
     END DO
     bdr%volchg = bdr%volchg / REAL(chgval%nrho,q2)
-    PRINT *,'DONE'
+    WRITE(*,'(A)'), 'DONE'
+
     vol = matrix_volume(ions%lattice)
     vol = vol / chgtemp%nrho
     bdr%ionvol = bdr%ionvol * vol
+
     CALL SYSTEM_CLOCK(t2, cr, cm)
-    PRINT *,'Time elapsed:', (t2-t1)/REAL(cr,q2), 'seconds'
+    WRITE(*,'(/,1A12,1F10.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
+
     DO walker = 1, totalLength
       IF (bdr%volnum(chgList(walker)%pos(1), chgList(walker)%pos(2), &
           chgList(walker)%pos(3)) == 0) THEN
@@ -257,8 +259,7 @@
       bdr%volpos_car(i,:) = lat2car(chgtemp, bdr%volpos_lat(i,:))
     END DO
     CALL assign_chg2atom(bdr, ions, chgval)
-!    CALL cal_atomic_vol(bdr,ions,chgval)
-    CALL bader_mindist(bdr, ions, chgtemp)
+
     DEALLOCATE (numbelow)
     DEALLOCATE (w)
     DEALLOCATE (neigh)
@@ -266,7 +267,6 @@
     DEALLOCATE (chgList)
     DEALLOCATE (indList)
     DEALLOCATE (basin)
-    ! output part
 
   END SUBROUTINE bader_weight_calc
 
@@ -301,7 +301,6 @@
         IF (right_end < left_end + max_simple_sort_size) THEN
           ! Use interchange sort for small lists
           CALL rinterchange_sort(left_end, right_end)
-
         ELSE
           ! Use partition ("quick") sort
           reference = list((left_end + right_end)/2)%angle
