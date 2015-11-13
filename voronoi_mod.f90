@@ -67,13 +67,15 @@ MODULE voronoi_mod
 !          r_car=lat2car(chg,r_lat)
 !          dr_car=r_car-ions%r_car(1,:)
           dr_lat=r_lat-ions%r_lat(1,:)
-          CALL matrix_vector(chg%lat2car,dr_lat,dr_car)
+!          CALL matrix_vector(chg%lat2car,dr_lat,dr_car)
+          dr_car = MATMUL(chg%lat2car,dr_lat)
           CALL dpbc_car(ions,dr_car)
           min_dist=DOT_PRODUCT(dr_car,dr_car)
           DO i=2,ions%nions
 !            dr_car=r_car-ions%r_car(i,:)
             dr_lat=r_lat-ions%r_lat(i,:)
-            CALL matrix_vector(chg%lat2car,dr_lat,dr_car)
+!            CALL matrix_vector(chg%lat2car,dr_lat,dr_car)
+            dr_car = MATMUL(chg%lat2car,dr_lat)
             CALL dpbc_car(ions,dr_car)
             dist=DOT_PRODUCT(dr_car,dr_car)
             IF (dist < min_dist) THEN

@@ -312,16 +312,11 @@ MODULE bader_mod
     REAL(q2),DIMENSION(3) :: grad,dr_car,dr_lat
     REAL(q2) :: rho
 
-!    write(*,'(A,3F12.4)') '   r_before: ',r
     grad = rho_grad(chg,r,rho)
-!    write(*,'(A,3F12.4)') '   rho_grad: ',grad
-!db    write(*,'(A,F12.4)') '   stepsize: ',bdr%stepsize
     dr_car = grad*bdr%stepsize/SQRT(SUM(grad*grad))
-!db    write(*,'(A,3F12.4)') '     dr_car: ',dr_car
-    CALL matrix_vector(chg%car2lat,dr_car,dr_lat)
-!db    write(*,'(A,3F12.4)') '     dr_lat: ',dr_lat
+!    CALL matrix_vector(chg%car2lat,dr_car,dr_lat)
+    dr_lat = MATMUL(chg%car2lat,dr_car)
     r = r+dr_lat
-!db    write(*,'(A,3F12.4)') '    r_after: ',r
 
   RETURN
   END SUBROUTINE step_offgrid
@@ -658,14 +653,16 @@ MODULE bader_mod
     DO i = 1,bdr%nvols
       dv = bdr%volpos_dir(i,:) - ions%r_dir(1,:)
 !      CALL dpbc_dir(ions,dv)
-      CALL matrix_vector(ions%dir2car, dv, v)
+!      CALL matrix_vector(ions%dir2car, dv, v)
+      v = MATMUL(ions%dir2car, dv)
       CALL dpbc_car(ions, v)
       dminsq = DOT_PRODUCT(v, v)
       dindex = 1
       DO j = 2,ions%nions
         dv = bdr%volpos_dir(i,:) - ions%r_dir(j,:)
 !        CALL dpbc_dir(ions,dv)
-        CALL matrix_vector(ions%dir2car, dv, v)
+!        CALL matrix_vector(ions%dir2car, dv, v)
+        v = MATMUL(ions%dir2car, dv)
         CALL dpbc_car(ions, v)
         dsq = DOT_PRODUCT(v, v)
         IF (dsq < dminsq) THEN
@@ -727,7 +724,8 @@ MODULE bader_mod
             dv_dir = (v-chg%org_lat)/REAL(chg%npts,q2) - ions%r_dir(atom,:)
 !            CALL dpbc_dir(ions,dv_dir)
 !            CALL dpbc_dir_org(dv_dir)
-            CALL matrix_vector(ions%dir2car, dv_dir, dv_car)
+!            CALL matrix_vector(ions%dir2car, dv_dir, dv_car)
+            dv_car = MATMUL(ions%dir2car, dv_dir)
             CALL dpbc_car(ions, dv_car)
             dist = DOT_PRODUCT(dv_car, dv_car)
             IF ((bdr%minsurfdist(atom) == 0.0_q2) .OR.  &

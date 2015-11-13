@@ -78,9 +78,7 @@
       DO n2 = 1,chg%npts(2)
         DO n3 = 1,chg%npts(3)
             p = (/n1,n2,n3/)
-            IF (rho_val(chg,p(1),p(2),p(3)) <= opts%vacval) THEN
-              CYCLE
-            END IF
+            IF (rho_val(chg,p(1),p(2),p(3)) <= opts%vacval) CYCLE
 !            IF (is_vol_edge(bdr,chg,p) .AND. (.NOT.is_max(chg,p))) THEN
 
 !-----------------------------------------------------------------------------------!
@@ -214,11 +212,10 @@
                      ! Now a loop to calculate dMSQ
                      temp = 0._q2
                      ! this loop is functional
-                     CALL matrix_mult(dM,dM,dMSQ)
+                     dMSQ = MATMUL(dM,dM)
                      ! j2 is 1/2 tr(dM dot dM)
                      j2 = 0.5_q2*(dMSQ(1,1) + dMSQ(2,2) + dMSQ(3,3))
-                     ! j3 is det(dM)
-                     CALL det(dM,j3)
+                     j3 = determinant(dM)
                      alpha = ACOS(j3/2._q2*(3._q2/j2)**(3._q2/2._q2))/3._q2
                      yita1 = 2._q2*SQRT(j2/3._q2)*COS(alpha)
                      ! Find the most distinct eigenvalue first
@@ -232,53 +229,47 @@
                        temp = 0
                      END IF
                      ! this is the default when yita1 is the most distinct
-                     CALL scalar_matrix(yita1, identityM, nIdentity)
-                     CALL matrix_substraction(dM, nIdentity, devSubNIden)
-                     CALL matrix_vector(devSubNIden, cartX, orthoR1)
-                     CALL matrix_vector(devSubNIden, cartY, orthoR2)
-                     CALL matrix_vector(devSubNIden, cartZ, orthoR3)
+                     nIdentity = identityM*yita1
+                     devSubNIden = dM - nIdentity
+                     orthoR1 = MATMUL(devSubNIden,cartX)
+                     orthoR2 = MATMUL(devSubNIden,cartY)
+                     orthoR3 = MATMUL(devSubNIden,cartZ)
                      ! assume r1 is the largest, normalize all orthoR vectors
-                     norm = 1._q2/SQRT(SUM(orthoR1(:)*orthoR1(:)))
-                     CAll scalar_vector(norm, orthoR1, S1)
-                     CALL scalar_vector(DOT_PRODUCT(S1, orthoR2), S1, tempVec)
-                     CALL vector_substraction(orthoR2,tempVec,orT2)
-                     CALL scalar_vector(DOT_PRODUCT(S1, orthoR3), S1, tempVec)
-                       CALL vector_substraction(orthoR3, tempVec, orT3)
-                       ! assume t2 is the larger one, normalize it
-                       norm = 1.0_q2/SQRT(SUM(orT2(:)*orT2(:)))
-                       CALL scalar_vector(norm, orT2, S2)
-                       ! eigenvector 1 is the cross product of s1 and s2
-                       CALL cross_product(S1, S2, eigvec1)
-                       ! now that I have an eigenvalue and an eigenvector,
-                       ! write the deviatoric matrix using the v1,s1,s2 basis
-                       ! hes%eigval1 |         0        |      0
-                       ! 0           | s1 dot dM dot s1 | s1 dot dM dot s2
-                       ! 0           | s2 dot dM dot s1 | s2 dot dM dot s2
-                       dMVSS = 0._q2
-                       dMVSS(1,1) = yita1
-                       CALL vector_matrix(S1, dM, tempVec)
-                       dMVSS(2,2) = DOT_PRODUCT(tempVec, S1)
-                       dMVSS(2,3) = DOT_PRODUCT(tempVec, S2)
-                       CALL vector_matrix(S2, dM, tempVec)
-                       dMVSS(3,2) = DOT_PRODUCT(tempVec, S1)
-                       dMVSS(3,3) = DOT_PRODUCT(tempVec, S2)
-                       ! This is a sign function
-                       IF (dMVSS(2,2)-dMVSS(3,3) < 0) THEN
-                         temp = -1
-                         ELSE IF (dMVSS(2,2)-dMVSS(3,3) > 0) THEN
-                         temp = 1
-                         ELSE IF (dMVSS(2,2)-dMVSS(3,3) == 0) THEN
-                         temp = 0
-                       END IF
-                       yita2 = (dMVSS(2,2) + dMVSS(3,3))/2._q2 - 1._q2/2._q2*temp*&
-                               SQRT((dMVSS(2,2) - dMVSS(3,3))**2 + 4._q2*dMVSS(2,3)*dMVSS(3,2))
-                       yita3 = dMVSS(2,2) + dMVSS(3,3) - yita2
-                       ! these eigenvalues are shifted by traceOver3
-                       hes%eigval1 = yita1 + traceOver3
-                       hes%eigval2 = yita2 + traceOver3
-                       hes%eigval3 = yita3 + traceOver3
+                     norm = 1._q2/SQRT(SUM(orthoR1(:)**2))
+                     S1 = orthoR1*norm
+                     tempVec = S1*DOT_PRODUCT(S1, orthoR2)
+                     orT2 = orthoR2 - tempVec
+                     tempVec = S1*DOT_PRODUCT(S1, orthoR3)
+                     orT3 = orthoR3 - tempVec
+                     ! assume t2 is the larger one, normalize it
+                     norm = 1.0_q2/SQRT(SUM(orT2(:)**2))
+                     s2 = orT2*norm
+                     eigvec1 = cross_product(S1, S2)
+                     ! now that I have an eigenvalue and an eigenvector,
+                     ! write the deviatoric matrix using the v1,s1,s2 basis
+                     ! hes%eigval1 |         0        |      0
+                     ! 0           | s1 dot dM dot s1 | s1 dot dM dot s2
+                     ! 0           | s2 dot dM dot s1 | s2 dot dM dot s2
+                     dMVSS = 0._q2
+                     dMVSS(1,1) = yita1
+                     tempVec = MATMUL(dM,S1)
+                     dMVSS(2,2) = DOT_PRODUCT(tempVec, S1)
+                     dMVSS(2,3) = DOT_PRODUCT(tempVec, S2)
+                     tempVec = MATMUL(dM,S2)
+                     dMVSS(3,2) = DOT_PRODUCT(tempVec, S1)
+                     dMVSS(3,3) = DOT_PRODUCT(tempVec, S2)
+                     ! This is a sign function
+                     temp = SIGN(1._q2,dMVSS(2,2)-dMVSS(3,3))
+                     IF (dMVSS(2,2) == dMVSS(3,3)) temp = 0
+                     yita2 = (dMVSS(2,2) + dMVSS(3,3))/2._q2 - 1._q2/2._q2*temp*&
+                             SQRT((dMVSS(2,2) - dMVSS(3,3))**2 + 4._q2*dMVSS(2,3)*dMVSS(3,2))
+                     yita3 = dMVSS(2,2) + dMVSS(3,3) - yita2
+                     ! these eigenvalues are shifted by traceOver3
+                     hes%eigval1 = yita1 + traceOver3
+                     hes%eigval2 = yita2 + traceOver3
+                     hes%eigval3 = yita3 + traceOver3
 
-                       CALL find_vector(yita2, identityM, dM, s1, s2, eigvec1, eigvec2, eigvec3)
+                     CALL eigenvectors(yita2, identityM, dM, s1, s2, eigvec1, eigvec2, eigvec3)
 
                      WRITE(97,*) '*********** A NEW ENTRY *************'
                      WRITE(97,*) 'Critical point number: ', cptnum

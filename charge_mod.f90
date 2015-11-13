@@ -53,7 +53,7 @@ MODULE charge_mod
     chg1%nrho = chg2%nrho
 
     ALLOCATE(chg1%rho(chg1%npts(1),chg1%npts(2),chg1%npts(3)))
-    chg1%rho=chg2%rho
+    chg1%rho = chg2%rho
 
     END SUBROUTINE
 
@@ -162,7 +162,8 @@ MODULE charge_mod
     rho_grad_lat(2) = rho_1_ - rho_0_
     rho_grad_lat(3) = rho__1 - rho__0
 
-    CALL vector_matrix(rho_grad_lat, chg%car2lat, rho_grad)
+!    CALL vector_matrix(rho_grad_lat, chg%car2lat, rho_grad)
+    rho_grad = MATMUL(rho_grad_lat, chg%car2lat)
 
   RETURN
   END FUNCTION rho_grad
@@ -203,11 +204,12 @@ MODULE charge_mod
     IF(rho001 < rho000.AND.rho00_1 < rho000) rho_grad_lat(3) = 0._q2
 
     ! convert to cartesian coordinates
-    CALL vector_matrix(rho_grad_lat,chg%car2lat,rho_grad_car)
-!    CALL matrix_vector(chg%lat2car,rho_grad_lat,rho_grad_car)
+!GH    CALL vector_matrix(rho_grad_lat,chg%car2lat,rho_grad_car)
+    rho_grad_car = MATMUL(rho_grad_lat,chg%car2lat)
 
     ! express this vector in direct coordinates
-    CALL matrix_vector(chg%car2lat,rho_grad_car,rho_grad_dir)
+!GH    CALL matrix_vector(chg%car2lat,rho_grad_car,rho_grad_dir)
+    rho_grad_dir = MATMUL(chg%car2lat,rho_grad_car)
 
     ! return a unit vector
 !    rho_grad_dir=rho_grad_dir/SQRT(SUM(rho_grad_dir*rho_grad_dir))
@@ -228,11 +230,11 @@ MODULE charge_mod
     DO i=1,3
       DO
         IF(r_lat(i) > 0) EXIT
-        r_lat(i)=r_lat(i)+pmax(i)
+        r_lat(i) = r_lat(i) + pmax(i)
       END DO
       DO
         IF(r_lat(i) <= REAL(pmax(i))) EXIT
-        r_lat(i)=r_lat(i)-pmax(i)
+        r_lat(i) = r_lat(i) - pmax(i)
       END DO
     END DO
 
@@ -322,12 +324,14 @@ MODULE charge_mod
     REAL(q2),DIMENSION(3) :: dr_car
 
     ! convert to cartesian coordinates
-    CALL matrix_vector(ions%dir2car, dr_dir, dr_car)
+!    CALL matrix_vector(ions%dir2car, dr_dir, dr_car)
+    dr_car = MATMUL(ions%dir2car, dr_dir)
 
     CALL dpbc_car(ions, dr_car)
 
     ! express this vector in direct coordinates
-    CALL matrix_vector(ions%car2dir, dr_car, dr_dir)
+!    CALL matrix_vector(ions%car2dir, dr_car, dr_dir)
+    dr_dir = MATMUL(ions%car2dir, dr_car)
 
   RETURN
   END SUBROUTINE dpbc_dir
@@ -398,7 +402,8 @@ MODULE charge_mod
         DO p3=0,1
           p=(/p1,p2,p3/)
           d_lat = REAL(p,q2)-f
-          CALL matrix_vector(chg%lat2car, d_lat, d_car)
+!          CALL matrix_vector(chg%lat2car, d_lat, d_car)
+          d_car = MATMUL(chg%lat2car, d_lat)
           dsq = SUM(d_car*d_car)
           IF ((dsq<dsq_min) .OR. init_flag) THEN
             init_flag = .FALSE.
@@ -431,13 +436,13 @@ MODULE charge_mod
     p1 = p(1)
     p2 = p(2)
     p3 = p(3)
-    rho=rho_val(chg,p1,p2,p3)
-    DO d1=-1,1
-      p1=p(1)+d1
-      DO d2=-1,1
-        p2=p(2)+d2
-        DO d3=-1,1
-          p3=p(3)+d3
+    rho = rho_val(chg,p1,p2,p3)
+    DO d1 = -1, 1
+      p1 = p(1) + d1
+      DO d2 = -1, 1
+        p2 = p(2) + d2
+        DO d3 = -1, 1
+          p3 = p(3) + d3
           IF(rho_val(chg,p1,p2,p3) > rho) THEN
             is_max = .FALSE.
           END IF
@@ -490,7 +495,7 @@ MODULE charge_mod
 
     lat2dir = p - chg%org_lat
     lat2dir = lat2dir*chg%i_npts
-!    lat2dir=lat2dir+chg%org_dir
+!    lat2dir = lat2dir + chg%org_dir
 
   RETURN
   END FUNCTION lat2dir
@@ -506,7 +511,8 @@ MODULE charge_mod
     REAL(q2),DIMENSION(3) :: lat2car, v
 
     v = p - chg%org_lat
-    CALL matrix_vector(chg%lat2car,v,lat2car)
+!    CALL matrix_vector(chg%lat2car,v,lat2car)
+    lat2car = MATMUL(chg%lat2car,v)
     lat2car = lat2car + chg%org_car
 
   RETURN
@@ -541,7 +547,8 @@ MODULE charge_mod
     REAL(q2),DIMENSION(3) :: car2lat, v
 
     v = p - chg%org_car
-    CALL matrix_vector(chg%car2lat, v, car2lat)
+!    CALL matrix_vector(chg%car2lat, v, car2lat)
+    car2lat = MATMUL(chg%car2lat, v)
     car2lat = car2lat + chg%org_lat
 
   RETURN
