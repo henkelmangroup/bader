@@ -7,36 +7,50 @@ MODULE matrix_mod
   IMPLICIT NONE
 
   PRIVATE
-  PUBLIC :: matrix_3x3_inverse, matrix_volume, triple_product
+  PUBLIC :: inverse, adjoint, matrix_volume, triple_product
   PUBLIC :: cross_product, determinant, eigenvectors, v2area
   CONTAINS
 
 !-----------------------------------------------------------------------------------!
-! matrix_3x3_inverse:  Set matrix B to be the inverse of A
+! inverse:  return the inverse of A(3,3)
 !-----------------------------------------------------------------------------------!
 
-  FUNCTION matrix_3x3_inverse(A)
+  FUNCTION inverse(A)
 
     REAL(q2), INTENT(IN), DIMENSION(3,3) :: A
-    REAL(q2), DIMENSION(3,3) :: B, matrix_3x3_inverse
+    REAL(q2), DIMENSION(3,3) :: inverse
     REAL(q2) :: det
-    INTEGER :: i,j,it,jt
 
-    DO i = 1, 3
-      it = i - 1
-      DO j = 1, 3
-        jt = j - 1
-        B(j,i) = & 
-        &      A(MOD(it+1,3)+1,MOD(jt+1,3)+1)*A(MOD(it+2,3)+1,MOD(jt+2,3)+1)  &
-        &     -A(MOD(it+1,3)+1,MOD(jt+2,3)+1)*A(MOD(it+2,3)+1,MOD(jt+1,3)+1)
-      END DO
-      det = det + A(i,1)*B(1,i)
-    END DO
-    matrix_3x3_inverse = TRANSPOSE(B)/det
+    det = determinant(A)
+    IF (det == 0) STOP 'Divid by zero in matrix inverse'
+    inverse = adjoint(A)/det
 
   RETURN
-  END FUNCTION matrix_3x3_inverse
+  END FUNCTION inverse
 
+!-----------------------------------------------------------------------------------!
+! adjoint:  return the adjoint of A(3,3)
+!-----------------------------------------------------------------------------------!
+
+  FUNCTION adjoint(A)
+
+    REAL(q2), INTENT(IN), DIMENSION(3,3) :: A
+    REAL(q2), DIMENSION(3,3) :: adjoint
+
+    adjoint(1,1) = A(2,2)*A(3,3) - A(3,2)*A(2,3)
+    adjoint(1,2) = A(1,3)*A(3,2) - A(1,2)*A(3,3)
+    adjoint(1,3) = A(1,2)*A(2,3) - A(2,2)*A(1,3)
+
+    adjoint(2,1) = A(2,3)*A(3,1) - A(2,1)*A(3,3)
+    adjoint(2,2) = A(1,1)*A(3,3) - A(1,3)*A(3,1)
+    adjoint(2,3) = A(1,3)*A(2,1) - A(1,1)*A(2,3)
+
+    adjoint(3,1) = A(2,1)*A(3,2) - A(2,2)*A(3,1)
+    adjoint(3,2) = A(1,2)*A(3,1) - A(1,1)*A(3,2)
+    adjoint(3,3) = A(1,1)*A(2,2) - A(1,2)*A(2,1)
+
+  RETURN
+  END FUNCTION adjoint
 
 !-----------------------------------------------------------------------------------!
 ! matrix_volume: Function returning the triple product of the lattice vectors.

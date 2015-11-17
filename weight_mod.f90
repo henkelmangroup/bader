@@ -3,12 +3,6 @@
   !  Module implementing the weight method by Yu and Trinkle [JCP 134, 064111 (2011)]
   !-----------------------------------------------------------------------------------!
 
-!GH todo
-! - check bader tol
-! - delete incell
-! - replace quicksort
-! - fix ws routine
-
   MODULE weight_mod
 
     USE kind_mod
@@ -29,8 +23,8 @@
     END TYPE
 
     TYPE rvert_obj
-      REAL(q2), DIMENSION(3) :: ot3
-      REAL(q2) :: angle
+      REAL(q2), DIMENSION(3) :: r
+      REAL(q2) :: phi
     END TYPE
 
     PUBLIC :: weight_obj
@@ -40,14 +34,14 @@
 
   SUBROUTINE bader_weight_calc(bdr, ions, chgval, opts)
 
+    TYPE(bader_obj) :: bdr
+    TYPE(ions_obj) :: ions, ionsref
+    TYPE(charge_obj) :: chgval, chgref
+    TYPE(options_obj) :: opts
     TYPE(weight_obj), ALLOCATABlE, DIMENSION(:) :: chgList
     TYPE(weight_obj) :: tempwobj
-    TYPE(bader_obj) :: bdr
-    TYPE(charge_obj) :: chgval, chgtemp
-    TYPE(ions_obj) :: ions, ionstemp
-    TYPE(options_obj) :: opts
-    INTEGER :: nPts, i, n1, n2, n3, walker, numVect
-    INTEGER :: t1, t2, cr, cm, nabove, tbasin, m
+    INTEGER :: nPts, i, n, n1, n2, n3, numVect, nv
+    INTEGER :: t1, t2, cr, cm, nabove, na, nb, tbasin, m
     REAL(q2) :: vol, tsum, tw, temp
     INTEGER, ALLOCATABLE, DIMENSION(:,:,:) :: indList
     INTEGER, ALLOCATABLE, DIMENSION(:,:) :: vect, neigh
@@ -74,22 +68,20 @@
     CALL SYSTEM_CLOCK(t1, cr, cm)
 
     IF (opts%ref_flag) THEN
-      CALL read_charge_ref(ionstemp, chgtemp, opts)
-      ! Assert that chgval and chgtemp are of the same size
-      IF ((chgval%npts(1) /= chgtemp%npts(1)) .OR. &
-          (chgval%npts(2) /= chgtemp%npts(2)) .OR. &
-          (chgval%npts(3) /= chgtemp%npts(3))) THEN
-         WRITE(*,'(/,2x,A,/)') 'The dimensions of the primary and reference charge densities must be the same, stopping.'
+      CALL read_charge_ref(ionsref, chgref, opts)
+      ! Assert that chgval and chgref are of the same size
+      IF ((chgval%npts(1) /= chgref%npts(1)) .OR. &
+          (chgval%npts(2) /= chgref%npts(2)) .OR. &
+          (chgval%npts(3) /= chgref%npts(3))) THEN
+         WRITE(*,'(/,2x,A,/)') &
+           'The dimensions of the primary and reference charge densities must be the same, stopping.'
          STOP
       END IF
     ELSE
-      chgtemp = chgval
+      chgref = chgval
     END IF
 
-    WRITE(*,*) "HERE1"
-    WRITE(*,*) "numVect: ", numVect
-
-    nPts = chgtemp%npts(1)*chgtemp%npts(2)*chgtemp%npts(3)
+    nPts = chgref%npts(1)*chgref%npts(2)*chgref%npts(3)
 !    bdr%tol = opts%badertol  ! delete this?
     ALLOCATE (numbelow(nPts))
     ALLOCATE (w(nPts))
@@ -97,18 +89,16 @@
     ALLOCATE (prob(nPts, numVect))
     ALLOCATE (basin(nPts))
     ALLOCATE (chgList(nPts))
-    ALLOCATE (bdr%volnum(chgtemp%npts(1), chgtemp%npts(2), chgtemp%npts(3)))
-    ALLOCATE (indList(chgtemp%npts(1), chgtemp%npts(2), chgtemp%npts(3)))
+    ALLOCATE (bdr%volnum(chgref%npts(1), chgref%npts(2), chgref%npts(3)))
+    ALLOCATE (indList(chgref%npts(1), chgref%npts(2), chgref%npts(3)))
     bdr%bdim = 64 ! will expand as needed
     ALLOCATE (bdr%volpos_lat(bdr%bdim, 3))
 
-    WRITE(*,*) "HERE1.5"
-
     ! Find vacuum points
     IF (opts%vac_flag) THEN
-      DO n1=1,chgval%npts(1)
-        DO n2=1,chgval%npts(2)
-          DO n3=1,chgval%npts(3)
+      DO n1 = 1,chgval%npts(1)
+        DO n2 = 1,chgval%npts(2)
+          DO n3 = 1,chgval%npts(3)
             IF (ABS(rho_val(chgval,n1,n2,n3)/vol) <= opts%vacval) THEN
                bdr%volnum(n1,n2,n3) = -1
                bdr%vacchg = bdr%vacchg + chgval%rho(n1,n2,n3)
@@ -121,38 +111,25 @@
     bdr%vacchg = bdr%vacchg/REAL(chgval%nrho,q2)
     bdr%vacvol = bdr%vacvol*vol/chgval%nrho
 
-    WRITE(*,*) "HERE2"
-
-    walker = 1
-    DO n1=1, chgtemp%npts(1)
-      DO n2=1, chgtemp%npts(2)
-        DO n3=1, chgtemp%npts(3)
-          chgList(walker)%rho = chgtemp%rho(n1,n2,n3)
-          chgList(walker)%pos = (/n1,n2,n3/)
-          chgList(walker)%volnum = 0
-          walker = walker + 1
+    n = 1
+    DO n1 = 1, chgref%npts(1)
+      DO n2 = 1, chgref%npts(2)
+        DO n3 = 1, chgref%npts(3)
+          chgList(n)%rho = chgref%rho(n1,n2,n3)
+          chgList(n)%pos = (/n1,n2,n3/)
+          chgList(n)%volnum = 0
+          n = n + 1
         END DO
       END DO
     END DO
 
     WRITE(*,'(/,2x,A,$)') 'SORTING CHARGE VALUES ... '
-!    CALL quick_sort(chgList)
-    CALL sort_weight(nPts, chgList)
+    CALL sort_weight(nPts, chgList) ! max value first
 
-    ! GH: fix this nonsense
+    DO n = 1, nPts
+      indList(chgList(n)%pos(1), chgList(n)%pos(2), chgList(n)%pos(3)) = n
+    END DO
 
-    ! this is an ascending loop. so future loop starts from the end
-    ! or flipping it should be faster
-    DO walker = 1, nPts/2
-      tempwobj = chgList(nPts + 1 - walker)
-      chgList(nPts + 1 - walker) = chgList(walker)
-      chgList(walker) = tempwobj
-    END DO
-    DO walker = 1, nPts
-      indList(chgList(walker)%pos(1), &
-              chgList(walker)%pos(2), &
-              chgList(walker)%pos(3)) = walker
-    END DO
     WRITE(*,'(A)'), 'DONE'
 
     ! first loop, deal with all interior points
@@ -166,14 +143,14 @@
       ALLOCATE (above(numVect))
       DO n2 = 1, numVect
         p = chgList(n1)%pos + vect(n2,:)
-        CALL pbc(p, chgtemp%npts)
-        m = indList(p(1),p(2),p(3))
-       IF (m < n1 ) THEN ! point p has higher rho
-         nabove = nabove + 1
-         above(nabove) = m 
-         t(nabove) = alpha(n2)*(chgList(m)%rho - chgList(n1)%rho)
-         tsum = tsum + t(nabove)
-       END IF
+        CALL pbc(p, chgref%npts)
+        m = indList(p(1), p(2), p(3))
+        IF (m < n1 ) THEN ! point p has higher rho
+          nabove = nabove + 1
+          above(nabove) = m 
+          t(nabove) = alpha(n2)*(chgList(m)%rho - chgList(n1)%rho)
+          tsum = tsum + t(nabove)
+        END IF
       END DO
       IF (nabove == 0) THEN ! maxima
         bdr%bnum = bdr%bnum + 1
@@ -190,7 +167,7 @@
       END IF
       tbasin = basin(above(1))
       boundary = .FALSE.
-      DO n2=1,nabove
+      DO n2 = 1, nabove
         IF (basin(above(n2))/=tbasin .OR. tbasin==0) THEN 
           boundary = .TRUE.
         END IF
@@ -200,29 +177,25 @@
         temp = 0
         DO n2 = 1, nabove
           m = above(n2)
-          numbelow(m) = numbelow(m)+1
+          numbelow(m) = numbelow(m) + 1
           neigh(m,numbelow(m)) = n1
           prob(m,numbelow(m)) = t(n2) / tsum
           IF (prob(m,numbelow(m)) > temp) THEN
             temp = prob(m,numbelow(m))
-            bdr%volnum( &
-              chgList(n1)%pos(1),chgList(n1)%pos(2),chgList(n1)%pos(3)) = &
-              bdr%volnum( chgList(m)%pos(1),chgList(m)%pos(2),chgList(m)%pos(3) )
+            bdr%volnum( chgList(n1)%pos(1), chgList(n1)%pos(2), chgList(n1)%pos(3)) = &
+              bdr%volnum( chgList(m)%pos(1), chgList(m)%pos(2), chgList(m)%pos(3) )
           END IF
         END DO
       ELSE ! interior
         basin(n1) = tbasin
-        bdr%volnum(chgList(n1)%pos(1),chgList(n1)%pos(2),chgList(n1)%pos(3)) = tbasin
+        bdr%volnum(chgList(n1)%pos(1), chgList(n1)%pos(2), chgList(n1)%pos(3)) = tbasin
       END IF
       DEALLOCATE(t)
       DEALLOCATE(above)
     END DO
     ! restore chglist rho to values from chgval
-    DO walker = 1, nPts
-      n1 = chgList(walker)%pos(1)
-      n2 = chgList(walker)%pos(2)
-      n3 = chgList(walker)%pos(3)
-      chgList(walker)%rho = chgval%rho(n1,n2,n3)
+    DO n = 1, nPts
+      chgList(n)%rho = chgval%rho(chgList(n)%pos(1), chgList(n)%pos(2), chgList(n)%pos(3))
     END DO
     WRITE(*,'(A)'), 'DONE'
 
@@ -248,8 +221,8 @@
       DO n2 = 1, nPts
         tw = w(n2)
         IF (tw /= 0) THEN
-          DO walker = 1, numbelow(n2)
-            w(neigh(n2, walker)) = w(neigh(n2, walker)) + prob(n2, walker) * tw
+          DO n = 1, numbelow(n2)
+            w(neigh(n2, n)) = w(neigh(n2, n)) + prob(n2, n)*tw
           END DO
           bdr%volchg(n1) = bdr%volchg(n1) + tw * chgList(n2)%rho
           bdr%ionvol(n1) = bdr%ionvol(n1) + tw
@@ -260,15 +233,15 @@
     WRITE(*,'(A)'), 'DONE'
 
     vol = matrix_volume(ions%lattice)
-    vol = vol / chgtemp%nrho
-    bdr%ionvol = bdr%ionvol * vol
+    vol = vol/chgref%nrho
+    bdr%ionvol = bdr%ionvol*vol
 
     CALL SYSTEM_CLOCK(t2, cr, cm)
     WRITE(*,'(/,1A12,1F10.2,1A8)') 'RUN TIME: ', (t2-t1)/REAL(cr,q2), ' SECONDS'
 
-    DO walker = 1, nPts
-      IF (bdr%volnum(chgList(walker)%pos(1), chgList(walker)%pos(2), &
-          chgList(walker)%pos(3)) == 0) THEN
+    DO n = 1, nPts
+      IF (bdr%volnum(chgList(n)%pos(1), chgList(n)%pos(2), &
+          chgList(n)%pos(3)) == 0) THEN
         PRINT *,'still zero'
       END IF
     END DO
@@ -280,8 +253,8 @@
     ALLOCATE (bdr%volpos_car(bdr%nvols, 3))
 
     DO i = 1, bdr%nvols
-      bdr%volpos_dir(i,:) = lat2dir(chgtemp, bdr%volpos_lat(i,:))
-      bdr%volpos_car(i,:) = lat2car(chgtemp, bdr%volpos_lat(i,:))
+      bdr%volpos_dir(i,:) = lat2dir(chgref, bdr%volpos_lat(i,:))
+      bdr%volpos_car(i,:) = lat2car(chgref, bdr%volpos_lat(i,:))
     END DO
 
     CALL assign_chg2atom(bdr, ions, chgval)
@@ -318,14 +291,14 @@
 
     TYPE(rvert_obj), ALLOCATABLE, DIMENSION(:) :: rVert
     REAL(q2), ALLOCATABLE, DIMENSION(:,:) :: R, Rtmp
-    REAL(q2), ALLOCATABLE, DIMENSION(:) :: alphtmp
-    REAL(q2), DIMENSION(3,3) :: Rdot, Rinv
+    REAL(q2), ALLOCATABLE, DIMENSION(:) :: alphtmp, Rmag, Rmagtmp
+    REAL(q2), DIMENSION(3,3) :: Rdot, Radj
     REAL(q2), DIMENSION(3) :: neighR, R2, Rx, Ry, nv
     REAL(q2) :: detR, tol, temp, rdRn
-    INTEGER, ALLOCATABLE, DIMENSION(:,:) :: nVect
-    INTEGER :: nv1, nv2, nv3, nA, nB, i, n, nvi, zeroarea
+    INTEGER, ALLOCATABLE, DIMENSION(:,:) :: nVect, nVecttmp
+    INTEGER :: nv1, nv2, nv3, nA, nB, i, n, nvi
     INTEGER :: nRange, numVert, maxVert, neigh, numNeigh, maxNeigh
-    LOGICAL :: incell
+    LOGICAL :: prnt, zeroarea
 
 ! Generate a list of neighboring vectors that bound the Wigner-Seitz cell.
 ! Note for future: should precompute this by making a sphere of radius
@@ -335,9 +308,9 @@
     nRange = 3
     maxNeigh = (2*nRange + 1)**3 - 1
 
-    ALLOCATE (nVect(maxNeigh,3))
-    ALLOCATE (R(maxNeigh,3))
-    ALLOCATE (Rtmp(maxNeigh,3))
+    ALLOCATE (nVect(maxNeigh,3), nVecttmp(maxNeigh,3))
+    ALLOCATE (R(maxNeigh,3), Rtmp(maxNeigh,3))
+    ALLOCATE (Rmag(maxNeigh), Rmagtmp(maxNeigh))
 
     neigh = 0
     DO nv1 = -nRange, nRange
@@ -347,43 +320,50 @@
           IF (ALL(nv == 0)) CYCLE
           neigh = neigh + 1
           nVect(neigh,:) = nv
-!          CALL mult_vect(cell, nv, R(neigh,:))
           R(neigh,:) = MATMUL(cell, nv)
+          Rmag(neigh) = SUM(R(neigh,:)*R(neigh,:))*0.5_q2
+!          write(*,*) "neigh: ",neigh,"nVect ",nVect(neigh,:)
+!          write(*,*) "R ",R(neigh,:)," Rmag ",Rmag(neigh)
         END DO
       END DO
     END DO
 
-    write(*,*) "maxNeigh: ", maxNeigh
+!    write(*,*) "maxNeigh: ", maxNeigh
 
-    ! find the number of neighbor vector in the WS cell, numNeigh
+    ! find the number of neighboring vectors in the WS cell, numNeigh
     numNeigh = 0
-    DO neigh = 1, maxNeigh
-
-      incell = .TRUE.
-      ! loop over all neighbors to see if this is in the WS cell
-      DO n = 1, maxNeigh
-        IF(SUM(R(n,:)*R(neigh,:)) > (SUM(R(n,:)**2) + tol)) THEN
-          ! this vector is outside the WS cell
-          incell = .FALSE.
-          EXIT
-        END IF
-      END DO
-      IF(incell) THEN
-        ! this vector is in the WS cell
+!    DO neigh = 1, maxNeigh
+    DO neigh = maxNeigh, 1, -1
+      ! check to see if R/2 is within the WS cell
+      IF( incell(R(neigh,:)*0.5_q2, maxNeigh, R, Rmag, tol, .FALSE.) ) THEN
+!        write(*,*) "neigh",neigh," incell"
         numNeigh = numNeigh + 1
         Rtmp(numNeigh,:) = R(neigh,:)
-!        WRITE(*,*) "HIT, numNeigh: ",numNeigh
+        Rmagtmp(numNeigh) = Rmag(neigh)
+        nVecttmp(numNeigh,:) = nVect(neigh,:)
       END IF
     END DO
 
-    write(*,*) "numNeigh: ", numNeigh
+!    write(*,*) "numNeigh: ", numNeigh
 
-    DEALLOCATE(R)
-    ALLOCATE(R(numNeigh,3))
-    R(1:numNeigh,:) = Rtmp(1:numNeigh,:)
-    DEALLOCATE(Rtmp)
-           
-    ! next step is to find all of the vortex points
+    DEALLOCATE(R, Rmag, nVect)
+    ALLOCATE(R(numNeigh,3), nVect(numNeigh,3), Rmag(numNeigh))
+!    R(1:numNeigh,:) = Rtmp(1:numNeigh,:)
+!    Rmag(1:numNeigh) = Rmagtmp(1:numNeigh)
+!    nVect(1:numNeigh,:) = nVecttmp(1:numNeigh,:)
+    DO neigh = 1, numNeigh
+      R(NumNeigh+1 - neigh,:) = Rtmp(neigh,:)
+      Rmag(NumNeigh+1 - neigh) = Rmagtmp(neigh)
+      nVect(NumNeigh+1 - neigh,:) = nVecttmp(neigh,:)
+    END DO
+    DEALLOCATE(Rtmp, Rmagtmp, nVecttmp)
+
+!    DO neigh = 1, numNeigh
+!      write(*,*) "neigh: ",neigh," nVect: ",nVect(neigh,:)
+!      write(*,*) "neigh: ",neigh," R: ",R(neigh,:)
+!    END DO
+
+    ! next step is to find all of the vertex points
     maxVert = (numNeigh-2)*(numNeigh-4)
     ALLOCATE (rVert(maxVert))
     ALLOCATE (alphtmp(numNeigh))
@@ -391,67 +371,89 @@
     DO neigh = 1, numNeigh
       numVert = 1
       Rdot(1,:) = R(neigh,:)
-      R2(1) = SUM(R(neigh,:)**2)
+      R2(1) = Rmag(neigh)
       DO nA = 1, numNeigh
         Rdot(2,:) = R(nA,:)
-        R2(2) = SUM(R(nA,:)**2)
+        R2(2) = Rmag(nA)
         DO nB = nA + 1, numNeigh
           Rdot(3,:) = R(nB,:)
-          R2(3) = SUM(R(nB,:)**2)
-!          CALL det(Rdot, detR)
-          detR = determinant(Rdot)
+          R2(3) = Rmag(nB)
+          detR = determinant(Rdot) 
+          Radj = adjoint(Rdot)
+
+!          write(*,*) "Rdot: ",neigh," ",nA," ",nB
+!          write(*,'(9F10.6)') Rdot(1,:),Rdot(2,:),Rdot(3,:)
+!          write(*,'(A,F10.6)') "det: ",detR
+!          write(*,'(A,9F10.6)') "Radj: ",Radj(1,:),Radj(2,:),Radj(3,:)
+!          write(*,'(A,3F10.6)') "R2: ",R2(:)
+
           IF (ABS(detR) >= tol) THEN
-            Rinv = matrix_3x3_inverse(Rdot)*detR
-            rVert(numVert)%ot3 = MATMUL(Rinv, R2)/detR
+            rVert(numVert)%r = MATMUL(Radj, R2)/detR
+!             write(*,'(A,I4,A,3F10.6)') "rVert(",numVert,"): ",rVert(numVert)%r(:)
+!            IF (ALL(nVect(neigh,:).EQ.(/1,0,0/))) THEN
+!              write(*,*) 'incell: ',incell
+!            END IF
+
+!            prnt = ALL((/neigh,nA,nB/).EQ.(/1,2,4/))
 
             ! check if this vertex is in the WS cell
-            incell = .TRUE.
-            DO n = 1, numNeigh
-              IF(SUM(rVert(numVert)%ot3(:)*R(n,:)) > SUM(R(n,:)**2) + tol) THEN
-                ! outside the cell
-                incell = .FALSE.
-                EXIT
-              END IF
-            END DO
-            IF (incell) THEN
+!            IF ( incell(rVert(numVert)%r, numNeigh, R, Rmag, tol, prnt) ) THEN
+            IF ( incell(rVert(numVert)%r, numNeigh, R, Rmag, tol, .FALSE.) ) THEN
                 ! inside the cell
               numVert = numVert + 1
+!              write(*,*) "incell = TRUE"
             END IF
-
           END IF
         END DO
       END DO
 
-      zeroarea = 0
+!      write(*,*) "neigh: ",neigh," numVert: ",numVert
+
+      !check to make sure none of the vertices correspond to R/2:
+      zeroarea = .False.
       DO n = 1, numVert
-        IF (ABS(SUM(rVert(n)%ot3(:)**2)) < 0.5*SUM(R(neigh,:)**2) + tol) zeroarea = 1
+        IF (ABS(SUM(rVert(n)%r(:)**2)) < (0.5*Rmag(neigh) + tol)) zeroarea = .TRUE.
+!       zeroarea = (ABS(SUM(rVert(n)%r(:)**2) - 0.5*Rmag(neigh)) < tol))
       END DO
-      IF (zeroarea == 1 .OR. numVert == 0) THEN
+      IF (zeroarea .OR. numVert == 0) THEN
+!        write(*,*) "vert: ",neigh," zeroarea"
         alphtmp(neigh) = 0
         numVect = numVect - 1
         CYCLE
       END IF
-      Rx = rvert(1)%ot3
+
+      ! Now we have a list of all the vertices for the polygon
+      ! defining the facet along the direction R[n].
+      ! Last step is to sort the list in terms of a winding angle around
+      ! R[n].  To do that, we define rx and ry which are perpendicular
+      ! to R[n], normalized, and right-handed: ry = R x rx, so that
+      ! rx x ry points along R[n].
+
+      Rx = rvert(1)%r
       rdRn = SUM(rx(:)*R(neigh,:)) / SUM(R(neigh,:)**2)
-      rx(:) = rx(:) - rdRn*R(neigh,:)
-      rdRn = SQRT(SUM(rx(:)**2))
+      Rx(:) = Rx(:) - rdRn*R(neigh,:)
+      rdRn = SQRT(SUM(Rx(:)**2))
       Rx = Rx/rdRn
       Ry = cross_product(R(neigh,:), Rx)
       rdRn = SQRT(SUM(Ry(:)**2))
       Ry = Ry/rdRn
+!      write (*,*) "numVert now: ",numVert
       DO nvi = 1, numVert - 1
-        rvert(nvi)%angle = ATAN2(SUM(rvert(nvi)%ot3(:)*ry(:)), SUM(rvert(nvi)%ot3(:)*rx(:)))
+!        write(*,*) "vert: ",nvi
+!        write(*,*) SUM(rvert(nvi)%r(:)*Ry(:))," ",SUM(rvert(nvi)%r(:)*Rx(:))
+!        write(*,*) ATAN2(SUM(rvert(nvi)%r(:)*Ry(:)), SUM(rvert(nvi)%r(:)*Rx(:)))
+        rvert(nvi)%phi = ATAN2(SUM(rvert(nvi)%r(:)*Ry(:)), SUM(rvert(nvi)%r(:)*Rx(:)))
       END DO
-!      CALL rvert_sort(rvert, numVert - 1)
-      CALL sort_vert(numVert-1, rvert)
+!      write(*,*) "before sort"
+      CALL sort_vert(numVert - 1, rvert)
+!      write(*,*) "after sort"
+!      DO nvi = 1, numVert
       alphtmp(neigh) = 0
       DO nvi = 1, numVert - 1
-!        CALL triple_product(rvert(nvi)%ot3, rvert(MOD(nvi, (numVert-1))+1)%ot3, R(neigh,:), temp)
-!        alphtmp(neigh) = alphtmp(neigh) + temp
         alphtmp(neigh) = alphtmp(neigh) + &
-                         triple_product(rvert(nvi)%ot3, rvert(MOD(nvi, (numVert-1))+1)%ot3, R(neigh,:))
+                         triple_product(rvert(nvi)%r, rvert(MOD(nvi,(numVert-1))+1)%r, R(neigh,:))
       END DO
-      alphtmp(neigh) = alphtmp(neigh)*0.25/SUM(R(neigh,:)**2)
+      alphtmp(neigh) = alphtmp(neigh)*0.25/Rmag(neigh)
       IF (ABS(alphtmp(neigh)) < tol) THEN
         alphtmp(neigh) = 0
         numVect = numVect - 1
@@ -461,21 +463,52 @@
     ! assign the vertex array with the known number of verticies
     ALLOCATE (vect(numVect,3))
     ALLOCATE (alpha(numVect))
+
     nvi = 1
     DO n = 1, numNeigh
       IF (alphtmp(n) /= 0 ) THEN
-        vect(nvi,:) = nvect(n,:)
+        vect(nvi,:) = nVect(n,:)
         alpha(nvi) = alphtmp(n)
         nvi = nvi + 1
       END IF
     END DO 
 
-    write(*,*) "numVect: ",numVect
-    DO nvi = 1, numVect
-      write(*,*) vect(nvi,1), " ", vect(nvi,2), " ", vect(nvi,3), " ", alpha(nvi)
-    END DO
+!    write(*,*) "numVect: ",numVect
+!    DO nvi = 1, numVect
+!      write(*,*) vect(nvi,1), " ", vect(nvi,2), " ", vect(nvi,3), " ", alpha(nvi)
+!    END DO
+
   END SUBROUTINE ws_voronoi
 
+
+  !---------------------------------------------------------------
+  ! incell: is a r inside the WS cell defined by the vectors R
+  !         rmag = R.R/2
+  !---------------------------------------------------------------
+  FUNCTION incell(r, numNeigh, rNeigh, rmag, tol, prnt)
+
+    REAL(q2), INTENT(IN), DIMENSION(:) :: r, rmag
+    REAL(q2), INTENT(IN), DIMENSION(:,:) :: rNeigh
+    LOGICAL incell, prnt
+    INTEGER n, numNeigh
+    REAL(q2) tol
+
+    incell = .TRUE.
+    DO n = 1, numNeigh
+      IF(prnt) THEN
+         write(*,*) " incell, n: ",n," ", DOT_PRODUCT(r, rNeigh(n,:)), " ", rmag(n)
+         write(*,'(A,3F10.6)') "r ",r(:)
+         write(*,'(A,3F10.6)') "rNeigh ",rNeigh(n,:)
+         write(*,'(A,1F10.6)') "rmag ",rmag(n)
+      END IF
+      IF (DOT_PRODUCT(r(:), rNeigh(n,:)) > (rmag(n) + tol)) THEN
+        incell = .FALSE.
+        EXIT
+      END IF
+    END DO
+
+    RETURN
+  END FUNCTION
 
   !---------------------------------------------------------------
   ! Sort a charge list
@@ -496,7 +529,7 @@
       IF ( weightList(a)%rho == weightList(b)%rho ) then
         less_than = a < b
       ELSE
-        less_than = weightList(a)%rho == weightList(b)%rho
+        less_than = weightList(a)%rho > weightList(b)%rho  ! max first
       END IF
     END FUNCTION less_than
 
@@ -534,10 +567,10 @@
 
     FUNCTION less_than(a,b)
       INTEGER, INTENT(IN) :: a,b
-      IF ( vertList(a)%angle == vertList(b)%angle ) then
+      IF ( vertList(a)%phi == vertList(b)%phi ) THEN
         less_than = a < b
       ELSE
-        less_than = vertList(a)%angle == vertList(b)%angle
+        less_than = vertList(a)%phi < vertList(b)%phi
       END IF
     END FUNCTION less_than
 

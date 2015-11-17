@@ -61,8 +61,8 @@ MODULE cube_mod
     !     What about the places in which we multiply by npts, or i_npts?
 
     ions%dir2car = TRANSPOSE(ions%lattice)
-    ions%car2dir = matrix_3x3_inverse(ions%dir2car)
-    chg%car2lat = matrix_3x3_inverse(chg%lat2car)
+    ions%car2dir = inverse(ions%dir2car)
+    chg%car2lat = inverse(chg%lat2car)
 
     vol = matrix_volume(ions%lattice)
     DO i = 1, ions%nions

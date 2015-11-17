@@ -72,7 +72,7 @@ MODULE chgcar_mod
     ions%nions = SUM(ions%num_ion)
     ions%lattice = scalefactor*ions%lattice
     ions%dir2car = TRANSPOSE(ions%lattice)
-    ions%car2dir = matrix_3x3_inverse(ions%dir2car)
+    ions%car2dir = inverse(ions%dir2car)
     ALLOCATE(ions%r_dir(ions%nions,3))
     ALLOCATE(ions%r_car(ions%nions,3))
     READ(100,*) !GH: read Direct line
@@ -94,7 +94,7 @@ MODULE chgcar_mod
     DO i=1,3
       chg%lat2car(:,i) = ions%dir2car(:,i)/REAL(chg%npts(i),q2)
     END DO
-    chg%car2lat = matrix_3x3_inverse(chg%lat2car)
+    chg%car2lat = inverse(chg%lat2car)
 
     ! origin of the lattice is at chg(1,1,1)
     chg%org_lat = (/1._q2,1._q2,1._q2/)

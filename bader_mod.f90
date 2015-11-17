@@ -74,7 +74,8 @@ MODULE bader_mod
       IF ((chgval%npts(1) /= chgtemp%npts(1)) .OR. &
           (chgval%npts(2) /= chgtemp%npts(2)) .OR. &
           (chgval%npts(3) /= chgtemp%npts(3))) THEN
-         WRITE(*,'(/,2x,A,/)') 'The dimensions of the primary and reference charge densities must be the same, stopping.'
+         WRITE(*,'(/,2x,A,/)') &
+           'The dimensions of the primary and reference charge densities must be the same, stopping.'
          STOP
       END IF
     ELSE
