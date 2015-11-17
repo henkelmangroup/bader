@@ -41,15 +41,14 @@
     TYPE(weight_obj), ALLOCATABlE, DIMENSION(:) :: chgList
     TYPE(weight_obj) :: tempwobj
     INTEGER :: nPts, i, n, n1, n2, n3, numVect, nv
-    INTEGER :: t1, t2, cr, cm, nabove, na, nb, tbasin, m
+    INTEGER :: t1, t2, cr, cm, nabove, na, nb, tbasin, m, bv, ta, tb
     REAL(q2) :: vol, tsum, tw, temp
     INTEGER, ALLOCATABLE, DIMENSION(:,:,:) :: indList
     INTEGER, ALLOCATABLE, DIMENSION(:,:) :: vect, neigh
     INTEGER, ALLOCATABLE, DIMENSION(:) :: numbelow, basin, above
     INTEGER, DIMENSION(3) :: p
-    REAL(q2), ALLOCATABLE, DIMENSION(:) :: alpha
-    REAL(q2), ALLOCATABLE, DIMENSION(:) :: t, w
     REAL(q2), ALLOCATABLE, DIMENSION(:,:) :: prob
+    REAL(q2), ALLOCATABLE, DIMENSION(:) :: alpha, t, w
     REAL(q2), DIMENSION(3,3) :: cell
     LOGICAL :: boundary
 
@@ -94,7 +93,11 @@
     bdr%bdim = 64 ! will expand as needed
     ALLOCATE (bdr%volpos_lat(bdr%bdim, 3))
 
-    ! Find vacuum points
+    ! find vacuum points, get the charge and volume
+    bdr%vacchg = 0.0_q2
+    bdr%vacvol = 0.0_q2
+    vol = matrix_volume(ions%lattice)
+    write (*,*) "vol: ",vol
     IF (opts%vac_flag) THEN
       DO n1 = 1,chgval%npts(1)
         DO n2 = 1,chgval%npts(2)
@@ -108,6 +111,7 @@
         END DO
       END DO
     END IF
+    write(*,*) "nvac: ",bdr%vacvol
     bdr%vacchg = bdr%vacchg/REAL(chgval%nrho,q2)
     bdr%vacvol = bdr%vacvol*vol/chgval%nrho
 
@@ -125,74 +129,70 @@
 
     WRITE(*,'(/,2x,A,$)') 'SORTING CHARGE VALUES ... '
     CALL sort_weight(nPts, chgList) ! max value first
-
     DO n = 1, nPts
       indList(chgList(n)%pos(1), chgList(n)%pos(2), chgList(n)%pos(3)) = n
     END DO
-
     WRITE(*,'(A)'), 'DONE'
 
-    ! first loop, deal with all interior points
     WRITE(*,'(2x,A,$)') 'CALCULATING FLUX ... '
-    DO n1 = 1, nPts
-      basin(n1) = 0
-      numbelow(n1) = 0
+    ALLOCATE (t(numVect))
+    ALLOCATE (above(numVect))
+    ! first loop, deal with all interior points
+    DO n = 1, nPts
+      basin(n) = 0
+      numbelow(n) = 0
       nabove = 0
       tsum = 0
-      ALLOCATE (t(numVect))
-      ALLOCATE (above(numVect))
-      DO n2 = 1, numVect
-        p = chgList(n1)%pos + vect(n2,:)
+      DO nv = 1, numVect
+        p = chgList(n)%pos + vect(nv,:)
         CALL pbc(p, chgref%npts)
         m = indList(p(1), p(2), p(3))
-        IF (m < n1 ) THEN ! point p has higher rho
+        IF (m < n) THEN ! point p has higher rho
           nabove = nabove + 1
           above(nabove) = m 
-          t(nabove) = alpha(n2)*(chgList(m)%rho - chgList(n1)%rho)
+          t(nabove) = alpha(nv)*(chgList(m)%rho - chgList(n)%rho)
           tsum = tsum + t(nabove)
         END IF
       END DO
       IF (nabove == 0) THEN ! maxima
         bdr%bnum = bdr%bnum + 1
         bdr%nvols = bdr%nvols + 1
-        basin(n1) = bdr%nvols
-        bdr%volnum(chgList(n1)%pos(1), chgList(n1)%pos(2), chgList(n1)%pos(3)) = bdr%nvols 
+        basin(n) = bdr%nvols
+        bdr%volnum(chgList(n)%pos(1), chgList(n)%pos(2), chgList(n)%pos(3)) = bdr%nvols 
         IF (bdr%bnum >= bdr%bdim) THEN
           CALL reallocate_volpos(bdr, bdr%bdim*2)
         END IF
-        DEALLOCATE(t)
-        DEALLOCATE(above)
         bdr%volpos_lat(bdr%bnum,:) = REAL(p,q2)
         CYCLE
       END IF
+      ! else, either an interior point, or a boundary point
       tbasin = basin(above(1))
       boundary = .FALSE.
-      DO n2 = 1, nabove
-        IF (basin(above(n2))/=tbasin .OR. tbasin==0) THEN 
-          boundary = .TRUE.
-        END IF
+      DO na = 1, nabove
+        IF (basin(above(na))/=tbasin .OR. tbasin==0) boundary = .TRUE.
       END DO 
       IF (boundary) THEN ! boundary
-        basin(n1) = 0
+        basin(n) = 0
         temp = 0
-        DO n2 = 1, nabove
-          m = above(n2)
+        DO na = 1, nabove
+          m = above(na)
           numbelow(m) = numbelow(m) + 1
-          neigh(m,numbelow(m)) = n1
-          prob(m,numbelow(m)) = t(n2) / tsum
+          neigh(m,numbelow(m)) = n
+          prob(m,numbelow(m)) = t(na) / tsum
           IF (prob(m,numbelow(m)) > temp) THEN
             temp = prob(m,numbelow(m))
-            bdr%volnum( chgList(n1)%pos(1), chgList(n1)%pos(2), chgList(n1)%pos(3)) = &
+            bdr%volnum( chgList(n)%pos(1), chgList(n)%pos(2), chgList(n)%pos(3)) = &
               bdr%volnum( chgList(m)%pos(1), chgList(m)%pos(2), chgList(m)%pos(3) )
           END IF
         END DO
       ELSE ! interior
-        basin(n1) = tbasin
-        bdr%volnum(chgList(n1)%pos(1), chgList(n1)%pos(2), chgList(n1)%pos(3)) = tbasin
+        basin(n) = tbasin
+        bdr%volnum(chgList(n)%pos(1), chgList(n)%pos(2), chgList(n)%pos(3)) = tbasin
       END IF
-      DEALLOCATE(t)
-      DEALLOCATE(above)
     END DO
+    DEALLOCATE(t)
+    DEALLOCATE(above)
+
     ! restore chglist rho to values from chgval
     DO n = 1, nPts
       chgList(n)%rho = chgval%rho(chgList(n)%pos(1), chgList(n)%pos(2), chgList(n)%pos(3))
@@ -202,34 +202,40 @@
     WRITE(*,'(2x,A,$)') 'INTEGRATING CHARGES ... '
     ALLOCATE (bdr%volchg(bdr%nvols))
     ALLOCATE (bdr%ionvol(bdr%nvols))
-    DO n1 = 1,bdr%nvols
-      bdr%volchg(n1) = 0
-      bdr%ionvol(n1) = 0
+    DO bv = 1, bdr%nvols
+      bdr%volchg(bv) = 0
+      bdr%ionvol(bv) = 0
     END DO
+
     ! bdr%volnum is written here during integration. so that each cell is
     ! assigned to the basin where it has most of the weight to. This should not
     ! affect the result of the integration.
     temp = 0
-    DO n1 = 1, bdr%nvols
-      DO n2 = 1, nPts
-        IF (basin(n2) == n1) THEN
-          w(n2) = 1
+   
+    write(*,*) "nvols: ",bdr%nvols 
+    DO bv = 1, bdr%nvols
+      DO n = 1, nPts
+        IF (basin(n) == bv) THEN
+          w(n) = 1
         ELSE
-          w(n2) = 0
+          w(n) = 0
         END IF
       END DO
-      DO n2 = 1, nPts
-        tw = w(n2)
+!      write(*,*) "n: ",nPts
+      DO n = 1, nPts
+        tw = w(n)
         IF (tw /= 0) THEN
-          DO n = 1, numbelow(n2)
-            w(neigh(n2, n)) = w(neigh(n2, n)) + prob(n2, n)*tw
+!          write(*,*) "numbelow: ", numbelow(n)
+          DO nb = 1, numbelow(n)
+            w(neigh(n, nb)) = w(neigh(n, nb)) + prob(n, nb)*tw
           END DO
-          bdr%volchg(n1) = bdr%volchg(n1) + tw * chgList(n2)%rho
-          bdr%ionvol(n1) = bdr%ionvol(n1) + tw
+          bdr%volchg(bv) = bdr%volchg(bv) + tw * chgList(n)%rho
+          bdr%ionvol(bv) = bdr%ionvol(bv) + tw
         END IF
       END DO
     END DO
     bdr%volchg = bdr%volchg / REAL(chgval%nrho,q2)
+
     WRITE(*,'(A)'), 'DONE'
 
     vol = matrix_volume(ions%lattice)
@@ -246,11 +252,8 @@
       END IF
     END DO
 
-    ALLOCATE (bdr%nnion(bdr%nvols))
-    ALLOCATE (bdr%iondist(bdr%nvols))
-    ALLOCATE (bdr%ionchg(ions%nions))
-    ALLOCATE (bdr%volpos_dir(bdr%nvols, 3))
-    ALLOCATE (bdr%volpos_car(bdr%nvols, 3))
+    ALLOCATE(bdr%nnion(bdr%nvols), bdr%iondist(bdr%nvols), bdr%ionchg(ions%nions))
+    ALLOCATE (bdr%volpos_dir(bdr%nvols, 3), bdr%volpos_car(bdr%nvols, 3))
 
     DO i = 1, bdr%nvols
       bdr%volpos_dir(i,:) = lat2dir(chgref, bdr%volpos_lat(i,:))
@@ -259,13 +262,8 @@
 
     CALL assign_chg2atom(bdr, ions, chgval)
 
-    DEALLOCATE (numbelow)
-    DEALLOCATE (w)
-    DEALLOCATE (neigh)
-    DEALLOCATE (prob)
-    DEALLOCATE (chgList)
-    DEALLOCATE (indList)
-    DEALLOCATE (basin)
+    DEALLOCATE (numbelow, w, neigh, prob)
+    DEALLOCATE (chgList, indList, basin)
 
   END SUBROUTINE bader_weight_calc
 

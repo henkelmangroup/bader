@@ -12,6 +12,7 @@ MODULE bader_mod
   USE charge_mod
   USE io_mod
   USE chgcar_mod
+
   IMPLICIT NONE
 
 ! Variable descriptions:
@@ -42,6 +43,7 @@ MODULE bader_mod
   PUBLIC :: write_sel_atom, write_sel_bader, write_atom_index, write_bader_index
   PUBLIC :: write_sum_atom, write_sum_bader, assign_chg2atom, cal_atomic_vol
   PUBLIC :: reallocate_volpos
+
   CONTAINS
 
 !-----------------------------------------------------------------------------------!
