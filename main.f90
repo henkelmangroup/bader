@@ -66,10 +66,8 @@
      TYPE(charge_obj) :: chgval
      TYPE(bader_obj) :: bdr
      TYPE(voronoi_obj) :: vor
-     CHARACTER :: A
-     TYPE(charge_obj) :: chgtemp 
     ! Write the version number
-     WRITE(*,'(/,2X,A)') 'GRID BASED BADER ANALYSIS  (Version 0.30 11/12/15)'
+     WRITE(*,'(/,2X,A)') 'GRID BASED BADER ANALYSIS  (Version 0.95 11/17/15)'
 
      ! Get the control variables
      CALL get_options(opts)
@@ -80,7 +78,7 @@
        IF (opts%bader_opt == opts%bader_weight) THEN
          CALL bader_weight_calc(bdr,ions,chgval,opts)  ! Yu-Trinkle weight method
        ELSE
-         CALL bader_calc(bdr,ions,chgval,opts)  ! regular grid-based methods
+         CALL bader_calc(bdr,ions,chgval,opts)         ! grid-based Bader methods
        ENDIF
        CALL bader_mindist(bdr,ions,chgval)
        CALL bader_output(bdr,ions,chgval)

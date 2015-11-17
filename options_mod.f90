@@ -13,7 +13,6 @@
       INTEGER :: in_opt, in_auto = 0, in_cube = 1, in_chgcar = 2, in_chgcar4 = 3,in_chgcar5 = 4
       INTEGER :: ref_in_opt
       INTEGER :: bader_opt, bader_offgrid = 0, bader_ongrid = 1, bader_neargrid = 2, bader_weight = 3
-      INTEGER :: bader_brute = 4
       INTEGER :: quit_opt, quit_max = 0, quit_known = 1
       INTEGER :: refine_edge_itrs
 ! refine_edge_itrs=-1 check points around the reassigned points during refinement
@@ -43,9 +42,8 @@
       TYPE(options_obj) :: opts
       LOGICAL :: existflag
       LOGICAL :: readchgflag
-      INTEGER :: n,iargc,i,ip,m,it,ini
-      INTEGER :: j, sel,itmp,istart,iend
-      REAL(q2) :: temp
+      INTEGER :: n, i, ip, m, it
+      INTEGER :: sel, itmp, istart, iend
       CHARACTER(LEN=128) :: p
       CHARACTER*128 :: inc
       INTEGER :: COMMAND_ARGUMENT_COUNT
@@ -54,7 +52,8 @@
       opts%out_opt = opts%out_chgcar4
       opts%in_opt = opts%in_auto
       ! print options
-      opts%vac_flag = .FALSE.
+!      opts%vac_flag = .FALSE.
+      opts%vac_flag = .TRUE.
       opts%vacval = 1E-3
       opts%print_all_atom = .FALSE.
       opts%print_all_bader = .FALSE.
@@ -73,7 +72,7 @@
       opts%dipole_flag = .FALSE.
       opts%ldos_flag = .FALSE.
       opts%verbose_flag = .FALSE.
-      opts%badertol = 1.0e-4_q2
+      opts%badertol = 1E-3
       opts%stepsize = 0.0_q2
       opts%ref_flag = .FALSE.
       opts%find_critpoints_flag = .FALSE.
@@ -153,8 +152,6 @@
             opts%bader_opt = opts%bader_neargrid
           ELSEIF (inc(1:it) == 'WEIGHT' .OR. inc(1:it) == 'weight') THEN
             opts%bader_opt = opts%bader_weight
-          ELSEIF (inc(1:it) == 'BRUTE' .OR. inc(1:it)== 'brute' ) THEN
-            opts%bader_opt = opts%bader_brute
           ELSE
             WRITE(*,'(A,A,A)') ' Unknown option "',inc(1:it),'"'
             STOP

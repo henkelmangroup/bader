@@ -132,7 +132,7 @@ MODULE matrix_mod
     REAL(q2),INTENT(OUT),DIMENSION(3) :: v2, v3
     REAL(q2),DIMENSION(3) :: u1, u2, w1
     REAL(q2),DIMENSION(3,3) :: tempMat
-    REAL(q2) :: temp, norm
+    REAL(q2) :: norm
 
     tempMat = iDM*yita2
     tempMat = dM - tempMat

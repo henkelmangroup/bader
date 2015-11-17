@@ -31,32 +31,20 @@
     TYPE(bader_obj) :: bdr
     TYPE(charge_obj) :: chg
     TYPE(options_obj) :: opts
-    TYPE(charge_obj) :: chgtemp
-    TYPE(ions_obj) :: ionstemp
-    TYPE(charge_obj) :: chgval
-! ptoo is another point, for the sake of running pbc to make sure that we do not
-! select a point outside of the box; usage is same as pt
 
 ! for points, 1 and 2 are +1, -1
     INTEGER,DIMENSION(3) :: p, pt, ptt, ptx1, ptx2, pty1, pty2, ptz1, ptz2
     REAL(q2),DIMENSION(3,3) :: dM ! the deviatoric matrix
     REAL(q2),DIMENSION(3,3) :: dMSQ, dMVSS ! dM squared and dM in vss basis
     REAL(q2) :: j2, j3 ! second and third invariant of dM
-    INTEGER :: path_volnum, bvolnum, i, i2
-    INTEGER :: num_edge, num_reassign, num_check
-    INTEGER :: d1, d2, d3, cptnum, switch
-    INTEGER :: n1, n2, n3, lc1, lc2, lc3
-    REAL(q2) :: x, y, z, xx, yy, zz, xy, xz, yz, denom, nomx, nomy, nomz
-    ! ODS and trace are the off diagonal sum and trace of the hessian matrix
-    REAL(q2) :: ODS, trace, num1, num2, num3, phi
-    REAL(q2) :: traceOver3, temp, alpha
-    REAL(q2) :: yita1, yita2, yita3 ! variables for degenerate eigenvalues
-    REAL(q2) :: MDE ! most distinct eigenvalue
+    INTEGER :: n1, n2, n3, d1, d2, d3, cptnum, switch
     REAL(q2),DIMENSION(3) :: eigvec1, eigvec2, eigvec3, cartX, cartY, cartZ, tempVec
     REAL(q2),DIMENSION(3,3) :: nIdentity, identityM, devSubNIden
     ! these are vectors orthogonal to eigenvectors
     REAL(q2),DIMENSION(3) :: orthoR1, orthoR2, orthoR3, S1, S2, orT2, orT3
-    REAL(q2) :: norm, s1r2, s1r3
+    REAL(q2) :: x, y, z, xx, yy, zz, xy, xz, yz, denom, nomx, nomy, nomz
+    REAL(q2) :: norm, trace, traceOver3, temp, alpha
+    REAL(q2) :: yita1, yita2, yita3 ! variables for degenerate eigenvalues
 
     WRITE(*,'(A)')  'FINDING CRITICAL POINTS'
     ALLOCATE (hes%rho(chg%npts(1),chg%npts(2),chg%npts(3)))

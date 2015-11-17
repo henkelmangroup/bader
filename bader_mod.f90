@@ -58,15 +58,13 @@ MODULE bader_mod
     TYPE(charge_obj) :: chgval
     TYPE(options_obj) :: opts
 
-    REAL(q2),ALLOCATABLE,DIMENSION(:,:) :: tmpvolpos
-    REAL(q2),DIMENSION(3) :: v
-    INTEGER,DIMENSION(3) :: p,ptemp
-    INTEGER :: n1,n2,n3,i,path_volnum,pn,tenths_done
-    INTEGER :: cr,count_max,t1,t2
-    INTEGER :: ref_itrs=1
+    INTEGER,DIMENSION(3) :: p, ptemp
+    INTEGER :: n1, n2, n3, i, path_volnum, tenths_done
+    INTEGER :: cr, count_max, t1, t2
+    INTEGER :: ref_itrs = 1
 
-    REAL(q2),DIMENSION(3) :: grad,voxlen
-    REAL(q2) :: rho,vol
+    REAL(q2),DIMENSION(3) :: voxlen
+    REAL(q2) :: vol
     TYPE(charge_obj) :: chgtemp
     TYPE(ions_obj) :: ionstemp
 
@@ -120,10 +118,11 @@ MODULE bader_mod
       DO n1=1,chgval%npts(1)
         DO n2=1,chgval%npts(2)
           DO n3=1,chgval%npts(3)
-            IF (ABS(rho_val(chgval,n1,n2,n3)/vol) <= opts%vacval) THEN
+!            IF (ABS(rho_val(chgval,n1,n2,n3)/vol) <= opts%vacval) THEN
+            IF (rho_val(chgval,n1,n2,n3)/vol <= opts%vacval) THEN
                bdr%volnum(n1,n2,n3) = -1
-               bdr%vacchg = bdr%vacchg+chgval%rho(n1,n2,n3)
-               bdr%vacvol = bdr%vacvol+1
+               bdr%vacchg = bdr%vacchg + chgval%rho(n1,n2,n3)
+               bdr%vacvol = bdr%vacvol + 1
             END IF
           END DO
         END DO
@@ -188,10 +187,10 @@ MODULE bader_mod
     WRITE(*,*) ''
 
     IF (opts%vac_flag) THEN
-      DO n1=1,chgval%npts(1)
-        DO n2=1,chgval%npts(2)
-          DO n3=1,chgval%npts(3)
-            IF(bdr%volnum(n1,n2,n3) == -1) bdr%volnum(n1,n2,n3) = bdr%bnum+1
+      DO n1 = 1, chgval%npts(1)
+        DO n2 = 1, chgval%npts(2)
+          DO n3 = 1, chgval%npts(3)
+            IF(bdr%volnum(n1,n2,n3) == -1) bdr%volnum(n1,n2,n3) = bdr%bnum + 1
           END DO
         END DO
       END DO
@@ -230,9 +229,9 @@ MODULE bader_mod
     ! Sum up the charge included in each volume
     ALLOCATE(bdr%volchg(bdr%nvols))
     bdr%volchg = 0._q2
-    DO n1 = 1,chgval%npts(1)
-      DO n2 = 1,chgval%npts(2)
-        DO n3 = 1,chgval%npts(3)
+    DO n1 = 1, chgval%npts(1)
+      DO n2 = 1, chgval%npts(2)
+        DO n3 = 1, chgval%npts(3)
           IF (bdr%volnum(n1,n2,n3) == bdr%nvols+1) CYCLE
           bdr%volchg(bdr%volnum(n1,n2,n3)) = &
           &  bdr%volchg(bdr%volnum(n1,n2,n3)) + chgval%rho(n1,n2,n3)
@@ -441,12 +440,9 @@ MODULE bader_mod
     TYPE(bader_obj) :: bdr
     TYPE(charge_obj) :: chg
     INTEGER,DIMENSION(3),INTENT(INOUT) :: p
-    INTEGER,DIMENSION(3) :: pm, pt, pp=(/0,0,0/)
-    INTEGER :: d1, d2, d3, i
-    LOGICAL :: ismax
-
+    INTEGER,DIMENSION(3) :: pm
     REAL(q2),DIMENSION(3) :: gradrl, dr=(/0._q2,0._q2,0._q2/)
-    REAL(q2) :: cx, cy, cz, coeff, cp, cm, drp
+    REAL(q2) :: coeff
     SAVE dr
 
     IF (bdr%pnum == 1) THEN
@@ -656,7 +652,6 @@ MODULE bader_mod
     DO i = 1,bdr%nvols
       dv = bdr%volpos_dir(i,:) - ions%r_dir(1,:)
 !      CALL dpbc_dir(ions,dv)
-!      CALL matrix_vector(ions%dir2car, dv, v)
       v = MATMUL(ions%dir2car, dv)
       CALL dpbc_car(ions, v)
       dminsq = DOT_PRODUCT(v, v)
@@ -664,7 +659,6 @@ MODULE bader_mod
       DO j = 2,ions%nions
         dv = bdr%volpos_dir(i,:) - ions%r_dir(j,:)
 !        CALL dpbc_dir(ions,dv)
-!        CALL matrix_vector(ions%dir2car, dv, v)
         v = MATMUL(ions%dir2car, dv)
         CALL dpbc_car(ions, v)
         dsq = DOT_PRODUCT(v, v)
@@ -692,10 +686,10 @@ MODULE bader_mod
     TYPE(ions_obj) :: ions
     TYPE(charge_obj) :: chg
 
-    REAL(q2),DIMENSION(3) :: shift, v, dv_dir, dv_car
+    REAL(q2),DIMENSION(3) :: v, dv_dir, dv_car
     INTEGER,DIMENSION(3) :: p
     REAL :: dist
-    INTEGER :: i, atom, n1, n2, n3, d1, d2, d3
+    INTEGER :: i, atom, n1, n2, n3
     INTEGER :: cr, count_max, t1, t2, tenths_done
     
     CALL SYSTEM_CLOCK(t1, cr, count_max)
@@ -722,7 +716,7 @@ MODULE bader_mod
           IF (bdr%volnum(n1,n2,n3) == bdr%nvols+1) CYCLE
 
 !         If this is an edge cell, check if it is the closest to the atom so far
-          IF(  is_atm_edge(bdr,chg,p,atom)) THEN 
+          IF(is_atm_edge(bdr,chg,p,atom)) THEN 
             v = REAL((/n1,n2,n3/),q2)
             dv_dir = (v-chg%org_lat)/REAL(chg%npts,q2) - ions%r_dir(atom,:)
 !            CALL dpbc_dir(ions,dv_dir)
@@ -745,7 +739,7 @@ MODULE bader_mod
     END DO
 
     CALL SYSTEM_CLOCK(t2,cr,count_max)
-    WRITE(*,'(2/,1A12,1F7.2,1A8)') 'RUN TIME: ', (t2-t1)/REAL(cr,q2), ' SECONDS'
+    WRITE(*,'(/,1A12,1F7.2,1A8)') 'RUN TIME: ', (t2-t1)/REAL(cr,q2), ' SECONDS'
 
   RETURN
   END SUBROUTINE bader_mindist
@@ -762,7 +756,7 @@ MODULE bader_mod
     TYPE(charge_obj) :: chg
 
     TYPE(charge_obj) :: tmp
-    INTEGER :: nx, ny, nz, i, atomnum, badercur, tenths_done, t1, t2, cr, count_max
+    INTEGER :: atomnum, badercur, tenths_done, t1, t2, cr, count_max
     INTEGER :: n1, n2, n3
     CHARACTER(LEN=128) :: atomfilename
     
@@ -801,7 +795,7 @@ MODULE bader_mod
     DEALLOCATE(tmp%rho)
 
     CALL SYSTEM_CLOCK(t2,cr,count_max)
-    WRITE(*,'(2/,1A12,1F7.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
+    WRITE(*,'(/,1A12,1F7.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
 
   RETURN
   END SUBROUTINE write_all_bader
@@ -821,7 +815,7 @@ MODULE bader_mod
 
     TYPE(charge_obj) :: tmp
 
-    INTEGER :: nx, ny, nz, i, j, b, mab, mib, ik, sc, cc
+    INTEGER :: j, b, mab, mib, ik, sc, cc
     INTEGER :: tenths_done, t1, t2, cr, count_max
     INTEGER :: n1, n2, n3
     INTEGER,DIMENSION(bdr%nvols) :: rck
@@ -829,7 +823,7 @@ MODULE bader_mod
 
     CALL SYSTEM_CLOCK(t1, cr, count_max)
 
-    tmp=chg
+    tmp = chg
 
     WRITE(*,'(/,2x,A)') 'WRITING ATOMIC VOLUMES '
     WRITE(*,'(2x,A)')   '               0  10  25  50  75  100'
@@ -875,7 +869,7 @@ MODULE bader_mod
     DEALLOCATE(tmp%rho)
 
     CALL SYSTEM_CLOCK(t2, cr, count_max)
-    WRITE(*,'(2/,1A12,1F7.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
+    WRITE(*,'(/,1A12,1F7.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
 
   RETURN
   END SUBROUTINE write_all_atom
@@ -946,7 +940,7 @@ MODULE bader_mod
     DEALLOCATE(tmp%rho)
 
     CALL SYSTEM_CLOCK(t2, cr, count_max)
-    WRITE(*,'(2/,1A12,1F7.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
+    WRITE(*,'(/,1A12,1F7.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
 
   RETURN
   END SUBROUTINE write_sel_atom
@@ -1022,7 +1016,7 @@ MODULE bader_mod
     DEALLOCATE(tmp%rho)
 
     CALL SYSTEM_CLOCK(t2, cr, count_max)
-    WRITE(*,'(2/,1A12,1F7.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
+    WRITE(*,'(/,1A12,1F7.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
 
   RETURN
   END SUBROUTINE write_sum_atom
@@ -1093,7 +1087,7 @@ MODULE bader_mod
     DEALLOCATE(tmp%rho)
 
     CALL SYSTEM_CLOCK(t2, cr, count_max)
-    WRITE(*,'(2/,1A12,1F7.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
+    WRITE(*,'(/,1A12,1F7.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
 
   RETURN
   END SUBROUTINE write_sel_bader
@@ -1162,7 +1156,7 @@ MODULE bader_mod
     DEALLOCATE(tmp%rho)
     
     CALL SYSTEM_CLOCK(t2, cr, count_max)
-    WRITE(*,'(2/,1A12,1F7.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
+    WRITE(*,'(/,1A12,1F7.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
   
   RETURN
   END SUBROUTINE write_sum_bader
@@ -1334,7 +1328,7 @@ MODULE bader_mod
     WRITE(100,'(A)') '   Atom                     Volume(s)'
     WRITE(100,'(A,A)') '  --------------------------------------------------------',&
     &                  '----------------'
-    DO i = mib,mab
+    DO i = mib, mab
       cc = 0
       rck = 0
       nmax = 0
@@ -1364,7 +1358,7 @@ MODULE bader_mod
     &                  '----------------'
     sum_ionchg = SUM(bdr%ionchg)
     ne = SUM(bdr%volchg(1:bdr%nvols)) + bdr%vacchg
-    DO i = 1,ions%nions
+    DO i = 1, ions%nions
       WRITE(100,'(1I5,7F12.7)') i,ions%r_car(i,:),bdr%ionchg(i),bdr%minsurfdist(i),bdr%ionvol(i)
     END DO
     WRITE(100,'(A,A)') ' ----------------------------------------------------------------',&
@@ -1394,9 +1388,10 @@ MODULE bader_mod
     &              '---------------'
     CLOSE(200)
 
-    WRITE(*,'(2x,A,6X,1I8)')       'NUMBER OF BADER MAXIMA FOUND: ',bdr%nvols
-    WRITE(*,'(2x,A,6X,1I8)')       '    SIGNIFICANT MAXIMA FOUND: ',bdimsig
-    WRITE(*,'(2x,A,2X,1F12.5)')  '         NUMBER OF ELECTRONS: ', ne
+    WRITE(*,'(2x,A,6X,1I8)')       'NUMBER OF BADER MAXIMA FOUND: ', bdr%nvols
+    WRITE(*,'(2x,A,6X,1I8)')       '    SIGNIFICANT MAXIMA FOUND: ', bdimsig
+    WRITE(*,'(2X,A,2X,1F12.4)')    '               VACUUM CHARGE: ', bdr%vacchg
+    WRITE(*,'(2x,A,2X,1F12.5)')    '         NUMBER OF ELECTRONS: ', ne
 
   RETURN
   END SUBROUTINE bader_output
@@ -1559,8 +1554,7 @@ MODULE bader_mod
     TYPE(bader_obj) :: bdr
     TYPE(charge_obj) :: chg
     INTEGER,DIMENSION(3),INTENT(IN) :: p
-
-    INTEGER :: volnum, d1, d2, d3, p1, p2, p3
+    INTEGER :: volnum, p1, p2, p3
 
     p1 = p(1)
     p2 = p(2)
@@ -1625,7 +1619,6 @@ MODULE bader_mod
     TYPE(charge_obj) :: chg
     INTEGER,DIMENSION(3),INTENT(IN) :: p
     INTEGER,DIMENSION(3) :: pt
-    INTEGER :: volnum,d1,d2,d3,p1,p2,p3
 
     pt = (/p(1)+1,p(2),p(3)/)
     CALL pbc(pt,chg%npts)
@@ -1660,7 +1653,7 @@ MODULE bader_mod
     TYPE(charge_obj) :: chg
     INTEGER,DIMENSION(3),INTENT(IN) :: p
     INTEGER,DIMENSION(3) :: pt
-    INTEGER :: volnum, d1, d2, d3, p1, p2, p3
+    INTEGER :: d1, d2, d3
 
     DO d1 = -1,1
       DO d2 = -1,1
@@ -1720,7 +1713,7 @@ MODULE bader_mod
 
     INTEGER,DIMENSION(3),INTENT(IN) :: p
     INTEGER,DIMENSION(3) ::pt
-    INTEGER :: d1, d2, d3, atmnum, atmnbr
+    INTEGER :: d1, d2, d3, atmnbr
     INTEGER,INTENT(INOUT) ::atom 
     
     atom = bdr%nnion(bdr%volnum(p(1),p(2),p(3)))
@@ -1730,6 +1723,7 @@ MODULE bader_mod
         DO d3 = -1,1
           pt = p + (/d1,d2,d3/)
           CALL pbc(pt,chg%npts)
+          IF (bdr%volnum(pt(1),pt(2),pt(3)) == bdr%bnum + 1) CYCLE  ! vacuum point
           atmnbr = bdr%nnion(bdr%volnum(pt(1),pt(2),pt(3)))
           IF (atmnbr /= atom) THEN
             is_atm_edge = .TRUE.
@@ -1786,7 +1780,7 @@ MODULE bader_mod
   SUBROUTINE reallocate_volpos(bdr,newsize)
 
     TYPE(bader_obj) :: bdr
-    INTEGER :: newsize,n,n2
+    INTEGER :: newsize
 
     !STC: tmpvolpos was INTEGER should have been REAL(q2), this caused a crash
     !STC: when bader was run with -ref and compiled with floating point

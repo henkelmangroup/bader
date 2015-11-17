@@ -24,30 +24,19 @@ MODULE multipole_mod
   SUBROUTINE multipole_calc(bdr,ions,chgval,opts)
 
     TYPE(bader_obj) :: bdr
-    TYPE(ions_obj) :: ions
-    TYPE(charge_obj) :: chgval
+    TYPE(ions_obj) :: ions, ionstemp
+    TYPE(charge_obj) :: chgval, chgtemp
     TYPE(options_obj) :: opts
 
-    REAL(q2),ALLOCATABLE,DIMENSION(:,:) :: dipol
-    REAL(q2),ALLOCATABLE,DIMENSION(:) :: charge_check
-    REAL(q2),ALLOCATABLE,DIMENSION(:) :: rsquare     
     REAL(q2),ALLOCATABLE,DIMENSION(:,:,:) :: quad
+    REAL(q2),ALLOCATABLE,DIMENSION(:,:) :: dipol
+    REAL(q2),ALLOCATABLE,DIMENSION(:) :: charge_check, rsquare     
     REAL(q2),DIMENSION(3,3) :: quadtot
-    REAL(q2),DIMENSION(3) :: diptot
-    REAL(q2) :: chgtot, rsquaretot
-    REAL(q2),DIMENSION(3) :: v
-    REAL(q2),DIMENSION(3) :: tab
-    REAL(q2),DIMENSION(3) :: tab_car
-    INTEGER :: n1,n2,n3,i
-    INTEGER :: ion_of_point
+    REAL(q2),DIMENSION(3) :: diptot, tab, tab_car, rr0
+    REAL(q2) :: chgtot, rsquaretot, distance
+    INTEGER :: n1, n2, n3, ion_of_point
 
-    REAL(q2),DIMENSION(3) :: grad,voxlen
-    REAL(q2) :: rho,vol
-    TYPE(charge_obj) :: chgtemp
-    TYPE(ions_obj) :: ionstemp
-    REAL(q2) :: distance
     REAL(q2),PARAMETER :: charge_sign  = -1.0_q2
-    REAL(q2),DIMENSION(3) :: rr0
     REAL(q2),PARAMETER :: bohr2angs  = 0.529177_q2
 
     IF (opts%ref_flag) THEN
@@ -71,25 +60,25 @@ MODULE multipole_mod
     quadtot(:,:) = 0.0_q2
     rsquaretot = 0.0_q2
 
-    DO n1 = 1,chgval%npts(1)
-      DO n2 = 1,chgval%npts(2)
-        DO n3 = 1,chgval%npts(3)
+    DO n1 = 1, chgval%npts(1)
+      DO n2 = 1, chgval%npts(2)
+        DO n3 = 1, chgval%npts(3)
          IF (bdr%volnum(n1,n2,n3) == bdr%nvols+1) CYCLE
-         tab(1)=REAL(n1,q2)
-         tab(2)=REAL(n2,q2)
-         tab(3)=REAL(n3,q2)
+         tab(1) = REAL(n1,q2)
+         tab(2) = REAL(n2,q2)
+         tab(3) = REAL(n3,q2)
          ! transform the point to cartesian
          tab_car(:) = lat2car(chgtemp, tab(:))
          ! get the corresponding ion number
-         ion_of_point=bdr%nnion(bdr%volnum(n1,n2,n3))
+         ion_of_point = bdr%nnion(bdr%volnum(n1,n2,n3))
          ! recalculate charge
-         charge_check(ion_of_point)=charge_check(ion_of_point)+chgval%rho(n1,n2,n3)
+         charge_check(ion_of_point) = charge_check(ion_of_point) + chgval%rho(n1,n2,n3)
          ! point position
-         rr0(:)=tab_car(:)-ions%r_car(ion_of_point,:)
+         rr0(:) = tab_car(:) - ions%r_car(ion_of_point,:)
          CALL dpbc_car(ions,rr0)
-         distance=SQRT(DOT_PRODUCT(rr0,rr0))
+         distance = SQRT(DOT_PRODUCT(rr0,rr0))
          ! dipole stuff
-         dipol(:,ion_of_point)=dipol(:,ion_of_point)+rr0(:)*chgval%rho(n1,n2,n3)
+         dipol(:,ion_of_point) = dipol(:,ion_of_point) + rr0(:)*chgval%rho(n1,n2,n3)
          ! quadrupole stuff
          rsquare(ion_of_point)=rsquare(ion_of_point)+distance*distance*chgval%rho(n1,n2,n3)
          quad(1,1,ion_of_point)=quad(1,1,ion_of_point)+(3.0d0*rr0(1)*rr0(1)-distance*distance)*chgval%rho(n1,n2,n3)
@@ -107,13 +96,13 @@ MODULE multipole_mod
     dipol = dipol*charge_sign
     charge_check = charge_check*charge_sign
 
-    quad(2,1,:)=quad(1,2,:)
-    quad(3,2,:)=quad(2,3,:)
-    quad(3,1,:)=quad(1,3,:)
-    quad=quad/REAL(chgval%nrho,q2)
-    quad=quad*charge_sign
-    rsquare=rsquare/REAL(chgval%nrho,q2)
-    rsquare=rsquare*charge_sign
+    quad(2,1,:) = quad(1,2,:)
+    quad(3,2,:) = quad(2,3,:)
+    quad(3,1,:) = quad(1,3,:)
+    quad = quad/REAL(chgval%nrho,q2)
+    quad = quad*charge_sign
+    rsquare = rsquare/REAL(chgval%nrho,q2)
+    rsquare = rsquare*charge_sign
 
     OPEN(345,FILE='DIP.dat',STATUS='replace',ACTION='write')
     OPEN(346,FILE='QPL.dat',STATUS='replace',ACTION='write')

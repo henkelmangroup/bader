@@ -67,7 +67,7 @@ MODULE io_mod
     ENDIF
 
     CALL SYSTEM_CLOCK(t2,cr,count_max)
-    WRITE(*,'(/,1A12,1F7.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
+    WRITE(*,'(1A12,1F7.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
    
   RETURN
   END SUBROUTINE read_charge
@@ -113,7 +113,7 @@ MODULE io_mod
     ENDIF
 
     CALL SYSTEM_CLOCK(t2,cr,count_max)
-    WRITE(*,'(/,1A12,1F7.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
+    WRITE(*,'(1A12,1F7.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
     opts%in_opt=tmp
 
   RETURN

@@ -462,8 +462,8 @@ MODULE charge_mod
     TYPE(charge_obj) :: chg
     INTEGER,DIMENSION(3),INTENT(IN) :: p
     LOGICAL :: is_max_ongrid
-    INTEGER :: p1, p2, p3, i
-    REAL(q2) :: rho000, rho001, rho010, rho100, rho00_1, rho_100, rho0_10
+    INTEGER :: p1, p2, p3
+    REAL(q2) :: rho000
 
     p1 = p(1)
     p2 = p(2)
