@@ -11,7 +11,6 @@
 
 !-----------------------------------------------------------------------------------!
 ! Bader charge density analysis program
-! Version 0.29 (01/xx/15)
 !
 ! Authors:
 !   Wenjie Tang, Andri Arnaldsson, Wenrui Chai, Samuel T. Chill, and Graeme Henkelman
