@@ -21,8 +21,11 @@ MODULE matrix_mod
     REAL(q2), DIMENSION(3,3) :: inverse
     REAL(q2) :: det
 
+!    write(*,*) A(1,1),A(1,2),A(1,3)
+!    write(*,*) A(2,1),A(2,2),A(2,3)
+!    write(*,*) A(3,1),A(3,2),A(3,3)
     det = determinant(A)
-    IF (det == 0) STOP 'Divid by zero in matrix inverse'
+    IF (det == 0) STOP 'Divide by zero in matrix inverse'
     inverse = adjoint(A)/det
 
   RETURN
