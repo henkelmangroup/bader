@@ -118,8 +118,8 @@ MODULE bader_mod
       DO n1=1,chgval%npts(1)
         DO n2=1,chgval%npts(2)
           DO n3=1,chgval%npts(3)
-!            IF (ABS(rho_val(chgval,n1,n2,n3)/vol) <= opts%vacval) THEN
-            IF (rho_val(chgval,n1,n2,n3)/vol <= opts%vacval) THEN
+            IF (ABS(rho_val(chgval,n1,n2,n3)/vol) <= opts%vacval) THEN
+!            IF (rho_val(chgval,n1,n2,n3)/vol <= opts%vacval) THEN
                bdr%volnum(n1,n2,n3) = -1
                bdr%vacchg = bdr%vacchg + chgval%rho(n1,n2,n3)
                bdr%vacvol = bdr%vacvol + 1
