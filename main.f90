@@ -81,7 +81,7 @@
        ENDIF
        CALL bader_mindist(bdr,ions,chgval)
        CALL bader_output(bdr,ions,chgval)
-       IF (opts%find_critpoints_flag) CALL critpoint_find(bdr,chgval,opts)
+       IF (opts%find_critpoints_flag) CALL critpoint_find(bdr,chgval,opts,ions)
      END IF
 
      IF (opts%print_all_bader) CALL write_all_bader(bdr,opts,ions,chgval)

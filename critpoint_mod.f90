@@ -6,6 +6,7 @@
     USE options_mod
     USE ions_mod
     USE io_mod
+    USE ions_mod
     IMPLICIT NONE
 
     PRIVATE 
@@ -18,7 +19,7 @@
 !NOTE: this subroutine should be called after refine_edge
 !      in order to restrict the calculation to edge points
 !-----------------------------------------------------------------------------------!
-  SUBROUTINE critpoint_find(bdr,chg,opts)
+  SUBROUTINE critpoint_find(bdr,chg,opts,ions)
 
     TYPE hessian
       REAL(q2),ALLOCATABLE,DIMENSION(:,:,:) :: rho, dx, dy, dz
@@ -31,6 +32,7 @@
     TYPE(bader_obj) :: bdr
     TYPE(charge_obj) :: chg
     TYPE(options_obj) :: opts
+    TYPE(ions_obj) :: ions
 
 ! for points, 1 and 2 are +1, -1
     INTEGER,DIMENSION(3) :: p, pt, ptt, ptx1, ptx2, pty1, pty2, ptz1, ptz2
@@ -41,9 +43,10 @@
     REAL(q2),DIMENSION(3) :: eigvec1, eigvec2, eigvec3, cartX, cartY, cartZ, tempVec
     REAL(q2),DIMENSION(3,3) :: nIdentity, identityM, devSubNIden
     ! these are vectors orthogonal to eigenvectors
-    REAL(q2),DIMENSION(3) :: orthoR1, orthoR2, orthoR3, S1, S2, orT2, orT3
+    REAL(q2),DIMENSION(3) :: orthoR1, orthoR2, orthoR3, S1, S2, orT2, orT3, tem
+    REAL(q2),DIMENSION(3) :: tem2
     REAL(q2) :: x, y, z, xx, yy, zz, xy, xz, yz, denom, nomx, nomy, nomz
-    REAL(q2) :: norm, trace, traceOver3, temp, alpha
+    REAL(q2) :: norm, trace, traceOver3, temp, alpha, temp1, temp2
     REAL(q2) :: yita1, yita2, yita3 ! variables for degenerate eigenvalues
 
     WRITE(*,'(A)')  'FINDING CRITICAL POINTS'
@@ -62,6 +65,20 @@
     cartZ = (/0._q2,0._q2,1._q2/)
 
     OPEN(97,FILE='CPF.dat',STATUS='REPLACE',ACTION='WRITE')
+!    PRINT *,'This is critpoint_mod'
+!    PRINT *,'ions%lattice is',ions%lattice
+!    PRINT *,'chg%npts is',chg%npts
+!    th(1) = ions%lattice(1,1) + ions%lattice(2,1) + ions%lattice(3,1)
+!    th(2) = ions%lattice(1,2) + ions%lattice(2,2) + ions%lattice(3,2)
+!    th(3) = ions%lattice(1,3) + ions%lattice(2,3) + ions%lattice(3,3)
+!    PRINT *,'th(1) here is', th(1)
+!    PRINT *,'ions%lattice(1,:) is',ions%lattice(1,:)
+!    th(1) = th(1)/chg%npts(1)
+!    th(2) = th(2)/chg%npts(2)
+!    th(3) = th(3)/chg%npts(3)
+    ! these threshold is definitely not the right way to go
+!    WRITE(97,*),'Threshold:',th(1),th(2),th(3)
+!    PRINT *,'Threshold:',th(1),th(2),th(3)
     DO n1 = 1,chg%npts(1)
       DO n2 = 1,chg%npts(2)
         DO n3 = 1,chg%npts(3)
@@ -121,6 +138,8 @@
                  END DO
                END DO
              END DO
+             ! this block looks stupid but it is necessary. perhaps optimize the
+             ! look of  it1 later?
              ptx1 = p + (/1,0,0/)
              ptx2 = p + (/-1,0,0/)
              pty1 = p + (/0,1,0/)
@@ -180,10 +199,22 @@
                hes%r1 = nomx/denom
                hes%r2 = nomy/denom
                hes%r3 = nomz/denom
-
-               IF (ABS(hes%r1) <= 0.5_q2*bdr%stepsize) THEN
-                 IF (ABS(hes%r2) <= 0.5_q2*bdr%stepsize) THEN
-                   IF (ABS(hes%r3) <= 0.5_q2*bdr%stepsize) THEN
+               tem(1) = hes%r1
+               tem(2) = hes%r2
+               tem(3) = hes%r3
+               tem2 = ions%lattice(1,:)/chg%npts(1)
+               IF (in_here(tem,tem2))THEN
+                 tem2 = ions%lattice(2,:)/chg%npts(2)
+                 IF (in_here(tem,tem2))THEN
+                   tem2 = ions%lattice(3,:)/chg%npts(3)
+                   IF (in_here(tem,tem2))THEN
+!               IF (in_here(hes%r1,ions%lattice(1,:))) THEN
+!                 IF (in_here(hes%r2,ions%lattice(2,:))) THEN
+!                   IF (in_here(hes%r3,ions%lattice(3,:))) THEN
+               ! original code below
+!               IF (ABS(hes%r1) <= 0.5_q2*bdr%stepsize) THEN
+!                 IF (ABS(hes%r2) <= 0.5_q2*bdr%stepsize) THEN
+!                   IF (ABS(hes%r3) <= 0.5_q2*bdr%stepsize) THEN
                      cptnum = cptnum + 1
                      ! eigenvalue calculation below
                      trace = hes%dxdx + hes%dydy + hes%dzdz
@@ -205,6 +236,7 @@
                      j2 = 0.5_q2*(dMSQ(1,1) + dMSQ(2,2) + dMSQ(3,3))
                      j3 = determinant(dM)
                      alpha = ACOS(j3/2._q2*(3._q2/j2)**(3._q2/2._q2))/3._q2
+                     !ACOS seems to be intact. Ray, 6/7/2016
                      yita1 = 2._q2*SQRT(j2/3._q2)*COS(alpha)
                      ! Find the most distinct eigenvalue first
                      ! every eigenvalue are equaly distinct when alpha = pi/6
@@ -230,8 +262,17 @@
                      tempVec = S1*DOT_PRODUCT(S1, orthoR3)
                      orT3 = orthoR3 - tempVec
                      ! assume t2 is the larger one, normalize it
+                     ! 2016/6/15 Ray: instead of assuming, lets check which one is bigger
+                     temp1 = orT2(1)**2 + orT2(2)**2 + orT2(3)**2
+                     temp2 = orT3(1)**2 + orT3(2)**2 + orT3(3)**2
+                     IF (temp2 > temp1) THEN
+                       !The assumption is false.
+                       tem = orT2
+                       orT2 = orT3
+                       orT3 = orT2
+                     END IF 
                      norm = 1.0_q2/SQRT(SUM(orT2(:)**2))
-                     s2 = orT2*norm
+                     S2 = orT2*norm
                      eigvec1 = cross_product(S1, S2)
                      ! now that I have an eigenvalue and an eigenvector,
                      ! write the deviatoric matrix using the v1,s1,s2 basis
@@ -266,15 +307,15 @@
                      WRITE(97,*) 'r1' , hes%r1
                      WRITE(97,*) 'r2' , hes%r2
                      WRITE(97,*) 'r3' , hes%r3
-                     WRITE(97,'(3(1X,E18.11))') 0._q2, hes%rho(ptz1(1),ptz1(2),ptz1(3)), hes%rho(ptx2(1),ptx2(2),ptx2(3))
-                     WRITE(97,'(3(1X,E18.11))') hes%rho(pty2(1),pty2(2),pty2(3)), hes%rho(p(1),p(2),p(3)), &
-                                                hes%rho(pty1(1),pty1(2),pty1(3))
-                     WRITE(97,'(3(1X,E18.11))') hes%rho(ptx1(1), ptx1(2),ptx1(3)), hes%rho(ptz2(1),ptz2(2),ptz2(3)),0._q2
-                     WRITE(97,*) '---------------------------'
-                     WRITE(97,*),'Hessian matrix:'
-                     WRITE(97,'(3(1X,E18.11))') hes%dxdx, hes%dxdy, hes%dxdz
-                     WRITE(97,'(3(1X,E18.11))') hes%dxdy, hes%dydy, hes%dydz
-                     WRITE(97,'(3(1X,E18.11))') hes%dxdz, hes%dydz, hes%dzdz
+!                     WRITE(97,'(3(1X,E18.11))') 0._q2, hes%rho(ptz1(1),ptz1(2),ptz1(3)), hes%rho(ptx2(1),ptx2(2),ptx2(3))
+!                     WRITE(97,'(3(1X,E18.11))') hes%rho(pty2(1),pty2(2),pty2(3)), hes%rho(p(1),p(2),p(3)), &
+!                                                hes%rho(pty1(1),pty1(2),pty1(3))
+!                     WRITE(97,'(3(1X,E18.11))') hes%rho(ptx1(1), ptx1(2),ptx1(3)), hes%rho(ptz2(1),ptz2(2),ptz2(3)),0._q2
+!                     WRITE(97,*) '---------------------------'
+!                     WRITE(97,*),'Hessian matrix:'
+!                     WRITE(97,'(3(1X,E18.11))') hes%dxdx, hes%dxdy, hes%dxdz
+!                     WRITE(97,'(3(1X,E18.11))') hes%dxdy, hes%dydy, hes%dydz
+!                     WRITE(97,'(3(1X,E18.11))') hes%dxdz, hes%dydz, hes%dzdz
                      WRITE(97,*),'Eigenvalues: '
                      WRITE(97,'(3(1X,E18.11))') ,hes%eigval1, hes%eigval2, hes%eigval3
                      WRITE(97,*) 'Eigenvectors:'
@@ -289,6 +330,7 @@
       END DO
     END DO
     CLOSE(97)
+    PRINT *,'CRITICAL POINTS INFO WRITEN TO CPF.dat'
     PRINT *, "CRITICAL POINTS FOUND: ", cptnum 
 
     DEALLOCATE (hes%rho)
@@ -297,5 +339,17 @@
     DEALLOCATE (hes%dz)
     END SUBROUTINE critpoint_find
 
+    LOGICAL FUNCTION in_here(r,ir)
+      REAL(q2),DIMENSION(3) :: r,ir
+      REAL(q2) :: mag1,mag2,mag3
+      mag1 = r(1)**2 + r(2)**2 + r(3)**2
+      mag2 = (r(1) + ir(1))**2 + (r(2) + ir(2))**2 + (r(3) + ir(3))**2
+      mag3 = (r(1) - ir(1))**2 + (r(2) - ir(2))**2 + (r(3) - ir(3))**2
+      If (mag1 <= mag2 .AND. mag1 <= mag3 ) THEN
+        in_here = .TRUE.
+      ELSE
+        in_here = .FALSE.
+      END IF
+    END FUNCTION in_here
   END MODULE
 

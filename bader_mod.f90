@@ -113,6 +113,8 @@ MODULE bader_mod
     ! find vacuum points, get the charge and volume
     bdr%vacchg = 0.0_q2
     bdr%vacvol = 0.0_q2
+
+
     vol = matrix_volume(ions%lattice)
     IF (opts%vac_flag) THEN
       DO n1=1,chgval%npts(1)
