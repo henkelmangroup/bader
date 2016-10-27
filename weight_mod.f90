@@ -132,7 +132,7 @@
       indList(chgList(n)%pos(1), chgList(n)%pos(2), chgList(n)%pos(3)) = n
     END DO
 
-    WRITE(*,'(A)'), 'DONE'
+    WRITE(*,'(A)') 'DONE'
 
     WRITE(*,'(2x,A,$)') 'CALCULATING FLUX ... '
     ALLOCATE (t(numVect))
@@ -197,7 +197,7 @@
     DO n = 1, (nPts - nVac)
       chgList(n)%rho = chgval%rho(chgList(n)%pos(1), chgList(n)%pos(2), chgList(n)%pos(3))
     END DO
-    WRITE(*,'(A)'), 'DONE'
+    WRITE(*,'(A)') 'DONE'
 
     WRITE(*,'(/,2x,A)') 'INTEGRATING CHARGES'
     WRITE(*,'(2x,A)')   '               0  10  25  50  75  100'

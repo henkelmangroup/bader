@@ -316,8 +316,8 @@
 !                     WRITE(97,'(3(1X,E18.11))') hes%dxdx, hes%dxdy, hes%dxdz
 !                     WRITE(97,'(3(1X,E18.11))') hes%dxdy, hes%dydy, hes%dydz
 !                     WRITE(97,'(3(1X,E18.11))') hes%dxdz, hes%dydz, hes%dzdz
-                     WRITE(97,*),'Eigenvalues: '
-                     WRITE(97,'(3(1X,E18.11))') ,hes%eigval1, hes%eigval2, hes%eigval3
+                     WRITE(97,*) 'Eigenvalues: '
+                     WRITE(97,'(3(1X,E18.11))') hes%eigval1, hes%eigval2, hes%eigval3
                      WRITE(97,*) 'Eigenvectors:'
                      WRITE(97,*) eigvec1
                      WRITE(97,*) eigvec2
