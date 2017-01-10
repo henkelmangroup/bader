@@ -1355,13 +1355,14 @@ MODULE bader_mod
 
     OPEN(100,FILE='ACF.dat',STATUS='replace',ACTION='write')
     WRITE(100,555) '#','X','Y','Z','CHARGE','MIN DIST','ATOMIC VOL'
-    555 FORMAT(4X,1A,9X,1A1,2(11X,1A1),8X,1A6,5X,1A8,4X,1A10)
+    555 FORMAT(4X,1A,9X,1A1,2(11X,1A1),7X,1A6,6X,1A8,3X,1A10)
     WRITE(100,'(A,A)') ' ----------------------------------------------------------------',&
     &                  '----------------'
     sum_ionchg = SUM(bdr%ionchg)
     ne = SUM(bdr%volchg(1:bdr%nvols)) + bdr%vacchg
     DO i = 1, ions%nions
-      WRITE(100,'(1I5,7F12.7)') i,ions%r_car(i,:),bdr%ionchg(i),bdr%minsurfdist(i),bdr%ionvol(i)
+!      WRITE(100,'(1I5,7F12.7)') i,ions%r_car(i,:),bdr%ionchg(i),bdr%minsurfdist(i),bdr%ionvol(i)
+      WRITE(100,'(1I5,4F12.6,2F13.6)') i,ions%r_car(i,:),bdr%ionchg(i),bdr%minsurfdist(i),bdr%ionvol(i)
     END DO
     WRITE(100,'(A,A)') ' ----------------------------------------------------------------',&
     &                  '----------------'
