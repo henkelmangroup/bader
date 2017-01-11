@@ -100,7 +100,7 @@ MODULE cube_mod
       END DO
     END DO
 
-    WRITE(*,'(1A12,1I5,1A2,1I4,1A2,1I4)') 'FFT-grid: ',  &
+    WRITE(*,'(2X,1A13,1I5,1A2,1I4,1A2,1I4)') 'DENSITY-GRID:',  &
     &         chg%npts(1),'x',chg%npts(2),'x',chg%npts(3)
     WRITE(*,'(2x,A,1A20)') 'CLOSE ... ', chargefile
     CLOSE(100)

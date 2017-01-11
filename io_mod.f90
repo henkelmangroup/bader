@@ -36,7 +36,7 @@ MODULE io_mod
     CALL SYSTEM_CLOCK(t1,cr,count_max)
 
     chargefile=opts%chargefile
-    IF ( opts%in_opt == opts%in_auto .OR. opts%in_opt==opts%in_chgcar) THEN
+    IF (opts%in_opt == opts%in_auto .OR. opts%in_opt==opts%in_chgcar) THEN
       ! Try to guess the file type
       OPEN(100,FILE=chargefile,STATUS='old',ACTION='read',BLANK='null',PAD='yes')
       READ(100,'(6/,1A7)') text1
@@ -84,29 +84,12 @@ MODULE io_mod
     TYPE(options_obj) :: opts
 
     CHARACTER(LEN=128) :: chargefile
-    CHARACTER(LEN=7) :: text1,text2
-    INTEGER :: cr,count_max,t1,t2,tmp
+    INTEGER :: cr,count_max,t1,t2
 
     CALL SYSTEM_CLOCK(t1,cr,count_max)
 
     chargefile=opts%refchgfile
-    ! Try to guess the file type
-    OPEN(100,FILE=chargefile,STATUS='old',ACTION='read',BLANK='null',PAD='yes')
-    READ(100,'(6/,1A7)') text1
-    READ(100,'(1A7)') text2
-    CLOSE(100)
-    IF (text1 == 'Direct') THEN
-      opts%ref_in_opt=opts%in_chgcar4
-    ELSEIF (text2 == 'Direct') THEN
-      opts%ref_in_opt=opts%in_chgcar5
-    ELSE
-      opts%ref_in_opt=opts%in_cube
-    ENDIF
-    tmp=opts%in_opt
-    opts%in_opt=opts%ref_in_opt
-
-    IF (opts%ref_in_opt == opts%in_chgcar4 .OR. opts%in_opt == opts%in_chgcar5) THEN
-      ! make the output in the same format as input
+    IF (opts%in_opt == opts%in_chgcar4 .OR. opts%in_opt == opts%in_chgcar5) THEN
       CALL read_charge_chgcar(ions,chg,chargefile,opts)
     ELSEIF (opts%in_opt == opts%in_cube) THEN
       CALL read_charge_cube(ions,chg,chargefile)
@@ -114,7 +97,6 @@ MODULE io_mod
 
     CALL SYSTEM_CLOCK(t2,cr,count_max)
     WRITE(*,'(1A12,1F7.2,1A8)') 'RUN TIME: ',(t2-t1)/REAL(cr,q2),' SECONDS'
-    opts%in_opt=tmp
 
   RETURN
   END SUBROUTINE read_charge_ref

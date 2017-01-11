@@ -1,4 +1,4 @@
-! Copyright 2006-2015
+! Copyright 2006-2017
 ! Wenjie Tang, Andri Arnaldsson, Wenrui Chai, Samuel T. Chill, and Graeme Henkelman
 !
 ! Bader is free software: you can redistribute it and/or modify
@@ -66,7 +66,7 @@
      TYPE(bader_obj) :: bdr
      TYPE(voronoi_obj) :: vor
     ! Write the version number
-     WRITE(*,'(/,2X,A)') 'GRID BASED BADER ANALYSIS  (Version 0.95a 02/26/16)'
+     WRITE(*,'(/,2X,A)') 'GRID BASED BADER ANALYSIS  (Version 1.0 01/11/17)'
 
      ! Get the control variables
      CALL get_options(opts)
