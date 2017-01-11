@@ -39,14 +39,14 @@
     TYPE(options_obj) :: opts
     TYPE(weight_obj),ALLOCATABlE,DIMENSION(:) :: chgList
     REAL(q2),ALLOCATABLE,DIMENSION(:,:) :: prob
-    REAL(q2),ALLOCATABLE,DIMENSION(:) :: alpha, t, w
+    REAL(q2),ALLOCATABLE,DIMENSION(:) :: alpha, t, w, bdrvol
     REAL(q2),DIMENSION(3,3) :: cell
     REAL(q2) :: vol, tsum, tw, maxProb
     INTEGER,ALLOCATABLE,DIMENSION(:,:,:) :: indList
     INTEGER,ALLOCATABLE,DIMENSION(:,:) :: vect, neigh
     INTEGER,ALLOCATABLE,DIMENSION(:) :: numbelow, basin, above
     INTEGER,DIMENSION(3) :: p
-    INTEGER :: nPts, i, n, n1, n2, n3, numVect, nv, nVac
+    INTEGER :: nPts, i, n, n1, n2, n3, numVect, nv, nVac, ion
     INTEGER :: t1, t2, cr, cm, nabove, na, nb, tbasin, m, bv, tenths_done
     LOGICAL :: boundary
 
@@ -205,10 +205,10 @@
     tenths_done = 0
 
     ALLOCATE (bdr%volchg(bdr%nvols))
-    ALLOCATE (bdr%ionvol(bdr%nvols))
+    ALLOCATE (bdrvol(bdr%nvols))
     DO bv = 1, bdr%nvols
       bdr%volchg(bv) = 0
-      bdr%ionvol(bv) = 0
+      bdrvol(bv) = 0
     END DO
 
     DO bv = 1, bdr%nvols
@@ -232,15 +232,11 @@
             w(neigh(n, nb)) = w(neigh(n, nb)) + prob(n, nb)*tw
           END DO
           bdr%volchg(bv) = bdr%volchg(bv) + tw * chgList(n)%rho
-          bdr%ionvol(bv) = bdr%ionvol(bv) + tw
+          bdrvol(bv) = bdrvol(bv) + tw
         END IF
       END DO
     END DO
     bdr%volchg = bdr%volchg / REAL(chgval%nrho,q2)
-
-    vol = matrix_volume(ions%lattice)
-    vol = vol/chgref%nrho
-    bdr%ionvol = bdr%ionvol*vol
 
     CALL SYSTEM_CLOCK(t2, cr, cm)
     WRITE(*,'(/,1A12,1F10.2,1A8)') 'RUN TIME: ', (t2-t1)/REAL(cr,q2), ' SECONDS'
@@ -275,7 +271,25 @@
 
     CALL assign_chg2atom(bdr, ions, chgval)
 
-    DEALLOCATE (numbelow, w, neigh, prob)
+! Calculate atomic volumes from bader volumes
+
+    ALLOCATE(bdr%ionvol(ions%nions))
+    bdr%ionvol = 0.0
+
+    DO bv = 1, bdr%nvols
+      ion = bdr%nnion(bv)
+      bdr%ionvol(ion) = bdr%ionvol(ion) + bdrvol(bv)
+    END DO
+
+    vol = matrix_volume(ions%lattice)
+    vol = vol/chgref%nrho
+
+    DO ion = 1, ions%nions
+      bdr%ionvol(ion) = bdr%ionvol(ion)*vol
+    END DO
+
+
+    DEALLOCATE (numbelow, w, neigh, prob, bdrvol)
     DEALLOCATE (chgList, indList, basin)
 
   END SUBROUTINE bader_weight_calc
