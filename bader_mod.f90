@@ -42,7 +42,11 @@ MODULE bader_mod
   PUBLIC :: bader_calc, bader_mindist, bader_output, write_all_atom, write_all_bader
   PUBLIC :: write_sel_atom, write_sel_bader, write_atom_index, write_bader_index
   PUBLIC :: write_sum_atom, write_sum_bader, assign_chg2atom, cal_atomic_vol
-  PUBLIC :: reallocate_volpos
+  PUBLIC :: reallocate_volpos, bader_check_partitioning
+  PUBLIC :: write_surfaces_atoms
+
+! scell_dir: flag if we have a doubling of the cell in direction x,y or z
+  LOGICAL, DIMENSION(3) :: scell_dir = [.FALSE., .FALSE., .FALSE.]
 
   CONTAINS
 
@@ -68,8 +72,17 @@ MODULE bader_mod
     TYPE(charge_obj) :: chgtemp
     TYPE(ions_obj) :: ionstemp
 
+    INTEGER, ALLOCATABLE :: sc_atom_map(:)
+    TYPE(ions_obj) :: ionsscell
+    TYPE(charge_obj) :: chgscell
+
     IF (opts%ref_flag) THEN
       CALL read_charge_ref(ionstemp,chgtemp,opts)
+      ! If we are re-running the calcuation in a supercell, the reference must be expandet, too
+      IF ( ANY(scell_dir(:)) ) THEN
+        CALL build_scell( chgscell, ionsscell, chgtemp, ionstemp, scell_dir, sc_atom_map ) 
+        chgtemp = chgscell
+      END IF
       ! Assert that the charge and reference files are the same dimension
       IF ((chgval%npts(1) /= chgtemp%npts(1)) .OR. &
           (chgval%npts(2) /= chgtemp%npts(2)) .OR. &
@@ -200,6 +213,7 @@ MODULE bader_mod
     END IF
 
     ! make a temporary variable which can be changed to indicate convergence
+    opts%refine_edge_itrs = 0
     bdr%refine_edge_itrs = opts%refine_edge_itrs
 
 !    IF(opts%refine_edge_itrs == -1 .OR. opts%refine_edge_itrs == -2) THEN
@@ -1269,6 +1283,87 @@ MODULE bader_mod
   END SUBROUTINE write_atom_index
 
 !-----------------------------------------------------------------------------------!
+! write_atom_index: Write out a file that contains a list with grid indices that
+!                   belong to a surface as well the atom indices.
+!-----------------------------------------------------------------------------------!
+
+  SUBROUTINE write_surfaces_atoms(bdrscell, opts, ionsscell, chg, chgscell, sc_atom_map)
+    IMPLICIT NONE
+
+    TYPE(bader_obj) :: bdrscell
+    TYPE(options_obj) :: opts
+    TYPE(ions_obj) :: ionsscell
+    TYPE(charge_obj) :: chg
+    TYPE(charge_obj) :: chgscell
+    INTEGER, ALLOCATABLE, INTENT(INOUT) :: sc_atom_map(:)
+    INTEGER :: nx, ny, nz, atom, atmnbr, d1, d2, d3, nn, i
+    INTEGER, DIMENSION(3) :: p, pt
+    INTEGER, DIMENSION(27) :: neighbours
+    LOGICAL :: is_present
+ 
+    IF ( .NOT. ALLOCATED(sc_atom_map) ) THEN
+      ALLOCATE(sc_atom_map(ionsscell%nions))
+      DO i=1,ionsscell%nions
+        sc_atom_map(i) = i
+      ENDDO
+    END IF
+
+    WRITE(*,'(/,2x,A)') 'WRITING SURFACE TO FILE BaderSurfaces.dat'
+    
+    OPEN( 42,FILE="BaderSurfaces.dat",ACTION='write')
+    WRITE( 42, *) "# List of point in grid coordinates ix, iy and iz marking the border between atoms"
+    ! Even though obtained in the supercell, we only look at 
+    ! surfaces in the primitive cell
+    DO nz=1,chg%npts(3)
+      DO ny=1,chg%npts(2)
+        DO nx=1,chg%npts(1)
+          p = (/ nx, ny, nz /)
+          atom = bdrscell%nnion(bdrscell%volnum(p(1),p(2),p(3)))
+          IF (bdrscell%volnum(p(1),p(2),p(3)) == bdrscell%bnum + 1) THEN
+             CYCLE
+          END IF
+          nn = 1
+          neighbours = 0
+          DO d1 = -1,1
+            DO d2 = -1,1
+              DO d3 = -1,1
+                pt = p + (/d1,d2,d3/)
+                CALL pbc(pt,chgscell%npts)
+                IF (bdrscell%volnum(pt(1),pt(2),pt(3)) == bdrscell%bnum + 1) THEN
+                  ! Vaccum defines a surface, too, we encode it with -1
+                  is_present = .FALSE.
+                  DO i = 1,nn
+                    IF ( neighbours(i) == -1 ) is_present = .TRUE.
+                  END DO
+                  IF ( .not. is_present ) THEN
+                    neighbours(nn) = -1
+                    nn = nn + 1
+                  END IF
+                END IF
+                atmnbr = bdrscell%nnion(bdrscell%volnum(pt(1),pt(2),pt(3)))
+                IF (atmnbr /= atom) THEN
+                  is_present = .FALSE.
+                  DO i = 1,nn
+                    IF ( neighbours(i) == sc_atom_map(atmnbr) ) is_present = .TRUE.
+                  END DO
+                  IF ( .not. is_present ) THEN
+                    neighbours(nn) = sc_atom_map(atmnbr)
+                    nn = nn + 1
+                  END IF
+                END IF
+              END DO
+            END DO
+          END DO
+          IF ( ANY(neighbours(:) /= 0 ) ) THEN
+            WRITE( 42, *) p(1),p(2),p(3),sc_atom_map(atom),neighbours(1:nn-1)
+          ENDIF
+        END DO
+      END DO
+    END DO
+    CLOSE(42)
+  END SUBROUTINE write_surfaces_atoms
+
+!-----------------------------------------------------------------------------------!
 ! cal_atomic_vol: Integrate the atomic volume for each atom
 !-----------------------------------------------------------------------------------!
 
@@ -1826,5 +1921,81 @@ MODULE bader_mod
 
   END SUBROUTINE reallocate_path
 !-----------------------------------------------------------------------------------!
+
+
+!-----------------------------------------------------------------------------------!
+! bader_check_partitioning
+!-----------------------------------------------------------------------------------!
+
+  SUBROUTINE bader_check_partitioning(bdr,chgval,scell_dir_out)
+
+    IMPLICIT NONE
+    TYPE(bader_obj) :: bdr
+    TYPE(charge_obj) :: chgval
+    LOGICAL, DIMENSION(3), intent(out) :: scell_dir_out
+
+    INTEGER :: atom, n1, n2, n3
+    INTEGER,DIMENSION(3) :: p
+    INTEGER,ALLOCATABLE :: strings(:,:)
+    ! Check if there is a path taking us from the x=0 to x=max plane without 
+    ! crossing a surface in which case we need a supercell ... 
+    ALLOCATE( strings(chgval%npts(2),chgval%npts(3)) )
+    strings(:,:) = 1
+    DO n2=1,chgval%npts(2)
+      DO n3=1,chgval%npts(3)
+        DO n1=1,chgval%npts(1)
+          p = (/n1,n2,n3/)
+          atom = bdr%nnion(bdr%volnum(n1,n2,n3))
+          IF ( is_atm_edge(bdr,chgval,p,atom) ) THEN
+            strings(n2,n3) = 0
+            EXIT
+          ENDIF
+        ENDDO
+      ENDDO
+    ENDDO
+
+    scell_dir(1) = ANY(strings(:,:) == 1)
+    DEALLOCATE(strings)
+
+    ! Same thing for y and z ...
+    ALLOCATE( strings(chgval%npts(1),chgval%npts(3)) )
+    strings(:,:) = 1
+    DO n1=1,chgval%npts(1)
+      DO n3=1,chgval%npts(3)
+        DO n2=1,chgval%npts(2)
+          p = (/n1,n2,n3/)
+          atom = bdr%nnion(bdr%volnum(n1,n2,n3))
+          IF ( is_atm_edge(bdr,chgval,p,atom) ) THEN
+            strings(n1,n3) = 0
+            EXIT
+          ENDIF
+        ENDDO
+      ENDDO
+    ENDDO
+
+    scell_dir(2) = ANY(strings(:,:) == 1)
+    DEALLOCATE(strings)
+
+    ALLOCATE( strings(chgval%npts(1),chgval%npts(2)) )
+    strings(:,:) = 1
+    DO n1=1,chgval%npts(1)
+      DO n2=1,chgval%npts(2)
+        DO n3=1,chgval%npts(3)
+          p = (/n1,n2,n3/)
+          atom = bdr%nnion(bdr%volnum(n1,n2,n3))
+          IF ( is_atm_edge(bdr,chgval,p,atom) ) THEN
+            strings(n1,n2) = 0
+            EXIT
+          ENDIF
+        ENDDO
+      ENDDO
+    ENDDO
+  
+    scell_dir(3) = ANY(strings(:,:) == 1)
+    DEALLOCATE(strings)
+
+    scell_dir_out = scell_dir
+    
+  END SUBROUTINE bader_check_partitioning
 
 END MODULE bader_mod

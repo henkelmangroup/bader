@@ -25,6 +25,7 @@
       LOGICAL :: print_sum_bader, print_sum_atom
       LOGICAL :: print_bader_index, print_atom_index
       LOGICAL :: verbose_flag, ref_flag, find_critpoints_flag
+      LOGICAL :: print_surfaces_atoms
     END TYPE options_obj
 
     PRIVATE
@@ -75,6 +76,7 @@
       opts%stepsize = 0.0_q2
       opts%ref_flag = .FALSE.
       opts%find_critpoints_flag = .FALSE.
+      opts%print_surfaces_atoms = .FALSE.
 !      n=IARGC()
       n=COMMAND_ARGUMENT_COUNT()
       IF (n == 0) THEN
@@ -187,6 +189,8 @@
             opts%print_all_bader = .TRUE.
           ELSEIF (inc(1:it) == 'ALL_ATOM' .OR. inc(1:it) == 'all_atom') THEN
             opts%print_all_atom = .TRUE.
+          ELSEIF (inc(1:it) == 'SURFACES_ATOMS' .OR. inc(1:it) == 'surfaces_atoms') THEN
+            opts%print_surfaces_atoms = .TRUE.
           ELSEIF (inc(1:it) == 'SEL_BADER' .OR. inc(1:it) == 'sel_bader') THEN
             opts%print_sel_bader = .TRUE.
             opts%selbnum=0
@@ -522,6 +526,7 @@
       WRITE(*,*) '         [ -p sel_atom | sel_bader ] [ volume list or range ]'
       WRITE(*,*) '         [ -p sum_atom | sum_bader ] [ volume list or range ]'
       WRITE(*,*) '         [ -p atom_index | bader_index ]'
+      WRITE(*,*) '         [ -p surfaces_atoms ]'
       WRITE(*,*) '         [ -i cube | chgcar ]'
       WRITE(*,*) '         [ -h ] [ -v ]'
       WRITE(*,*) '         chargefile'
@@ -600,6 +605,9 @@
       WRITE(*,*) '        Print index of atomic or Bader volumes'
       WRITE(*,*) '           atom_index: print atomic volume indicies'
       WRITE(*,*) '           bader_index: print Bader volume indicies'
+      WRITE(*,*) ''
+      WRITE(*,*) '   -p < surfaces_atoms >'
+      WRITE(*,*) '        Print a file with a list of surfaces coordinates and atoms forming this surface'
       WRITE(*,*) ''
       WRITE(*,*) '   -i < cube | chgcar >'
       WRITE(*,*) '        Input charge density file type.  If not specified, the'

@@ -26,6 +26,7 @@ MODULE charge_mod
   PUBLIC :: pbc, dpbc_dir, dpbc, dpbc_dir_org, dpbc_car, pbc_r_lat
   PUBLIC :: to_lat, is_max, is_max_ongrid
   PUBLIC :: lat2car, car2lat, lat2dir, dir2lat
+  PUBLIC :: build_scell
 
   INTERFACE ASSIGNMENT(=)
     MODULE PROCEDURE assign_charge
@@ -555,5 +556,108 @@ MODULE charge_mod
   END FUNCTION car2lat
 
 !-----------------------------------------------------------------------------------!
+
+!-----------------------------------------------------------------------------------!
+! build_scell: double the unit cell in one or more direction
+!-----------------------------------------------------------------------------------!
+
+  SUBROUTINE build_scell(chgscell,ionsscell,chg1,ions,scell_dir,sc_atom_map)
+
+    TYPE(ions_obj), INTENT(INOUT) :: ionsscell
+    TYPE(charge_obj), INTENT(INOUT) :: chgscell
+    TYPE(ions_obj), INTENT(IN) :: ions
+    TYPE(charge_obj), INTENT(IN) :: chg1
+    LOGICAL,DIMENSION(3), INTENT(IN) :: scell_dir
+    INTEGER, ALLOCATABLE, INTENT(OUT) :: sc_atom_map(:)
+    INTEGER, DIMENSION(3) :: sc, p
+    INTEGER :: i, nx, ny, nz, cnsq
+    REAL(q2), DIMENSION(3) :: dlat, dcar
+
+    sc = 1
+    DO i=1,3
+      IF ( scell_dir(i) ) sc(i) = 2
+    END DO
+    ! Copy the ions obj to the supercell
+    ionsscell%niontypes = ions%niontypes
+    ALLOCATE(ionsscell%num_ion(ions%niontypes))
+    DO i = 1, ions%niontypes
+      ionsscell%num_ion(i) = ions%num_ion(i)*PRODUCT(sc(:))
+    END DO
+    ionsscell%nions = SUM(ionsscell%num_ion)
+    IF ( ALLOCATED(sc_atom_map) ) DEALLOCATE(sc_atom_map)
+    ALLOCATE(sc_atom_map(ionsscell%nions))
+    ionsscell%lattice(:,1) = sc(1)*ions%lattice(:,1)
+    ionsscell%lattice(:,2) = sc(2)*ions%lattice(:,2)
+    ionsscell%lattice(:,3) = sc(3)*ions%lattice(:,3)
+    ionsscell%dir2car = TRANSPOSE(ionsscell%lattice)
+    ionsscell%car2dir = inverse(ionsscell%dir2car)
+    ALLOCATE(ionsscell%r_dir(ionsscell%nions,3))
+    ALLOCATE(ionsscell%r_car(ionsscell%nions,3))
+    DO i = 1, ions%nions
+      DO nz = 1, sc(3)
+        DO ny = 1, sc(2)
+          DO nx = 1, sc(1)
+            cnsq = (((nz-1)*sc(2)+ny-1)*sc(1)+nx-1)*ions%nions+i
+            sc_atom_map(cnsq) = i
+            ionsscell%r_dir(cnsq,1) = ions%r_dir(i,1)/REAL(sc(1),q2) + REAL(nx-1,q2)/sc(1) 
+            ionsscell%r_dir(cnsq,2) = ions%r_dir(i,2)/REAL(sc(2),q2) + REAL(ny-1,q2)/sc(2) 
+            ionsscell%r_dir(cnsq,3) = ions%r_dir(i,3)/REAL(sc(3),q2) + REAL(nz-1,q2)/sc(3) 
+          END DO
+        END DO
+      END DO
+    END DO
+    DO i = 1, ionsscell%nions
+      ionsscell%r_car(i,:) = MATMUL(ionsscell%dir2car, ionsscell%r_dir(i,:))
+    END DO
+
+    ! Here we copy the charge to the supercell
+    chgscell%npts(:) = sc(:)*chg1%npts(:) 
+    chgscell%i_npts = 1.0_q2/REAL(chgscell%npts,q2)
+    chgscell%nrho = PRODUCT(chgscell%npts(:))
+    ALLOCATE(chgscell%rho(chgscell%npts(1),chgscell%npts(2),chgscell%npts(3)))
+    DO nz = 1, chgscell%npts(3)
+      DO ny = 1, chgscell%npts(2)
+        DO nx = 1, chgscell%npts(1)
+          p = (/nx,ny,nz/)
+          CALL pbc(p, chg1%npts)
+          chgscell%rho(nx,ny,nz) = chg1%rho(p(1),p(2),p(3))
+        END DO
+      END DO
+    END DO
+
+    DO i=1,3
+      chgscell%lat2car(:,i) = ionsscell%dir2car(:,i)/REAL(chgscell%npts(i),q2)
+    END DO
+    chgscell%car2lat = inverse(chgscell%lat2car)
+    chgscell%org_lat = (/1._q2,1._q2,1._q2/)
+    chgscell%org_car = (/0._q2,0._q2,0._q2/)
+
+    ALLOCATE(ionsscell%r_lat(ionsscell%nions,3))
+    DO i = 1,ionsscell%nions
+      ionsscell%r_lat(i,:) = MATMUL(chgscell%car2lat, ionsscell%r_car(i,:))
+      ionsscell%r_lat(i,:) = ionsscell%r_lat(i,:) + chgscell%org_lat
+      CALL pbc_r_lat(ionsscell%r_lat(i,:), chgscell%npts)
+    END DO
+
+    ! distance between neighboring points
+    DO nx = -1, 1
+      dlat(1) = REAL(nx,q2)
+      DO ny = -1, 1
+        dlat(2) = REAL(ny,q2)
+        DO nz = -1, 1
+          dlat(3) = REAL(nz,q2)
+          dcar = MATMUL(chgscell%lat2car, dlat)
+          chgscell%lat_dist(nx, ny, nz) = SQRT(SUM(dcar*dcar))
+          IF ((nx == 0).AND.(ny == 0).AND.(nz == 0)) THEN
+            chgscell%lat_i_dist(nx, ny, nz) = 0._q2
+          ELSE
+            chgscell%lat_i_dist(nx, ny, nz) = 1._q2/chgscell%lat_dist(nx, ny, nz)
+          END IF
+        END DO
+      END DO
+    END DO
+
+    END SUBROUTINE
+
 
 END MODULE charge_mod

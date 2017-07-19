@@ -61,12 +61,14 @@
 
      ! Variables
      TYPE(options_obj) :: opts
-     TYPE(ions_obj) :: ions
-     TYPE(charge_obj) :: chgval
-     TYPE(bader_obj) :: bdr
+     TYPE(ions_obj) :: ions, ionsscell
+     TYPE(charge_obj) :: chgval, chgscell
+     TYPE(bader_obj) :: bdr, bdrscell
      TYPE(voronoi_obj) :: vor
+     LOGICAL, DIMENSION(3)  :: scell_dir
+     INTEGER, ALLOCATABLE :: sc_atom_map(:)
     ! Write the version number
-     WRITE(*,'(/,2X,A)') 'GRID BASED BADER ANALYSIS  (Version 1.00 01/11/17)'
+     WRITE(*,'(/,2X,A)') 'GRID BASED BADER ANALYSIS  (Version 1.01 07/18/17)'
 
      ! Get the control variables
      CALL get_options(opts)
@@ -82,8 +84,28 @@
        CALL bader_mindist(bdr,ions,chgval)
        CALL bader_output(bdr,ions,chgval)
        IF (opts%find_critpoints_flag) CALL critpoint_find(bdr,chgval,opts,ions)
+       IF (opts%print_surfaces_atoms) THEN
+         CALL bader_check_partitioning(bdr,chgval,scell_dir) ! Ensure that periodic boundary conditions do not collapse bader volumes
+         IF ( ANY( scell_dir ) ) THEN
+           WRITE(*,'(/,2X,A)') 'BADER volumes of periodic replica touch, thereby removing a bader surface.'
+           WRITE(*,*) '  Double the unit cell in direction x: ',scell_dir(1),&
+                     &' ,y: ',scell_dir(2),' ,z: ',scell_dir(3)
+           CALL build_scell( chgscell, ionsscell, chgval, ions, scell_dir, sc_atom_map )
+           ! Repeat the calculation
+           IF (opts%bader_opt == opts%bader_weight) THEN
+             CALL bader_weight_calc(bdrscell,ionsscell,chgscell,opts)  ! Yu-Trinkle weight method
+           ELSE
+             CALL bader_calc(bdrscell,ionsscell,chgscell,opts)         ! grid-based Bader methods
+           ENDIF
+         ELSE
+           bdrscell = bdr
+           ionsscell = ions
+           chgscell = chgval
+         ENDIF
+       ENDIF
      END IF
 
+     IF (opts%print_surfaces_atoms) CALL write_surfaces_atoms(bdrscell,opts,ionsscell,chgval,chgscell,sc_atom_map)
      IF (opts%print_all_bader) CALL write_all_bader(bdr,opts,ions,chgval)
      IF (opts%print_all_atom) CALL write_all_atom(bdr,opts,ions,chgval)
      IF (opts%print_sel_atom) CALL write_sel_atom(bdr,opts,ions,chgval)
