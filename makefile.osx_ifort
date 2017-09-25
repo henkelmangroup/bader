@@ -8,6 +8,7 @@ LINK = -i-static
 
 OBJS = kind_mod.o       \
        matrix_mod.o     \
+       dsyevj3_mod.o    \
        ions_mod.o       \
        options_mod.o    \
        charge_mod.o     \

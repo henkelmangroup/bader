@@ -7,7 +7,6 @@
     USE ions_mod
     USE io_mod
     USE ions_mod
-    USE jacobi_mod
     USE dsyevj3_mod
     IMPLICIT NONE
 
