@@ -1,6 +1,7 @@
 .SUFFIXES: .f90
 
-FC = ifort
+#FC = ifort
+FC = gfortran
 
 FFLAGS = -O2 
 
@@ -8,6 +9,8 @@ LINK = -static
 
 OBJS = kind_mod.o       \
        matrix_mod.o     \
+       jacobi_mod.o     \
+       dsyevj3_mod.o    \
        ions_mod.o       \
        options_mod.o    \
        charge_mod.o     \
@@ -19,6 +22,7 @@ OBJS = kind_mod.o       \
        critpoint_mod.o \
        multipole_mod.o  \
        weight_mod.o \
+
 
 %.o %.mod : %.f90
 	$(FC) $(FFLAGS) -c $*.f90

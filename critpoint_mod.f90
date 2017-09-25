@@ -7,6 +7,8 @@
     USE ions_mod
     USE io_mod
     USE ions_mod
+    USE jacobi_mod
+    USE dsyevj3_mod
     IMPLICIT NONE
 
     PRIVATE 
@@ -41,16 +43,21 @@
     REAL(q2) :: j2, j3 ! second and third invariant of dM
     INTEGER :: n1, n2, n3, d1, d2, d3, cptnum, switch
     REAL(q2),DIMENSION(3) :: eigvec1, eigvec2, eigvec3, cartX, cartY, cartZ, tempVec
-    REAL(q2),DIMENSION(3,3) :: nIdentity, identityM, devSubNIden
+    REAL(q2),DIMENSION(3,3) :: nIdentity, identityM, devSubNIden, hessianMatrix
     ! these are vectors orthogonal to eigenvectors
     REAL(q2),DIMENSION(3) :: orthoR1, orthoR2, orthoR3, S1, S2, orT2, orT3, tem
     REAL(q2),DIMENSION(3) :: tem2
     REAL(q2) :: x, y, z, xx, yy, zz, xy, xz, yz, denom, nomx, nomy, nomz
-    REAL(q2) :: norm, trace, traceOver3, temp, alpha, temp1, temp2
+    REAL(q2) :: norm, trace, traceOver3, temp, alpha, temp1, temp2, cellvol
     REAL(q2) :: yita1, yita2, yita3 ! variables for degenerate eigenvalues
+    REAL(q2),DIMENSION(3) :: tempv1, tempv2, tempv3, eigvals
+    REAL(q2) :: abserr
+    REAL(q2),DIMENSION(3,3) :: eigvecs
 
     WRITE(*,'(A)')  'FINDING CRITICAL POINTS'
+!    I do not need hes%rho because I can simply use rho_val
     ALLOCATE (hes%rho(chg%npts(1),chg%npts(2),chg%npts(3)))
+!    The sizes of dx dy and dz remains large because now 
     ALLOCATE (hes%dx(chg%npts(1),chg%npts(2),chg%npts(3)))
     ALLOCATE (hes%dy(chg%npts(1),chg%npts(2),chg%npts(3)))
     ALLOCATE (hes%dz(chg%npts(1),chg%npts(2),chg%npts(3)))
@@ -63,28 +70,17 @@
     cartX = (/1._q2,0._q2,0._q2/)
     cartY = (/0._q2,1._q2,0._q2/)
     cartZ = (/0._q2,0._q2,1._q2/)
+    PRINT * , "These code requires -vac to be turned on"
 
     OPEN(97,FILE='CPF.dat',STATUS='REPLACE',ACTION='WRITE')
-!    PRINT *,'This is critpoint_mod'
-!    PRINT *,'ions%lattice is',ions%lattice
-!    PRINT *,'chg%npts is',chg%npts
-!    th(1) = ions%lattice(1,1) + ions%lattice(2,1) + ions%lattice(3,1)
-!    th(2) = ions%lattice(1,2) + ions%lattice(2,2) + ions%lattice(3,2)
-!    th(3) = ions%lattice(1,3) + ions%lattice(2,3) + ions%lattice(3,3)
-!    PRINT *,'th(1) here is', th(1)
-!    PRINT *,'ions%lattice(1,:) is',ions%lattice(1,:)
-!    th(1) = th(1)/chg%npts(1)
-!    th(2) = th(2)/chg%npts(2)
-!    th(3) = th(3)/chg%npts(3)
-    ! these threshold is definitely not the right way to go
-!    WRITE(97,*),'Threshold:',th(1),th(2),th(3)
-!    PRINT *,'Threshold:',th(1),th(2),th(3)
     DO n1 = 1,chg%npts(1)
       DO n2 = 1,chg%npts(2)
         DO n3 = 1,chg%npts(3)
+            ! check to see if this point is in the vacuum
+            IF (bdr%volnum(n1,n2,n3) == bdr%bnum + 1) THEN
+              CYCLE
+            END IF
             p = (/n1,n2,n3/)
-            IF (rho_val(chg,p(1),p(2),p(3)) <= opts%vacval) CYCLE
-!            IF (is_vol_edge(bdr,chg,p) .AND. (.NOT.is_max(chg,p))) THEN
 
 !-----------------------------------------------------------------------------------!
 ! now that this subroutine can find the correct amount of edge points, lets have
@@ -92,6 +88,7 @@
 !-----------------------------------------------------------------------------------!
 
              ! this loop finds all the neighboring points that will be needed and stores their rho
+             ! I should be able to simply use rho_val.
              DO d1=-2,2
                DO d2=-2,2
                  DO d3=-2,2
@@ -126,6 +123,15 @@
                    CALL pbc(pty2,chg%npts)
                    CALL pbc(ptz1,chg%npts)
                    CALL pbc(ptz2,chg%npts)
+!                   hes%dx(ptt(1),ptt(2),ptt(3)) = 0.5_q2 * &
+!                         (rho_val(chg,ptx1(1),ptt(2),ptt(3)) - &
+!                          rho_val(chg,ptx2(1),ptt(2),ptt(3)))
+!                   hes%dy(ptt(1),ptt(2),ptt(3)) = 0.5_q2 * &
+!                         (rho_val(chg,ptt(1),pty1(2),ptt(3)) - &
+!                          rho_val(chg,ptt(1),pty2(2),ptt(3)))
+!                   hes%dz(ptt(1),ptt(2),ptt(3)) = 0.5_q2 * &
+!                         (rho_val(chg,ptx1(1),ptt(2),ptz1(3)) - &
+!                          rho_val(chg,ptt(1),ptt(2),ptz2(3)))
                    hes%dx(ptt(1),ptt(2),ptt(3)) = 0.5_q2 * &
                          (hes%rho(ptx1(1),ptt(2),ptt(3)) - &
                           hes%rho(ptx2(1),ptt(2),ptt(3)))
@@ -153,6 +159,13 @@
              CALL pbc(ptz1,chg%npts)
              CALL pbc(ptz2,chg%npts)
 
+!             hes%dx(p(1),p(2),p(3)) = 0.5_q2*(rho_val(chg,ptx1(1),p(2),p(3)) - &
+!                                              rho_val(chg,ptx2(1),p(2),p(3)))
+!             hes%dy(p(1),p(2),p(3)) = 0.5_q2*(rho_val(chg,p(1),pty1(2),p(3)) - &
+!                                              rho_val(chg,p(1),pty2(2),p(3)))
+!             hes%dz(p(1),p(2),p(3)) = 0.5_q2*(rho_val(chg,p(1),p(2),ptz1(3)) - &
+!                                              rho_val(chg,p(1),p(2),ptz2(3)))
+
              hes%dx(p(1),p(2),p(3)) = 0.5_q2*(hes%rho(ptx1(1),p(2),p(3)) - &
                                               hes%rho(ptx2(1),p(2),p(3)))
              hes%dy(p(1),p(2),p(3)) = 0.5_q2*(hes%rho(p(1),pty1(2),p(3)) - &
@@ -164,12 +177,45 @@
              hes%dxdx = 0.5_q2 * (hes%dx(ptx1(1),p(2),p(3)) - hes%dx(ptx2(1),p(2),p(3)))
              hes%dydy = 0.5_q2 * (hes%dy(p(1),pty1(2),p(3)) - hes%dy(p(1),pty2(2),p(3)))
              hes%dzdz = 0.5_q2 * (hes%dz(p(1),p(2),ptz1(3)) - hes%dz(p(1),p(2),ptz2(3)))
+
+!             hes%dxdy = 0.25_q2 * 
+!               (rho_val(chg,ptx1(1),pty1(2),p(3)) - &
+!                rho_val(chg,ptx2(1),pty1(2),p(3)) - &
+!                rho_val(chg,ptx1(1),pty2(2),p(3)) + &
+!                rho_val(chg,ptx2(1),pty2(2),p(3)))
+!             hes%dxdz = 0.25_q2 * (
+!                rho_val(chg,ptx1(1),p(2),ptz1(3)) - &
+!                rho_val(chg,ptx2(1),p(2),ptz1(3)) - &
+!                rho_val(chg,ptx1(1),p(2),ptz2(3)) + &
+!                rho_val(chg,ptx2(1),p(2),ptz2(3)))
+!             hes%dydz = 0.25_q2 * (
+!                rho_val(chg,p(1),pty1(2),ptz1(3)) - &
+!                rho_val(chg,p(1),pty2(2),ptz1(3)) - &
+!                rho_val(chg,p(1),pty1(2),ptz2(3)) + &
+!                rho_val(chg,p(1),pty2(2),ptz2(3)))
+
+
+
+
              hes%dxdy = 0.25_q2 * (hes%rho(ptx1(1),pty1(2),p(3)) - hes%rho(ptx2(1),pty1(2),p(3)) - &
                                    hes%rho(ptx1(1),pty2(2),p(3)) + hes%rho(ptx2(1),pty2(2),p(3)))
              hes%dxdz = 0.25_q2 * (hes%rho(ptx1(1),p(2),ptz1(3)) - hes%rho(ptx2(1),p(2),ptz1(3)) - &
                                    hes%rho(ptx1(1),p(2),ptz2(3)) + hes%rho(ptx2(1),p(2),ptz2(3)))
              hes%dydz = 0.25_q2 * (hes%rho(p(1),pty1(2),ptz1(3)) - hes%rho(p(1),pty2(2),ptz1(3)) - &
                                    hes%rho(p(1),pty1(2),ptz2(3)) + hes%rho(p(1),pty2(2),ptz2(3)))
+             ! below is the actual hessian matrix.
+             hessianMatrix(1,1) = hes%dxdx
+             hessianMatrix(1,2) = hes%dxdy
+             hessianMatrix(1,3) = hes%dxdz
+             hessianMatrix(2,1) = hes%dxdy
+             hessianMatrix(2,2) = hes%dydy
+             hessianMatrix(2,3) = hes%dydz
+             hessianMatrix(3,1) = hes%dxdz
+             hessianMatrix(3,2) = hes%dydz
+             hessianMatrix(3,3) = hes%dzdz
+             
+
+
 !solutions for the vector
 !x:
 !(-dxdz dy dydz + dx dydz^2 + dxdz dydy dz -  dxdy dydz dz + dxdy dy dzdz - dx
@@ -203,19 +249,30 @@
                tem(2) = hes%r2
                tem(3) = hes%r3
                tem2 = ions%lattice(1,:)/chg%npts(1)
+               ! the below lines determine if there is a critical point in the
+               ! current cell.
                IF (in_here(tem,tem2))THEN
                  tem2 = ions%lattice(2,:)/chg%npts(2)
                  IF (in_here(tem,tem2))THEN
                    tem2 = ions%lattice(3,:)/chg%npts(3)
                    IF (in_here(tem,tem2))THEN
-!               IF (in_here(hes%r1,ions%lattice(1,:))) THEN
-!                 IF (in_here(hes%r2,ions%lattice(2,:))) THEN
-!                   IF (in_here(hes%r3,ions%lattice(3,:))) THEN
-               ! original code below
-!               IF (ABS(hes%r1) <= 0.5_q2*bdr%stepsize) THEN
-!                 IF (ABS(hes%r2) <= 0.5_q2*bdr%stepsize) THEN
-!                   IF (ABS(hes%r3) <= 0.5_q2*bdr%stepsize) THEN
                      cptnum = cptnum + 1
+
+                     abserr = 0_q2
+                     !CALL Jacobi(hessianMatrix, eigvecs, abserr, 3) 
+                     CALL DSYEVJ3(hessianMatrix,eigvecs,eigvals)
+                     WRITE(97,*) '*********** A NEW ENTRY *************'
+                     WRITE(97,*) 'Critical point number: ', cptnum
+                     WRITE(97,*) p(1),p(2),p(3)
+                     WRITE(97,*) 'Eigenvalues: '
+                     WRITE(97,*) eigvals
+                     WRITE(97,'(3(1X,E18.11))') 
+                     WRITE(97,*) 'Eigenvectors:'
+                     WRITE(97,*) eigvecs(1,:)
+                     WRITE(97,*) eigvecs(2,:)
+                     WRITE(97,*) eigvecs(3,:)
+                     CYCLE
+
                      ! eigenvalue calculation below
                      trace = hes%dxdx + hes%dydy + hes%dzdz
                      traceOver3 = (hes%dxdx + hes%dydy + hes%dzdz)/3.0_q2
@@ -300,28 +357,8 @@
 
                      CALL eigenvectors(yita2, identityM, dM, s1, s2, eigvec1, eigvec2, eigvec3)
 
-                     WRITE(97,*) '*********** A NEW ENTRY *************'
-                     WRITE(97,*) 'Critical point number: ', cptnum
-                     WRITE(97,*) p(1),p(2),p(3)
-                     WRITE(97,*) 'Threshold: ', 0.5_q2*bdr%stepsize
-                     WRITE(97,*) 'r1' , hes%r1
-                     WRITE(97,*) 'r2' , hes%r2
-                     WRITE(97,*) 'r3' , hes%r3
-!                     WRITE(97,'(3(1X,E18.11))') 0._q2, hes%rho(ptz1(1),ptz1(2),ptz1(3)), hes%rho(ptx2(1),ptx2(2),ptx2(3))
-!                     WRITE(97,'(3(1X,E18.11))') hes%rho(pty2(1),pty2(2),pty2(3)), hes%rho(p(1),p(2),p(3)), &
-!                                                hes%rho(pty1(1),pty1(2),pty1(3))
-!                     WRITE(97,'(3(1X,E18.11))') hes%rho(ptx1(1), ptx1(2),ptx1(3)), hes%rho(ptz2(1),ptz2(2),ptz2(3)),0._q2
-!                     WRITE(97,*) '---------------------------'
-!                     WRITE(97,*),'Hessian matrix:'
-!                     WRITE(97,'(3(1X,E18.11))') hes%dxdx, hes%dxdy, hes%dxdz
-!                     WRITE(97,'(3(1X,E18.11))') hes%dxdy, hes%dydy, hes%dydz
-!                     WRITE(97,'(3(1X,E18.11))') hes%dxdz, hes%dydz, hes%dzdz
-                     WRITE(97,*) 'Eigenvalues: '
-                     WRITE(97,'(3(1X,E18.11))') hes%eigval1, hes%eigval2, hes%eigval3
-                     WRITE(97,*) 'Eigenvectors:'
-                     WRITE(97,*) eigvec1
-                     WRITE(97,*) eigvec2
-                     WRITE(97,*) eigvec3
+
+
                    END IF
                  END IF
                END IF
