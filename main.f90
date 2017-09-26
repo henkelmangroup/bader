@@ -68,7 +68,7 @@
      LOGICAL, DIMENSION(3)  :: scell_dir
      INTEGER, ALLOCATABLE :: sc_atom_map(:)
     ! Write the version number
-     WRITE(*,'(/,2X,A)') 'GRID BASED BADER ANALYSIS  (Version 1.01 07/18/17)'
+     WRITE(*,'(/,2X,A)') 'GRID BASED BADER ANALYSIS  (Version 1.02 09/25/17)'
 
      ! Get the control variables
      CALL get_options(opts)
