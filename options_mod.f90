@@ -52,8 +52,8 @@
       opts%out_opt = opts%out_chgcar4
       opts%in_opt = opts%in_auto
       ! print options
-!      opts%vac_flag = .FALSE.
-      opts%vac_flag = .TRUE.
+      opts%vac_flag = .FALSE.
+!      opts%vac_flag = .TRUE.
       opts%vacval = 1E-3
       opts%print_all_atom = .FALSE.
       opts%print_all_bader = .FALSE.
