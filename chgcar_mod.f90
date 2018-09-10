@@ -69,6 +69,7 @@ MODULE chgcar_mod
     DO i = 1, ions%niontypes
       ions%num_ion(i) = nionlist(i)
     END DO
+    ions%scalefactor = scalefactor
     ions%nions = SUM(ions%num_ion)
     ions%lattice = scalefactor*ions%lattice
     ions%dir2car = TRANSPOSE(ions%lattice)

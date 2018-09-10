@@ -8,11 +8,20 @@
     USE io_mod
     USE ions_mod
     USE dsyevj3_mod
+    USE linsolve_mod
     IMPLICIT NONE
 
     PRIVATE 
     PUBLIC :: critpoint_find
 
+    TYPE hessian
+
+      ! du dv dw are derivatives of the three original lattice vectors read from
+      ! CHGCAR
+      REAL(q2),DIMENSION(3) ::  du, dv, dw
+      REAL(q2) :: dudu, dvdv, dwdw, dudv, dudw, dvdw
+      ! eigval and eigvec are eigenvalues and eigvectors of hessian matrix
+    END TYPE
     CONTAINS
 
 !-----------------------------------------------------------------------------------!
@@ -22,11 +31,20 @@
 !-----------------------------------------------------------------------------------!
   SUBROUTINE critpoint_find(bdr,chg,opts,ions)
 
-    TYPE hessian
-      REAL(q2),ALLOCATABLE,DIMENSION(:,:,:) :: rho, dx, dy, dz
-      REAL(q2) :: dxdx, dydy, dzdz, dxdy, dxdz, dydz
-      REAL(q2) :: r1, r2, r3, eigval1, eigval2, eigval3
-      ! eigval and eigvec are eigenvalues and eigvectors of hessian matrix
+
+
+! These are for screening CP due to numerical error. 
+    TYPE cpc ! stands for critical point candidate
+      INTEGER,DIMENSION(3) :: ind ! these are the indices of the cp
+      REAL(q2),DIMENSION(3) :: force
+      REAL(q2),DIMENSION(3) :: tempcart, tempind
+      REAL(q2),DIMENSION(3,3,3) :: dx, dy, dz ! first derivatives of neighbors
+!      REAL(q2),DIMENSION(3,3,3) :: du, dv, dw
+      REAL(q2),DIMENSION(3) :: du, dv, dw ! 1 2 3 are backward, present, forward
+      REAL(q2),DIMENSION(3) :: eigvals, r
+      REAL(q2),DIMENSION(8,3) :: gnn ! gradients of neighbors
+      REAL(q2),DIMENSION(3,3) :: eigvecs
+      LOGICAL :: proxy, keep
     END TYPE
 
     TYPE(hessian) :: hes
@@ -34,358 +52,732 @@
     TYPE(charge_obj) :: chg
     TYPE(options_obj) :: opts
     TYPE(ions_obj) :: ions
-
+    TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpl, cplt ! critical point list and a temporary
+! copy
 ! for points, 1 and 2 are +1, -1
     INTEGER,DIMENSION(3) :: p, pt, ptt, ptx1, ptx2, pty1, pty2, ptz1, ptz2
-    REAL(q2),DIMENSION(3,3) :: dM ! the deviatoric matrix
-    REAL(q2),DIMENSION(3,3) :: dMSQ, dMVSS ! dM squared and dM in vss basis
-    REAL(q2) :: j2, j3 ! second and third invariant of dM
-    INTEGER :: n1, n2, n3, d1, d2, d3, cptnum, switch
-    REAL(q2),DIMENSION(3) :: eigvec1, eigvec2, eigvec3, cartX, cartY, cartZ, tempVec
-    REAL(q2),DIMENSION(3,3) :: nIdentity, identityM, devSubNIden, hessianMatrix
+
+    INTEGER :: n1, n2, n3, d1, d2, d3, cptnum, ucptnum, i, j, debugnum
+    REAL(q2),DIMENSION(3) :: eigvec1, eigvec2, eigvec3, tempVec
+    REAL(q2),DIMENSION(3,3) ::  hessianMatrix, bkhessianMatrix
     ! these are vectors orthogonal to eigenvectors
-    REAL(q2),DIMENSION(3) :: orthoR1, orthoR2, orthoR3, S1, S2, orT2, orT3, tem
-    REAL(q2),DIMENSION(3) :: tem2
-    REAL(q2) :: x, y, z, xx, yy, zz, xy, xz, yz, denom, nomx, nomy, nomz
-    REAL(q2) :: norm, trace, traceOver3, temp, alpha, temp1, temp2, cellvol
-    REAL(q2) :: yita1, yita2, yita3 ! variables for degenerate eigenvalues
-    REAL(q2),DIMENSION(3) :: tempv1, tempv2, tempv3, eigvals
-    REAL(q2) :: abserr
-    REAL(q2),DIMENSION(3,3) :: eigvecs
-
+    REAL(q2),DIMENSION(3) :: tem, tem2a,tem2b,tem2c, force,eigvals,carts
+    REAL(q2) :: umag, vmag, wmag, threshhold, minmag
+    REAL(q2),DIMENSION(3,3) :: eigvecs, A, inverseHessian
+    ! linearized approximated derivatives for proxy critical screening
+    REAL(q2),DIMENSION(3,3) :: transformationmatrix ! normalized lattice vectors
+    LOGICAL :: trilinear ! determines if hessian calculation uses interpolation
+    REAL(q2) :: dx0,dx1,dy0,dy1,dz0,dz1 ! outputs from interpolated gradients
+    REAL(q2),DIMENSION(6,3) :: intcarts ! positions in cart of 6 interpolated points
+    ! row 1 2 are + and 1 x, then + and - y, then + and - z
+    REAL(q2),DIMENSION(6,3) :: intgrads ! gradients of interpolated points
+    REAL(q2),DIMENSION(6) :: intrhos ! rhos of interpolated points 
+    REAL(q2),DIMENSION(6,3) :: intinds ! fraction indicies for interpolated
+    REAL(q2) :: rhocur ! rho of current point
+    REAL(q2),DIMENSION(3) :: preal
+    INTEGER,DIMENSION(8,3) :: nn ! alternative trilinear approx.
+    ! points
+    LOGICAL,DIMENSION(3) :: cartcoor ! check if axis are alone cartesian.
     WRITE(*,'(A)')  'FINDING CRITICAL POINTS'
-!    I do not need hes%rho because I can simply use rho_val
-    ALLOCATE (hes%rho(chg%npts(1),chg%npts(2),chg%npts(3)))
-!    The sizes of dx dy and dz remains large because now 
-    ALLOCATE (hes%dx(chg%npts(1),chg%npts(2),chg%npts(3)))
-    ALLOCATE (hes%dy(chg%npts(1),chg%npts(2),chg%npts(3)))
-    ALLOCATE (hes%dz(chg%npts(1),chg%npts(2),chg%npts(3)))
-    switch = 0
-    cptnum = 0
-    identityM = 0._q2
-    identityM(1,1) = 1._q2
-    identityM(2,2) = 1._q2
-    identityM(3,3) = 1._q2
-    cartX = (/1._q2,0._q2,0._q2/)
-    cartY = (/0._q2,1._q2,0._q2/)
-    cartZ = (/0._q2,0._q2,1._q2/)
-    PRINT * , "These code requires -vac to be turned on"
+    
 
+    trilinear = .FALSE. ! let's not interpolate, as it can get messy
+    ucptnum = 0
+    cptnum = 0
+    PRINT * , "These code requires -vac auto or -vac #"
+    PRINT *, '-----------                  WARNING             -----------'
+    PRINT *, 'Using valence charge may yield useless and confusing results'
+    PRINT *, '    It is recommended to use total charge for finding CPs   '
+    PRINT *, '____________________________________________________________'
     OPEN(97,FILE='CPF.dat',STATUS='REPLACE',ACTION='WRITE')
+    OPEN(98,FILE='CPFU.dat',STATUS='REPLACE',ACTION='WRITE')
+    debugnum = 0
+    umag = SQRT(ions%lattice(1,1)**2 + ions%lattice(1,2)**2 + &
+      ions%lattice(1,3)**2) / REAL(chg%npts(1),q2)
+    vmag = SQRT(ions%lattice(2,1)**2 + ions%lattice(2,2)**2 + &
+      ions%lattice(2,3)**2) / REAL(chg%npts(2),q2)
+    wmag = SQRT(ions%lattice(3,1)**2 + ions%lattice(3,2)**2 + &
+      ions%lattice(3,3)**2) / REAL(chg%npts(3),q2)
+    minmag = MIN(umag,vmag,wmag)
+    ! check if axis are cartesian
+!    cartcoor = coorcheck(ions%lattice)
+    IF ( ALL(cartcoor) ) trilinear = .FALSE.
     DO n1 = 1,chg%npts(1)
       DO n2 = 1,chg%npts(2)
         DO n3 = 1,chg%npts(3)
             ! check to see if this point is in the vacuum
             IF (bdr%volnum(n1,n2,n3) == bdr%bnum + 1) THEN
+              debugnum = debugnum + 1
               CYCLE
             END IF
             p = (/n1,n2,n3/)
+            preal = p
+            trilinear = .FALSE.
+            IF (trilinear) THEN
+              ! get cartesian coordinates of current point
+              carts = getcart(p,chg%lat2car)
+              ! get positions of where interpolated points should be
+              intcarts = getintcarts(carts,umag,vmag,wmag)
+              ! get indices of the interpolated points. 
+              intinds = getinds(chg%car2lat,intcarts)
+              ! get gradients of interpolated points
+              DO i = 1, 6
+                ! again, 1to 6 are + - x, + - y, + - z
+                intgrads(i,:) = rho_grad(chg,intinds(i,:),intrhos(i))
+!                PRINT *, 'old grads', intgrads(1,:)
+                ! alternative : find closest neighbors to do trilinear
+                ! approximation
+!                nn = findnn(p,intcarts(i,:),chg)
+!                intgrads(i,:) = nn_grad(chg,intinds(i,:),intrhos(i),nn)
+!                PRINT *, 'new grads', intgrads(1,:)
+              END DO
+              ! get second derivatives
+              ! dxdx
+              hessianMatrix(1,1) = (intgrads(1,1) - intgrads(2,1)) / (2 * minmag)
+              ! dydy
+              hessianMatrix(2,2) = (intgrads(3,2) - intgrads(4,2)) / (2 * minmag)
+              ! dzdz
+              hessianMatrix(3,3) = (intgrads(5,3) - intgrads(6,3)) / (2 * minmag)
+              ! dxdy
+              hessianMatrix(1,2) = (intgrads(1,2) - intgrads(2,2)) / (2 * minmag)
+              hessianMatrix(2,1) = hessianMatrix(1,2)
+              ! dxdz
+              hessianMatrix(1,3) = (intgrads(1,3) - intgrads(2,3)) / (2 * minmag)
+              hessianMatrix(3,1) = hessianMatrix(1,3)
+              ! dydz
+              hessianMatrix(2,3) = (intgrads(3,3) - intgrads(4,3)) / (2 * minmag)
+              hessianMatrix(3,2) = hessianMatrix(3,2)
+              ! force
+              force = rho_grad(chg,preal,rhocur)
+!              DO i = 1 , 6
+!                PRINT *, intinds(i,:)
+!              END DO
+!              PRINT *, '26 48 49'
+!              PRINT *, rho_val(chg,26,48,49)
+!              PRINT *, '25 26 27'
+!              PRINT *,rho_val(chg,25,48,49),rho_val(chg,26,48,49), &
+!                rho_val(chg,27,48,49)
+!              PRINT *, '47 48 49'
+!              PRINT *,rho_val(chg,26,47,49),rho_val(chg,26,48,49), &
+!                rho_val(chg,26,49,49)
+!              PRINT *, '48 49 50'
+!              PRINT *,rho_val(chg,26,48,48),rho_val(chg,26,48,49), &
+!                rho_val(chg,26,48,50)
+            ELSE
+  
+              
+  
+  !-----------------------------------------------------------------------------------!
+  ! now that this subroutine can find the correct amount of edge points, lets have
+  ! it find the hessian
+  !-----------------------------------------------------------------------------------!
+               CALL getgradhes(p,chg,hes,force)
+               hessianMatrix(1,1) = hes%dudu
+               hessianMatrix(1,2) = hes%dudv
+               hessianMatrix(1,3) = hes%dudw
+               hessianMatrix(2,1) = hes%dudv
+               hessianMatrix(2,2) = hes%dvdv
+               hessianMatrix(2,3) = hes%dvdw
+               hessianMatrix(3,1) = hes%dudw
+               hessianMatrix(3,2) = hes%dvdw
+               hessianMatrix(3,3) = hes%dwdw
+               hessianMatrix = MATMUL(chg%car2lat,hessianMatrix)
+               hessianMatrix = MATMUL(hessianMatrix,TRANSPOSE(chg%car2lat))
 
-!-----------------------------------------------------------------------------------!
-! now that this subroutine can find the correct amount of edge points, lets have
-! it find the hessian
-!-----------------------------------------------------------------------------------!
-
-             ! this loop finds all the neighboring points that will be needed and stores their rho
-             ! I should be able to simply use rho_val.
-             DO d1=-2,2
-               DO d2=-2,2
-                 DO d3=-2,2
-                   pt = p + (/d1,d2,d3/)
-                   CALL pbc(pt,chg%npts)
-                   ptt = p + (/d1,d2,d3/)
-                   CALL pbc(ptt,chg%npts)
-                   hes%rho(pt(1),pt(2),pt(3)) = rho_val(chg,pt(1),pt(2),pt(3))
-                 END DO
-               END DO
-             END DO
-
-! now there is a problem.  ptt(1)+1 may get out of boundary. How to do that
-! boundary check? --- by creating points for every point that could possibily be
-! needed and run pbc on it. Freezing is because of points out of boundary.
-! However, the compiler flags seems to not catch this problem.
-
-             DO d1=-1,1
-               DO d2=-1,1
-                 DO d3=-1,1
-                   ptt = p + (/d1,d2,d3/)
-                   CALL pbc(ptt,chg%npts)
-                   ptx1 = ptt + (/1,0,0/)
-                   ptx2 = ptt + (/-1,0,0/)
-                   pty1 = ptt + (/0,1,0/)
-                   pty2 = ptt + (/0,-1,0/)
-                   ptz1 = ptt + (/0,0,1/)
-                   ptz2 = ptt + (/0,0,-1/)
-                   CALL pbc(ptx1,chg%npts)
-                   CALL pbc(ptx2,chg%npts)
-                   CALL pbc(pty1,chg%npts)
-                   CALL pbc(pty2,chg%npts)
-                   CALL pbc(ptz1,chg%npts)
-                   CALL pbc(ptz2,chg%npts)
-!                   hes%dx(ptt(1),ptt(2),ptt(3)) = 0.5_q2 * &
-!                         (rho_val(chg,ptx1(1),ptt(2),ptt(3)) - &
-!                          rho_val(chg,ptx2(1),ptt(2),ptt(3)))
-!                   hes%dy(ptt(1),ptt(2),ptt(3)) = 0.5_q2 * &
-!                         (rho_val(chg,ptt(1),pty1(2),ptt(3)) - &
-!                          rho_val(chg,ptt(1),pty2(2),ptt(3)))
-!                   hes%dz(ptt(1),ptt(2),ptt(3)) = 0.5_q2 * &
-!                         (rho_val(chg,ptx1(1),ptt(2),ptz1(3)) - &
-!                          rho_val(chg,ptt(1),ptt(2),ptz2(3)))
-                   hes%dx(ptt(1),ptt(2),ptt(3)) = 0.5_q2 * &
-                         (hes%rho(ptx1(1),ptt(2),ptt(3)) - &
-                          hes%rho(ptx2(1),ptt(2),ptt(3)))
-                   hes%dy(ptt(1),ptt(2),ptt(3)) = 0.5_q2 * &
-                         (hes%rho(ptt(1),pty1(2),ptt(3)) - &
-                          hes%rho(ptt(1),pty2(2),ptt(3)))
-                   hes%dz(ptt(1),ptt(2),ptt(3)) = 0.5_q2 * &
-                         (hes%rho(ptx1(1),ptt(2),ptz1(3)) - &
-                          hes%rho(ptt(1),ptt(2),ptz2(3)))
-                 END DO
-               END DO
-             END DO
-             ! this block looks stupid but it is necessary. perhaps optimize the
-             ! look of  it1 later?
-             ptx1 = p + (/1,0,0/)
-             ptx2 = p + (/-1,0,0/)
-             pty1 = p + (/0,1,0/)
-             pty2 = p + (/0,-1,0/)
-             ptz1 = p + (/0,0,1/)
-             ptz2 = p + (/0,0,-1/)
-             CALL pbc(ptx1,chg%npts)
-             CALL pbc(ptx2,chg%npts)
-             CALL pbc(pty1,chg%npts)
-             CALL pbc(pty2,chg%npts)
-             CALL pbc(ptz1,chg%npts)
-             CALL pbc(ptz2,chg%npts)
-
-!             hes%dx(p(1),p(2),p(3)) = 0.5_q2*(rho_val(chg,ptx1(1),p(2),p(3)) - &
-!                                              rho_val(chg,ptx2(1),p(2),p(3)))
-!             hes%dy(p(1),p(2),p(3)) = 0.5_q2*(rho_val(chg,p(1),pty1(2),p(3)) - &
-!                                              rho_val(chg,p(1),pty2(2),p(3)))
-!             hes%dz(p(1),p(2),p(3)) = 0.5_q2*(rho_val(chg,p(1),p(2),ptz1(3)) - &
-!                                              rho_val(chg,p(1),p(2),ptz2(3)))
-
-             hes%dx(p(1),p(2),p(3)) = 0.5_q2*(hes%rho(ptx1(1),p(2),p(3)) - &
-                                              hes%rho(ptx2(1),p(2),p(3)))
-             hes%dy(p(1),p(2),p(3)) = 0.5_q2*(hes%rho(p(1),pty1(2),p(3)) - &
-                                              hes%rho(p(1),pty2(2),p(3)))
-             hes%dz(p(1),p(2),p(3)) = 0.5_q2*(hes%rho(p(1),p(2),ptz1(3)) - &
-                                              hes%rho(p(1),p(2),ptz2(3)))
-
-             ! now calculate the curvature of rho at the point p
-             hes%dxdx = 0.5_q2 * (hes%dx(ptx1(1),p(2),p(3)) - hes%dx(ptx2(1),p(2),p(3)))
-             hes%dydy = 0.5_q2 * (hes%dy(p(1),pty1(2),p(3)) - hes%dy(p(1),pty2(2),p(3)))
-             hes%dzdz = 0.5_q2 * (hes%dz(p(1),p(2),ptz1(3)) - hes%dz(p(1),p(2),ptz2(3)))
-
-!             hes%dxdy = 0.25_q2 * 
-!               (rho_val(chg,ptx1(1),pty1(2),p(3)) - &
-!                rho_val(chg,ptx2(1),pty1(2),p(3)) - &
-!                rho_val(chg,ptx1(1),pty2(2),p(3)) + &
-!                rho_val(chg,ptx2(1),pty2(2),p(3)))
-!             hes%dxdz = 0.25_q2 * (
-!                rho_val(chg,ptx1(1),p(2),ptz1(3)) - &
-!                rho_val(chg,ptx2(1),p(2),ptz1(3)) - &
-!                rho_val(chg,ptx1(1),p(2),ptz2(3)) + &
-!                rho_val(chg,ptx2(1),p(2),ptz2(3)))
-!             hes%dydz = 0.25_q2 * (
-!                rho_val(chg,p(1),pty1(2),ptz1(3)) - &
-!                rho_val(chg,p(1),pty2(2),ptz1(3)) - &
-!                rho_val(chg,p(1),pty1(2),ptz2(3)) + &
-!                rho_val(chg,p(1),pty2(2),ptz2(3)))
-
-
-
-
-             hes%dxdy = 0.25_q2 * (hes%rho(ptx1(1),pty1(2),p(3)) - hes%rho(ptx2(1),pty1(2),p(3)) - &
-                                   hes%rho(ptx1(1),pty2(2),p(3)) + hes%rho(ptx2(1),pty2(2),p(3)))
-             hes%dxdz = 0.25_q2 * (hes%rho(ptx1(1),p(2),ptz1(3)) - hes%rho(ptx2(1),p(2),ptz1(3)) - &
-                                   hes%rho(ptx1(1),p(2),ptz2(3)) + hes%rho(ptx2(1),p(2),ptz2(3)))
-             hes%dydz = 0.25_q2 * (hes%rho(p(1),pty1(2),ptz1(3)) - hes%rho(p(1),pty2(2),ptz1(3)) - &
-                                   hes%rho(p(1),pty1(2),ptz2(3)) + hes%rho(p(1),pty2(2),ptz2(3)))
-             ! below is the actual hessian matrix.
-             hessianMatrix(1,1) = hes%dxdx
-             hessianMatrix(1,2) = hes%dxdy
-             hessianMatrix(1,3) = hes%dxdz
-             hessianMatrix(2,1) = hes%dxdy
-             hessianMatrix(2,2) = hes%dydy
-             hessianMatrix(2,3) = hes%dydz
-             hessianMatrix(3,1) = hes%dxdz
-             hessianMatrix(3,2) = hes%dydz
-             hessianMatrix(3,3) = hes%dzdz
-             
-
-
-!solutions for the vector
-!x:
-!(-dxdz dy dydz + dx dydz^2 + dxdz dydy dz -  dxdy dydz dz + dxdy dy dzdz - dx
-!dydy dzdz)/(dxdz^2 dydy - 2 dxdy dxdz dydz + dxdx dydz^2 + dxdy^2 dzdz -  dxdx
-!dydy dzdz)
-!y:
-!(dxdz^2 dy - dx dxdz dydz - dxdy dxdz dz + dxdx dydz dz +  dx dxdy dzdz - dxdx
-!dy dzdz)/(dxdz^2 dydy - 2 dxdy dxdz dydz + dxdx dydz^2 + dxdy^2 dzdz -  dxdx
-!dydy dzdz)
-!z:
-!(-dxdy dxdz dy + dx dxdz dydy - dx dxdy dydz + dxdx dy dydz +  dxdy^2 dz - dxdx
-!dydy dz)/(dxdz^2 dydy - 2 dxdy dxdz dydz + dxdx dydz^2 + dxdy^2 dzdz -  dxdx
-!dydy dzdz)
-               x = hes%dx(p(1),p(2),p(3))
-               y = hes%dy(p(1),p(2),p(3))
-               z = hes%dz(p(1),p(2),p(3))
-               xx = hes%dxdx
-               yy = hes%dydy
-               zz = hes%dzdz
-               xy = hes%dxdy
-               xz = hes%dxdz
-               yz = hes%dydz
-               denom = xz*xz*yy - 2.0_q2*xy*xz*yz + xx*yz*yz + xy*xy*zz - xx*yy*zz
-               nomx = -xz*y*yz + x*yz*yz + xz*yy*z - xy*yz*z + xy*y*zz - x*yy*zz
-               nomy = xz*xz*y - x*xz*yz - xy*xz*z + xx*yz*z + x*xy*zz - xx*y*zz
-               nomz = -xy*xz*y + x*xz*yy - x*xy*yz + xx*y*yz + xy*xy*z - xx*yy*z
-               hes%r1 = nomx/denom
-               hes%r2 = nomy/denom
-               hes%r3 = nomz/denom
-               tem(1) = hes%r1
-               tem(2) = hes%r2
-               tem(3) = hes%r3
-               tem2 = ions%lattice(1,:)/chg%npts(1)
-               ! the below lines determine if there is a critical point in the
-               ! current cell.
-               IF (in_here(tem,tem2))THEN
-                 tem2 = ions%lattice(2,:)/chg%npts(2)
-                 IF (in_here(tem,tem2))THEN
-                   tem2 = ions%lattice(3,:)/chg%npts(3)
-                   IF (in_here(tem,tem2))THEN
-                     cptnum = cptnum + 1
-
-                     abserr = 0_q2
-                     !CALL Jacobi(hessianMatrix, eigvecs, abserr, 3) 
-                     CALL DSYEVJ3(hessianMatrix,eigvecs,eigvals)
-                     WRITE(97,*) '*********** A NEW ENTRY *************'
-                     WRITE(97,*) 'Critical point number: ', cptnum
-                     WRITE(97,*) p(1),p(2),p(3)
-                     WRITE(97,*) 'Eigenvalues: '
-                     WRITE(97,*) eigvals
-                     WRITE(97,'(3(1X,E18.11))') 
-                     WRITE(97,*) 'Eigenvectors:'
-                     WRITE(97,*) eigvecs(1,:)
-                     WRITE(97,*) eigvecs(2,:)
-                     WRITE(97,*) eigvecs(3,:)
-                     CYCLE
-
-                     ! eigenvalue calculation below
-                     trace = hes%dxdx + hes%dydy + hes%dzdz
-                     traceOver3 = (hes%dxdx + hes%dydy + hes%dzdz)/3.0_q2
-                     dM(1,1) = hes%dxdx - traceOver3
-                     dM(2,2) = hes%dydy - traceOver3
-                     dM(3,3) = hes%dzdz - traceOver3
-                     dM(1,2) = hes%dxdy
-                     dM(1,3) = hes%dxdz
-                     dM(2,1) = hes%dxdy
-                     dM(2,3) = hes%dydz
-                     dM(3,1) = hes%dxdz
-                     dM(3,2) = hes%dydz
-                     ! Now a loop to calculate dMSQ
-                     temp = 0._q2
-                     ! this loop is functional
-                     dMSQ = MATMUL(dM,dM)
-                     ! j2 is 1/2 tr(dM dot dM)
-                     j2 = 0.5_q2*(dMSQ(1,1) + dMSQ(2,2) + dMSQ(3,3))
-                     j3 = determinant(dM)
-                     alpha = ACOS(j3/2._q2*(3._q2/j2)**(3._q2/2._q2))/3._q2
-                     !ACOS seems to be intact. Ray, 6/7/2016
-                     yita1 = 2._q2*SQRT(j2/3._q2)*COS(alpha)
-                     ! Find the most distinct eigenvalue first
-                     ! every eigenvalue are equaly distinct when alpha = pi/6
-                     ! can use the code when alpha < pi/6
-                     IF (alpha>pi/6._q2) THEN
-                       ! Start with eigval 3 first
-                       temp = hes%eigval1
-                       hes%eigval1 = hes%eigval3
-                       hes%eigval3 = temp
-                       temp = 0
-                     END IF
-                     ! this is the default when yita1 is the most distinct
-                     nIdentity = identityM*yita1
-                     devSubNIden = dM - nIdentity
-                     orthoR1 = MATMUL(devSubNIden,cartX)
-                     orthoR2 = MATMUL(devSubNIden,cartY)
-                     orthoR3 = MATMUL(devSubNIden,cartZ)
-                     ! assume r1 is the largest, normalize all orthoR vectors
-                     norm = 1._q2/SQRT(SUM(orthoR1(:)**2))
-                     S1 = orthoR1*norm
-                     tempVec = S1*DOT_PRODUCT(S1, orthoR2)
-                     orT2 = orthoR2 - tempVec
-                     tempVec = S1*DOT_PRODUCT(S1, orthoR3)
-                     orT3 = orthoR3 - tempVec
-                     ! assume t2 is the larger one, normalize it
-                     ! 2016/6/15 Ray: instead of assuming, lets check which one is bigger
-                     temp1 = orT2(1)**2 + orT2(2)**2 + orT2(3)**2
-                     temp2 = orT3(1)**2 + orT3(2)**2 + orT3(3)**2
-                     IF (temp2 > temp1) THEN
-                       !The assumption is false.
-                       tem = orT2
-                       orT2 = orT3
-                       orT3 = orT2
-                     END IF 
-                     norm = 1.0_q2/SQRT(SUM(orT2(:)**2))
-                     S2 = orT2*norm
-                     eigvec1 = cross_product(S1, S2)
-                     ! now that I have an eigenvalue and an eigenvector,
-                     ! write the deviatoric matrix using the v1,s1,s2 basis
-                     ! hes%eigval1 |         0        |      0
-                     ! 0           | s1 dot dM dot s1 | s1 dot dM dot s2
-                     ! 0           | s2 dot dM dot s1 | s2 dot dM dot s2
-                     dMVSS = 0._q2
-                     dMVSS(1,1) = yita1
-                     tempVec = MATMUL(dM,S1)
-                     dMVSS(2,2) = DOT_PRODUCT(tempVec, S1)
-                     dMVSS(2,3) = DOT_PRODUCT(tempVec, S2)
-                     tempVec = MATMUL(dM,S2)
-                     dMVSS(3,2) = DOT_PRODUCT(tempVec, S1)
-                     dMVSS(3,3) = DOT_PRODUCT(tempVec, S2)
-                     ! This is a sign function
-                     temp = SIGN(1._q2,dMVSS(2,2)-dMVSS(3,3))
-                     IF (dMVSS(2,2) == dMVSS(3,3)) temp = 0
-                     yita2 = (dMVSS(2,2) + dMVSS(3,3))/2._q2 - 1._q2/2._q2*temp*&
-                             SQRT((dMVSS(2,2) - dMVSS(3,3))**2 + 4._q2*dMVSS(2,3)*dMVSS(3,2))
-                     yita3 = dMVSS(2,2) + dMVSS(3,3) - yita2
-                     ! these eigenvalues are shifted by traceOver3
-                     hes%eigval1 = yita1 + traceOver3
-                     hes%eigval2 = yita2 + traceOver3
-                     hes%eigval3 = yita3 + traceOver3
-
-                     CALL eigenvectors(yita2, identityM, dM, s1, s2, eigvec1, eigvec2, eigvec3)
-
-
-
+               force = MATMUL(chg%car2lat,force)
+               ! Now everything is cartesian.
+             END IF
+!             tem2 = tem2 * umag 
+!             tem2a = (/ ions%lattice(1,1),ions%lattice(2,1), & 
+!               ions%lattice(3,1) /) / chg%npts(1)
+             inverseHessian = inverse(hessianMatrix)
+             tem = MATMUL(inverseHessian,force)
+             ! convert from cartesian to lattice
+             tem = MATMUL(chg%car2lat,tem)
+             IF ( ABS(tem(1)) <= 0.5) THEN
+               IF (ABS(tem(2)) <= 0.5) THEN
+                 IF (ABS(tem(3)) <= 0.5) THEN
+                   cptnum = cptnum + 1
+                   WRITE(97,*) '*********** A NEW ENTRY *************'
+                   bkhessianMatrix = hessianMatrix
+                   CALL DSYEVJ3(hessianMatrix,eigvecs,eigvals)
+                   WRITE(97,*) 'Critical point number: ', cptnum
+                   WRITE(97,*) "Indices are"
+                   WRITE(97,*) p(1),p(2),p(3)
+                   WRITE(97,*) "Density at this point is" 
+                   WRITE(97,*) rho_val(chg,p(1),p(2),p(3))
+                   WRITE(97,*) 'Eigenvalues: '
+                   WRITE(97,*) eigvals
+                   WRITE(97,'(3(1X,E18.11))') 
+                   WRITE(97,*) 'Eigenvectors:'
+                   WRITE(97,*) eigvecs(1,:)
+                   WRITE(97,*) eigvecs(2,:)
+                   WRITE(97,*) eigvecs(3,:)
+                   WRITE(97,*) 'tem', tem
+                   !WRITE(97,*) 'force is'
+                   !WRITE(97,*)  force
+                   !WRITE(97,*) 'Hessian is'
+                   !WRITE(97,*)  bkhessianMatrix
+                   IF (cptnum == 1)  THEN
+                     ALLOCATE(cpl(1))
+                     cpl(1)%du = hes%du
+                     cpl(1)%dv = hes%dv  
+                     cpl(1)%dw = hes%dw
+                     cpl(1)%ind(1) = n1
+                     cpl(1)%ind(2) = n2
+                     cpl(1)%ind(3) = n3
+                     cpl(1)%force = force
+                     cpl(1)%proxy = .FALSE.
+                     cpl(1)%keep = .TRUE.
+                     cpl(1)%eigvals = eigvals
+                     cpl(1)%eigvecs = eigvecs
+                     cpl(1)%r = tem
+                     cpl(1)%tempcart = MATMUL(tem + p,chg%car2lat)
+                   ELSE 
+                     ALLOCATE(cplt(cptnum))
+                     DO i = 1, cptnum -1
+                       cplt(i) = cpl(i)
+                     END DO
+                     DEALLOCATE(cpl)
+                     ALLOCATE(cpl(cptnum))
+                     DO i = 1, cptnum - 1
+                       cpl(i)=cplt(i)
+                     END DO
+                     DEALLOCATE(cplt)
+                     cpl(cptnum)%du = hes%du 
+                     cpl(cptnum)%dv = hes%dv
+                     cpl(cptnum)%dw = hes%dw
+                     cpl(cptnum)%ind(1) = n1
+                     cpl(cptnum)%ind(2) = n2
+                     cpl(cptnum)%ind(3) = n3
+                     cpl(cptnum)%force = force
+                     cpl(cptnum)%proxy = .FALSE.
+                     cpl(cptnum)%keep = .TRUE.
+                     cpl(cptnum)%eigvals = eigvals
+                     cpl(cptnum)%eigvecs = eigvecs
+                     cpl(cptnum)%r = tem
+                     cpl(cptnum)%tempcart = MATMUL(tem + p, chg%car2lat)
                    END IF
                  END IF
                END IF
-
+!               ELSE 
+             END IF
         END DO
       END DO
     END DO
-    CLOSE(97)
     PRINT *,'CRITICAL POINTS INFO WRITEN TO CPF.dat'
     PRINT *, "CRITICAL POINTS FOUND: ", cptnum 
-
-    DEALLOCATE (hes%rho)
-    DEALLOCATE (hes%dx)
-    DEALLOCATE (hes%dy)
-    DEALLOCATE (hes%dz)
+!    PRINT *, 'FINDING UNIQUE CRITICAL POINTS...'
+!!------------------ Attempt A -------------------------------!
+!!    DO i = 1, cptnum
+!!      ! first filter out critical points that are less than 0.1
+!!      IF (rho_val(chg,cpl(i)%ind(1),cpl(i)%ind(2),cpl(i)%ind(3)) <= 10 ) THEN
+!!        CYCLE
+!!      END IF
+!!      IF (cpl(i)%keep == .FALSE.) THEN
+!!        CYCLE
+!!      END IF
+!!      DO j = 1, cptnum
+!!        IF (cpl(j)%keep == .FALSE. .OR. i == j) THEN
+!!          CYCLE
+!!        END IF
+!!        IF (ABS(cpl(j)%ind(1) - cpl(i)%ind(1)) <= 1) THEN
+!!          IF (ABS(cpl(j)%ind(2) - cpl(i)%ind(2)) <= 1) THEN
+!!            IF (ABS(cpl(j)%ind(3) - cpl(i)%ind(3)) <= 1) THEN
+!!              IF ((cpl(j)%tem(1)**2 + cpl(j)%tem(2)**2 + & 
+!!                cpl(j)%tem(3)**2) <= (cpl(i)%tem(1)**2 + & 
+!!                cpl(i)%tem(2)**2 + cpl(i)%tem(3)**2)) THEN
+!!                cpl(i)%keep = .FALSE.
+!!              ELSE 
+!!                cpl(j)%keep = .FALSE.
+!!              END IF
+!!            END IF
+!!          END IF
+!!        END IF
+!!      END DO
+!!      IF (cpl(i)%keep == .TRUE.) THEN
+!!        WRITE(98,*) '***** A NEW UNIQUE ENTRY *****'
+!!        WRITE(98,*) 'Critical point number'
+!!        WRITE(98,*) i
+!!        ucptnum = ucptnum + 1
+!!        WRITE(98,*) 'Unique Critical point number'
+!!        WRITE(98,*) ucptnum
+!!        WRITE(98,*) 'Density at this point is'
+!!        WRITE(98,*) rho_val(chg,cpl(i)%ind(1),cpl(i)%ind(2),cpl(i)%ind(3))
+!!        WRITE(98,*) 'Indicies are '
+!!        WRITE(98,*) cpl(i)%ind
+!!        WRITE(98,*) 'Eigenvalues are'
+!!        WRITE(98,*) cpl(i)%eigvals
+!!        WRITE(98,*) 'Eigenvectors are'
+!!        WRITE(98,*) cpl(i)%eigvecs(1,:)
+!!        WRITE(98,*) cpl(i)%eigvecs(2,:)
+!!        WRITE(98,*) cpl(i)%eigvecs(2,:)
+!!      END IF
+!!    END DO
+!!!----------------- END ATTEMPT A ------------------------------
+!
+!!    PRINT *, 'Found unique critical points: ', ucptnum
+!!    DO n1=1,chg%npts(1)
+!!      DO n2=1,chg%npts(2)
+!!        DO n3=1,chg%npts(3)
+!!          IF (n1 == n2 .AND. n2==n3) THEN
+!!            CYCLE
+!!          END IF
+!!        END DO
+!!      END DO
+!!    END DO
+!!    PRINT *, cpl
+!!****************************************************************
+!! ************* DONT DELETE THESE CODE **************************
+!!    ! now go through candidates, for each candidate, see if there is another
+!!    ! within 1 distance on u v w direction.
+!!    DO i = 1 , cptnum - 1
+!!      DO j = i + 1 , cptnum
+!!        IF (i < j) THEN
+!!          IF (ABS(cpl(i)%ind(1) - cpl(j)%ind(1)) <= 1 .AND. &
+!!             ABS(cpl(i)%ind(2) - cpl(j)%ind(2)) <= 1 .AND. & 
+!!             ABS(cpl(i)%ind(3) - cpl(j)%ind(3)) <= 1) THEN
+!!             cpl(i)%proxy = .TRUE.
+!!             cpl(j)%proxy = .TRUE.
+!!             ! we know the cp is being shared. follow the r to see
+!!             ! if we go out of cell. 
+!!             ! first step is to linearize dx
+!!             ldu = cpl(i)%du(2) - cpl(j)%du(2)
+!!             ldv = cpl(i)%dv(2) - cpl(j)%dv(2)
+!!             ldw = cpl(i)%dw(2) - cpl(j)%dw(2) 
+!!!             END IF
+!!             WRITE(97,*)  i, j   
+!!          END IF
+!!        END IF
+!!      END DO
+!!    END DO
+!!    PRINT *, 'number of unique cp :',debugnum
+!!*******************************************************************
+!!*******************************************************************
+!    ! To find critical points (unique), start with a cell that contains a
+!    ! critical point and its hessian and force. Use Newton's method to make a
+!    ! move. Once moved, get the new force through trilinear interpolation, and
+!    ! get the new hessian which will be a matrix of constants, make moves until
+!    ! r is zero. get the coordinates of the new true critical point. If this
+!    ! point is within half lattice to another, do not record this new point.
+!    DO i = 1, cptnum
+!      ! move to r     
+!      PRINT *, 'CP is right now at'
+!      PRINT *, cpl(i)%tempcart
+!      ! find neighbors to interpolate points
+!    END DO    
+    DEALLOCATE (cpl)
+    CLOSE(97)
+    CLOSE(98)
     END SUBROUTINE critpoint_find
 
-    LOGICAL FUNCTION in_here(r,ir)
-      REAL(q2),DIMENSION(3) :: r,ir
-      REAL(q2) :: mag1,mag2,mag3
-      mag1 = r(1)**2 + r(2)**2 + r(3)**2
-      mag2 = (r(1) + ir(1))**2 + (r(2) + ir(2))**2 + (r(3) + ir(3))**2
-      mag3 = (r(1) - ir(1))**2 + (r(2) - ir(2))**2 + (r(3) - ir(3))**2
-      If (mag1 <= mag2 .AND. mag1 <= mag3 ) THEN
-        in_here = .TRUE.
-      ELSE
-        in_here = .FALSE.
+
+    REAL(q2) FUNCTION projection(r,rp)
+      ! r is input vector pointing towards a CP. 
+      ! rp is a cell vector to be projected onto.
+      REAL(q2),DIMENSION(3) :: r, rp
+      projection = DOT_PRODUCT(r,rp)/sqrt((rp(1)**2 + &
+      rp(2)**2 + rp(3)**2))
+      RETURN
+    END FUNCTION
+
+    ! get cartesian coordinates of a point
+    FUNCTION getcart(ind,lat2car)
+      !ind is indicies of the current point
+      !cart is the cartisian coordinates of the current point
+      INTEGER,DIMENSION(3),INTENT(IN) :: ind
+      REAL(q2),DIMENSION(3) :: getcart
+      REAL(q2),DIMENSION(3,3) :: lat2car
+      getcart(1) = ind(1) * lat2car(1,1) + & 
+        ind(2) * lat2car(1,2) + & 
+        ind(3) *  lat2car(1,3)
+      getcart(2) = ind(1) * lat2car(2,1) + &
+        ind(2) * lat2car(2,2) + &
+        ind(3) *  lat2car(2,3)
+      getcart(3) = ind(1) * lat2car(3,1) + &
+        ind(2) * lat2car(3,2) + &
+        ind(3) *  lat2car(3,3)
+
+      RETURN
+    END FUNCTION
+
+    ! get cartesian coordinates of interpolated points
+    FUNCTION  getintcarts(carts,umag,vmag,wmag)
+      REAL(q2) :: minmag,umag,vmag,wmag
+      REAL(q2),DIMENSION(3) :: carts
+      REAL(q2),DIMENSION(6,3) :: getintcarts
+      INTEGER :: i,j,k
+      ! first find which one is the smallest mag
+      minmag = MIN(umag,vmag,wmag)
+      DO i = 1, 6
+        getintcarts(i,:) = carts
+      END DO
+      getintcarts(1,1) = getintcarts(1,1) + minmag
+      getintcarts(2,1) = getintcarts(2,1) - minmag
+      getintcarts(3,2) = getintcarts(3,2) + minmag
+      getintcarts(4,2) = getintcarts(4,2) - minmag
+      getintcarts(5,3) = getintcarts(5,3) + minmag
+      getintcarts(6,3) = getintcarts(6,3) - minmag
+      RETURN
+    END FUNCTION
+    
+    ! get indices from cartesian coordinates.
+    FUNCTION  getinds(car2lat,intcarts) 
+      REAL(q2),DIMENSION(6,3) :: getinds, intcarts
+      REAL(q2),DIMENSION(3,3) :: car2lat,W
+      REAL(q2),DIMENSION(3) :: Z
+      INTEGER :: i,j,k
+      DO i = 1, 6 
+        !CALL DLITTL(lat2car,intcarts(i,:),3,3,getinds(i,:),W,Z)
+        getinds(i,:) = MATMUL(car2lat,intcarts(i,:))
+      END DO
+      RETURN
+    END FUNCTION
+
+    ! find neares on grid points for a interpolated point
+    ! to do trilinear interpolation
+    FUNCTION findnn(p,intcart,chg)
+      TYPE(charge_obj) :: chg
+      INTEGER,DIMENSION(8,3) :: findnn,tfindnn
+      REAL(q2),DIMENSION(3) :: intcart,p2cart
+      INTEGER,DIMENSION(3) :: p,maxs
+      REAL(q2),DIMENSION(27) :: dist
+      INTEGER,DIMENSION(27) :: scores
+      INTEGER,DIMENSION(27,3) :: p2
+      INTEGER :: i,j,k,counter
+      ! since only closest neigherbos of current grid point
+      ! will be used for interpolation
+      counter = 1
+      DO i = -1,1
+        DO j = -1,1
+          DO k = -1,1
+            p2(counter,:) = (/i,j,k/)
+            CALL pbc(p2,chg%npts)
+            p2cart = getcart(p2,chg%lat2car)
+            dist(counter) = SQRT( &
+              (intcart(1) - p2cart(1))**2 + & 
+              (intcart(2) - p2cart(2))**2 + &
+              (intcart(3) - p2cart(3))**2 &
+              )
+            counter = counter + 1
+          END DO
+        END DO
+      END DO
+      ! now find the top 4 smallest array
+      ! compare each element to all
+      ! if it is smaller, it gets score
+      ! keep the ones with highest scores
+      ! there should not be points with equal 
+      ! scores. Each point should have a score
+      ! ranging from 0 to 26.
+      DO i = 1, 27
+        scores(i) = 0
+        DO j = 1, 27
+          IF (i == j) THEN
+            CYCLE
+          END IF
+          IF (dist(i) <= dist(j)) THEN
+            scores(i) = scores(i) + 1
+          END IF
+          IF (scores(i) == 26) THEN
+            tfindnn(1,:) = p2(i,:)
+            CYCLE
+          END IF
+          IF (scores(i) == 25) THEN
+            tfindnn(2,:) = p2(i,:)
+            CYCLE
+          END IF
+          IF (scores(i) == 24) THEN
+            tfindnn(3,:) = p2(i,:)
+            CYCLE
+          END IF
+          IF (scores(i) == 23) THEN
+            tfindnn(4,:) = p2(i,:)
+            CYCLE
+          END IF
+          IF (scores(i) == 22) THEN
+            tfindnn(5,:) = p2(i,:)
+            CYCLE
+          END IF
+          IF (scores(i) == 21) THEN
+            tfindnn(6,:) = p2(i,:)
+            CYCLE
+          END IF
+          IF (scores(i) == 20) THEN
+            tfindnn(7,:) = p2(i,:)
+            CYCLE
+          END IF
+          IF (scores(i) == 19) THEN
+            tfindnn(8,:) = p2(i,:)
+            CYCLE
+          END IF
+        END DO
+      END DO     
+      ! then these needs to be rearranged 
+      ! so that is follows this format:
+      !  1   2   3   4   5   6   7   8
+      ! 000 001 010 100 011 101 110 111
+      ! indices should have only 2 values
+      ! on each axis. min gives 0 on that 
+      ! axis and max gives 1. 
+      maxs = (/0,0,0/)
+      DO i = 1, 8
+        DO j = 1,3
+          IF (tfindnn(i,j)>= maxs(j) ) THEN
+            maxs(j) = tfindnn(i,j)
+          END IF
+        END DO
+      END DO
+      DO i = 1, 8
+        IF (ALL(tfindnn(i,:) == maxs)) THEN
+          findnn(8,:) = tfindnn(i,:)
+          CYCLE
+        END IF
+        IF (ALL(tfindnn(i,:) == maxs - (/1,1,1/))) THEN
+          findnn(1,:) = tfindnn(i,:)
+          CYCLE
+        END IF
+        IF (ALL(tfindnn(i,:) == maxs - (/1,1,0/))) THEN
+          findnn(2,:) = tfindnn(i,:)
+          CYCLE
+        END IF
+        IF (ALL(tfindnn(i,:) == maxs - (/1,0,1/))) THEN
+          findnn(3,:) = tfindnn(i,:)
+          CYCLE
+        END IF
+        IF (ALL(tfindnn(i,:) == maxs - (/0,1,1/))) THEN
+          findnn(4,:) = tfindnn(i,:)
+          CYCLE
+        END IF
+        IF (ALL(tfindnn(i,:) == maxs - (/1,0,0/))) THEN
+          findnn(5,:) = tfindnn(i,:)
+          CYCLE
+        END IF
+        IF (ALL(tfindnn(i,:) == maxs - (/0,1,0/))) THEN
+          findnn(6,:) = tfindnn(i,:)
+          CYCLE
+        END IF
+        IF (ALL(tfindnn(i,:) == maxs - (/0,0,1/))) THEN
+          findnn(7,:) = tfindnn(i,:)
+          CYCLE
+        END IF
+      END DO 
+      RETURN
+    END FUNCTION
+
+    ! This function should take in a list of nearest neighbors predetermined.
+    FUNCTION nn_grad(chg,r,rho,nn)
+      TYPE(charge_obj) :: chg
+      REAL(q2),DIMENSION(3),INTENT(IN) :: r
+      REAL(q2),INTENT(OUT) :: rho
+      REAL(q2),DIMENSION(3) :: nn_grad
+      INTEGER :: p1, p2, p3
+      REAL(q2),DIMENSION(3) :: rho_grad_lat
+      REAL(q2) :: f1, f2, f3, g1, g2, g3
+      REAL(q2) :: rho000, rho001, rho010, rho100, rho011, rho101, rho110, rho111
+      REAL(q2) :: rho00_, rho01_, rho10_, rho11_
+      REAL(q2) :: rho0__, rho1__, rho_0_, rho_1_, rho__0, rho__1
+      REAL(q2) :: rho_00, rho_01, rho_10, rho_11
+      INTEGER,DIMENSION(8,3) :: nn
+      p1 = FLOOR(r(1))
+      p2 = FLOOR(r(2))
+      p3 = FLOOR(r(3))
+      f1 = r(1) - REAL(p1,q2)
+      f2 = r(2) - REAL(p2,q2)
+      f3 = r(3) - REAL(p3,q2)
+      g1 = 1._q2-f1
+      g2 = 1._q2-f2
+      g3 = 1._q2-f3
+      rho000 = rho_val(chg,nn(1,1),nn(1,2),nn(1,3))
+      rho001 = rho_val(chg,nn(2,1),nn(2,2),nn(2,3))
+      rho010 = rho_val(chg,nn(3,1),nn(3,2),nn(3,3))
+      rho100 = rho_val(chg,nn(4,1),nn(4,2),nn(4,3))
+      rho011 = rho_val(chg,nn(5,1),nn(5,2),nn(5,3))
+      rho101 = rho_val(chg,nn(6,1),nn(6,2),nn(6,3))
+      rho110 = rho_val(chg,nn(7,1),nn(7,2),nn(7,3))
+      rho111 = rho_val(chg,nn(8,1),nn(8,2),nn(8,3))
+      rho00_ = rho000*g3 + rho001*f3
+      rho01_ = rho010*g3 + rho011*f3
+      rho10_ = rho100*g3 + rho101*f3
+      rho11_ = rho110*g3 + rho111*f3
+      rho0__ = rho00_*g2 + rho01_*f2
+      rho1__ = rho10_*g2 + rho11_*f2
+      rho = rho0__*g1 + rho1__*f1
+  ! More work for gradients
+      rho_0_ = rho00_*g1 + rho10_*f1
+      rho_1_ = rho01_*g1 + rho11_*f1
+      rho_00 = rho000*g1 + rho100*f1
+      rho_01 = rho001*g1 + rho101*f1
+      rho_10 = rho010*g1 + rho110*f1
+      rho_11 = rho011*g1 + rho111*f1
+      rho__0 = rho_00*g2 + rho_10*f2
+      rho__1 = rho_01*g2 + rho_11*f2
+      rho_grad_lat(1) = rho1__ - rho0__
+      rho_grad_lat(2) = rho_1_ - rho_0_
+      rho_grad_lat(3) = rho__1 - rho__0
+  !    CALL vector_matrix(rho_grad_lat, chg%car2lat, rho_grad)
+      nn_grad = MATMUL(rho_grad_lat, chg%car2lat)
+    RETURN
+    END FUNCTION nn_grad
+
+    FUNCTION coorcheck(lattice)
+      LOGICAL,DIMENSION(3) :: coorcheck
+      REAL(q2) :: prod1,prod2,prod3
+      REAL(q2),DIMENSION(3,3) :: lattice
+      INTEGER :: i
+      ! elements 1, 2, 3 are for whether coordinates align with x, y, z axis.
+      coorcheck = (/.TRUE.,.TRUE.,.TRUE./)
+      IF (lattice(1,2) .NE. 0 .OR. lattice(1,3) .NE. 0) THEN
+        coorcheck(1)=.FALSE.
+      END IF 
+      IF (lattice(2,1) .NE. 0 .OR. lattice(2,3) .NE. 0) THEN
+        coorcheck(2)=.FALSE.
       END IF
-    END FUNCTION in_here
+      IF (lattice(3,2) .NE. 0 .OR. lattice(3,1) .NE. 0) THEN
+        coorcheck(3)=.FALSE.
+      END IF
+    END FUNCTION
+    
+    SUBROUTINE getgradhes(p,chg,hes,force)
+    TYPE(hessian) :: hes
+    TYPE(charge_obj) :: chg
+    INTEGER,DIMENSION(3) :: ptxy1, ptxy2, ptxy3, ptxy4, ptxz1, ptxz2, ptxz3 
+    INTEGER,DIMENSION(3) :: ptxz4, ptyz1, ptyz2, ptyz3, ptyz4
+    REAL(q2),DIMENSION(3) :: force
+    INTEGER,DIMENSION(3) :: p, pt, ptt, ptx1, ptx2, pty1, pty2, ptz1, ptz2
+    ! to calculate hessian matrix, second derivatives at a point
+
+    ! is calculated in the following way:
+    ! first order derivatives are calculated between the point
+    ! and its first neighbor point to get the first derivative at
+    ! half point.
+    ! the forward and backward half point first derivatives are
+    ! used to calculate second order derivatives at the point.
+    ptx1 = p + (/1,0,0/)
+    ptx2 = p + (/-1,0,0/)
+    pty1 = p + (/0,1,0/)
+    pty2 = p + (/0,-1,0/)
+    ptz1 = p + (/0,0,1/)
+    ptz2 = p + (/0,0,-1/)
+    CALL pbc(ptx1,chg%npts)
+    CALL pbc(ptx2,chg%npts)
+    CALL pbc(pty1,chg%npts)
+    CALL pbc(pty2,chg%npts)
+    CALL pbc(ptz1,chg%npts)
+    CALL pbc(ptz2,chg%npts)
+    ! these are the first order derivatives
+!    hes%du(1) = 0.5_q2 / (umag / 2) * & 
+    hes%du(1) = &
+      (rho_val(chg,p(1),p(2),p(3)) - &
+       rho_val(chg,ptx2(1),ptx2(2),ptx2(3)))
+    hes%du(2) = 0.5 * & 
+      (rho_val(chg,ptx1(1),ptx1(2),ptx1(3)) - &
+       rho_val(chg,ptx2(1),ptx2(2),ptx2(3)))
+    hes%du(3) = & 
+      (rho_val(chg,ptx1(1),ptx1(2),ptx1(3)) - &
+       rho_val(chg,p(1),p(2),p(3)))
+    hes%dv(1) = & 
+      (rho_val(chg,p(1),p(2),p(3)) - &
+       rho_val(chg,pty2(1),pty2(2),pty2(3)))
+    hes%dv(2) = 0.5 * & 
+      (rho_val(chg,pty1(1),pty1(2),pty1(3)) - &
+       rho_val(chg,pty2(1),pty2(2),pty2(3)))
+    hes%dv(3) = & 
+      (rho_val(chg,pty1(1),pty1(2),pty1(3)) - &
+       rho_val(chg,p(1),p(2),p(3)))
+    hes%dw(1) = & 
+      (rho_val(chg,p(1),p(2),p(3)) - &
+       rho_val(chg,ptz2(1),ptz2(2),ptz2(3)))
+    hes%dw(2) = 0.5 * & 
+      (rho_val(chg,ptz1(1),ptz1(2),ptz1(3)) - &
+       rho_val(chg,ptz2(1),ptz2(2),ptz2(3)))
+    hes%dw(3) = & 
+      (rho_val(chg,ptz1(1),ptz1(2),ptz1(3)) - &
+       rho_val(chg,p(1),p(2),p(3)))
+    ! these are the second order derivatives
+!    hes%dudu = 1 / umag * (hes%du(3) - hes%du(1))
+    hes%dudu = (hes%du(3) - hes%du(1)) 
+    hes%dvdv = (hes%dv(3) - hes%dv(1)) 
+    hes%dwdw = (hes%dw(3) - hes%dw(1)) 
+    ! for dudv, calculate dv of half points on u direction, using
+    ! extrapolated points, such as - 0.5 u, +- 1 v
+    ptxy1 = p + (/-1,-1,0/)
+    ptxy2 = p + (/-1,+1,0/)
+    ptxy3 = p + (/+1,+1,0/)
+    ptxy4 = p + (/+1,-1,0/)
+    ptxz1 = p + (/-1,0,-1/)
+    ptxz2 = p + (/-1,0,+1/)
+    ptxz3 = p + (/+1,0,+1/)
+    ptxz4 = p + (/+1,0,-1/)
+    ptyz1 = p + (/0,-1,-1/)
+    ptyz2 = p + (/0,-1,+1/)
+    ptyz3 = p + (/0,+1,+1/)
+    ptyz4 = p + (/0,+1,-1/)
+    CALL pbc(ptxy1,chg%npts)
+    CALL pbc(ptxy2,chg%npts)
+    CALL pbc(ptxy3,chg%npts)
+    CALL pbc(ptxy4,chg%npts)
+    CALL pbc(ptxz1,chg%npts)
+    CALL pbc(ptxz2,chg%npts)
+    CALL pbc(ptxz3,chg%npts)
+    CALL pbc(ptxz4,chg%npts)
+    CALL pbc(ptyz1,chg%npts)
+    CALL pbc(ptyz2,chg%npts)
+    CALL pbc(ptyz3,chg%npts)
+    CALL pbc(ptyz4,chg%npts)
+!    hes%dudv = 1 / umag * & 
+    hes%dudv = &
+      ( &
+      ! this is the backward dv
+!      - 0.5_q2 / vmag * &
+      - 0.5_q2 * & 
+      ((rho_val(chg,ptxy2(1),ptxy2(2),ptxy2(3)) + &
+          rho_val(chg,pty1(1),pty1(2),pty1(3))) / 2 - &
+        (rho_val(chg,ptxy1(1),ptxy1(2),ptxy1(3)) + &
+          rho_val(chg,pty2(1),pty2(2),pty2(3))) / 2 ) & 
+      ! this is the forward dv
+      + 0.5_q2 * & 
+      ((rho_val(chg,ptxy3(1),ptxy3(2),ptxy3(3)) + &
+          rho_val(chg,pty1(1),pty1(2),pty1(3))) / 2 - &
+        (rho_val(chg,ptxy4(1),ptxy4(2),ptxy4(3)) + &
+          rho_val(chg,pty2(1),pty2(2),pty2(3))) / 2 ) &
+      )
+    hes%dudw = &
+      ( &
+      ! this is the bacward dw
+      - 0.5_q2 * &
+      ((rho_val(chg,ptxz2(1),ptxz2(2),ptxz2(3)) + &
+          rho_val(chg,ptz1(1),ptz1(2),ptz1(3))) / 2 - &
+        (rho_val(chg,ptxz1(1),ptxz1(2),ptxz1(3)) + &
+          rho_val(chg,ptz2(1),ptz2(2),ptz2(3))) / 2 )  &
+      ! this is the forward dw
+      + 0.5_q2 * & 
+      ((rho_val(chg,ptxz3(1),ptxz3(2),ptxz3(3)) + &
+          rho_val(chg,ptz1(1),ptz1(2),ptz1(3))) / 2 - &
+        (rho_val(chg,ptxz4(1),ptxz4(2),ptxz4(3)) + &
+          rho_val(chg,ptz2(1),ptz2(2),ptz2(3))) / 2 ) &
+      ) 
+  
+    hes%dvdw = &
+      ( &
+      ! this is the bacward dw
+      - 0.5_q2 * &
+      ((rho_val(chg,ptyz2(1),ptyz2(2),ptyz2(3)) + &
+          rho_val(chg,ptz1(1),ptz1(2),ptz1(3))) / 2 - &
+        (rho_val(chg,ptyz1(1),ptyz1(2),ptyz1(3)) + &
+          rho_val(chg,ptz2(1),ptz2(2),ptz2(3))) / 2 ) & 
+      ! this is the forward dw
+      + 0.5_q2 * & 
+      ((rho_val(chg,ptyz3(1),ptyz3(2),ptyz3(3)) + &
+          rho_val(chg,ptz1(1),ptz1(2),ptz1(3))) / 2 - &
+        (rho_val(chg,ptyz4(1),ptyz4(2),ptyz4(3)) + &
+          rho_val(chg,ptz2(1),ptz2(2),ptz2(3))) / 2 ) &
+      )
+    
+      force(1) = hes%du(2)
+      force(2) = hes%dv(2)
+      force(3) = hes%dw(2)
+    END SUBROUTINE
+
   END MODULE
 

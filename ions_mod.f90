@@ -15,6 +15,7 @@ MODULE ions_mod
     INTEGER,ALLOCATABLE,DIMENSION(:) :: atomic_num
     CHARACTER*330:: name_ion
     INTEGER :: niontypes,nions
+    REAL(q2) :: scalefactor
   END TYPE
 
   PRIVATE

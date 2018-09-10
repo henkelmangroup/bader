@@ -165,7 +165,6 @@ MODULE charge_mod
 
 !    CALL vector_matrix(rho_grad_lat, chg%car2lat, rho_grad)
     rho_grad = MATMUL(rho_grad_lat, chg%car2lat)
-
   RETURN
   END FUNCTION rho_grad
 

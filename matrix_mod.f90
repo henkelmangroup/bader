@@ -9,6 +9,7 @@ MODULE matrix_mod
   PRIVATE
   PUBLIC :: inverse, adjoint, matrix_volume, triple_product
   PUBLIC :: cross_product, determinant, eigenvectors, v2area
+  PUBLIC :: NormalizeLatticeVectors
   CONTAINS
 
 !-----------------------------------------------------------------------------------!
@@ -125,6 +126,8 @@ MODULE matrix_mod
 
 !----------------------------------------------------------------------
 ! eigen_vectors : find the eigenvectors
+! ***************** KING RAYCHARD :***********************************
+! *************** THIS MAY NOT BE NEEDED *****************************
 !----------------------------------------------------------------------
 
   SUBROUTINE eigenvectors(yita2,iDM,dM,s1,s2,v1,v2,v3)
@@ -162,6 +165,37 @@ MODULE matrix_mod
     v2area = SQRT(SUM(tempvec(:)**2))
 
     RETURN
+  END FUNCTION
+
+!-----------------------------------------------------------------------------------!
+! NormalizeLatticeVectors
+! This function takes the lattice vectors and normalize each of them.
+!-----------------------------------------------------------------------------------!  
+  FUNCTION NormalizeLatticeVectors(v1)
+    ! v1 should be ions%lattice
+    REAL(q2),INTENT(IN),DIMENSION(3,3):: v1
+    REAL(q2),DIMENSION(3,3) :: NormalizeLatticeVectors
+    REAL(q2) :: normcoeff
+    INTEGER :: i,j
+    i = 1
+
+    DO WHILE (i <= 3)
+      normcoeff = 0
+      j = 1
+      DO WHILE (j <= 3)
+        normcoeff = normcoeff + v1(i,j)**2 
+        j = j + 1
+      END DO
+      j = 1
+      DO WHILE (j <= 3)
+        NormalizeLatticeVectors(i,j) = v1(i,j) / SQRT(normcoeff)
+        j = j + 1
+      END DO
+      i = i + 1  
+    END DO
+    ! BECAUSE FORTRAN ROW/COLUMN ORDER MIX UP
+    NormalizeLatticeVectors = TRANSPOSE(NormalizeLatticeVectors)
+    RETURN 
   END FUNCTION
 
 END MODULE matrix_mod
