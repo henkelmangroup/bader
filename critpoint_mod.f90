@@ -8,7 +8,6 @@
     USE io_mod
     USE ions_mod
     USE dsyevj3_mod
-    USE linsolve_mod
     IMPLICIT NONE
 
     PRIVATE 
@@ -405,7 +404,6 @@
       REAL(q2),DIMENSION(3) :: Z
       INTEGER :: i,j,k
       DO i = 1, 6 
-        !CALL DLITTL(lat2car,intcarts(i,:),3,3,getinds(i,:),W,Z)
         getinds(i,:) = MATMUL(car2lat,intcarts(i,:))
       END DO
       RETURN
