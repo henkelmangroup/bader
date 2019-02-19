@@ -2,7 +2,7 @@
     USE kind_mod
     USE matrix_mod
     USE bader_mod
-    USE linsolve_mod
+!    USE linsolve_mod
     USE charge_mod 
     USE options_mod
     USE ions_mod
