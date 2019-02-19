@@ -2,7 +2,6 @@
     USE kind_mod
     USE matrix_mod
     USE bader_mod
-!    USE linsolve_mod
     USE charge_mod 
     USE options_mod
     USE ions_mod
@@ -17,24 +16,22 @@
 
     TYPE hessian
 
-      ! du dv dw are derivatives of the three original lattice vectors read from
-      ! CHGCAR
+      ! du dv dw are derivatives of the three original lattice vectors read from CHGCAR
       REAL(q2),DIMENSION(3) ::  du, dv, dw
       REAL(q2) :: dudu, dvdv, dwdw, dudv, dudw, dvdw
-      ! eigval and eigvec are eigenvalues and eigvectors of hessian matrix
+      ! eigval and eigvec are eigenvalues and eigenvectors of hessian matrix
     END TYPE
     CONTAINS
 
 !-----------------------------------------------------------------------------------!
-!critpoint_find: find critical points on the edge of the Bader volumes
+!critpoint_find: find critical points on the boundary of the Bader volumes
 !NOTE: this subroutine should be called after refine_edge
 !      in order to restrict the calculation to edge points
 !-----------------------------------------------------------------------------------!
   SUBROUTINE critpoint_find(bdr,chg,opts,ions)
 
 
-
-! These are for screening CP due to numerical error. 
+! These are for screening CP
     TYPE cpc ! stands for critical point candidate
       INTEGER,DIMENSION(3) :: ind, colatint ! these are the indices of the cp
       REAL(q2),DIMENSION(3) :: force
@@ -76,7 +73,7 @@
     REAL(q2),DIMENSION(3,3) :: transformationmatrix ! normalized lattice vectors
     LOGICAL :: trilinear ! determines if hessian calculation uses interpolation
     REAL(q2) :: dx0,dx1,dy0,dy1,dz0,dz1 ! outputs from interpolated gradients
-    REAL(q2),DIMENSION(6,3) :: intcarts ! positions in cart of 6 interpolated points
+    REAL(q2),DIMENSION(6,3) :: intcarts ! positions in cartesian coordinates of 6 interpolated points
     ! row 1 2 are + and 1 x, then + and - y, then + and - z
     REAL(q2),DIMENSION(6,3) :: intgrads ! gradients of interpolated points
     REAL(q2),DIMENSION(6) :: intrhos ! rhos of interpolated points 
@@ -84,10 +81,10 @@
     REAL(q2) :: rhocur ! rho of current point
     REAL(q2) :: stepsize
     REAL(q2),DIMENSION(3) :: preal
-    INTEGER,DIMENSION(8,3) :: nn ! alternative trilinear approx.
+    INTEGER,DIMENSION(8,3) :: nn ! alternative trilinear approx points
     REAL(q2),DIMENSION(8) :: vals
     ! points
-    LOGICAL,DIMENSION(3) :: cartcoor ! check if axis are alone cartesian.
+    LOGICAL,DIMENSION(3) :: cartcoor ! check if axis are alone cartesian
     ! The followings are for finding unique critical points
     REAL(q2),DIMENSION(8,3) :: nngrad
     REAL(q2),DIMENSION(6,3) :: intnngrad
@@ -97,13 +94,13 @@
     WRITE(*,'(A)')  'FINDING CRITICAL POINTS'
     
     PRINT *, chg%car2lat
-    trilinear = .FALSE. ! let's not interpolate, as it can get messy
+    trilinear = .FALSE. ! do not interpolate, as it can get mesy
     ucptnum = 0
     cptnum = 0
     PRINT * , "These code requires -vac auto or -vac #"
     PRINT *, '-----------                  WARNING             -----------'
-    PRINT *, 'Using valence charge may yield useless and confusing results'
-    PRINT *, '    It is recommended to use total charge for finding CPs   '
+    PRINT *, ' An analysis of valence charges will not yield sensible results'
+    PRINT *, ' Use the total charge density for finding CPs   '
     PRINT *, '____________________________________________________________'
     OPEN(97,FILE='CPF.dat',STATUS='REPLACE',ACTION='WRITE')
     OPEN(98,FILE='CPFU.dat',STATUS='REPLACE',ACTION='WRITE')
@@ -148,11 +145,11 @@
               carts = MATMUL(chg%lat2car,p)
               ! get positions of where interpolated points should be
               intcarts = getintcarts(carts,umag,vmag,wmag)
-              ! get indices of the interpolated points. 
+              ! get indices of the interpolated points
               intinds = getinds(chg%car2lat,intcarts)
               ! get gradients of interpolated points
               DO i = 1, 6
-                ! again, 1to 6 are + - x, + - y, + - z
+                ! indices 1 to 6 are + - x, + - y, + - z
                 intgrads(i,:) = rho_grad(chg,intinds(i,:),intrhos(i))
 !                PRINT *, 'old grads', intgrads(1,:)
                 ! alternative : find closest neighbors to do trilinear
@@ -198,8 +195,7 @@
               
   
   !-----------------------------------------------------------------------------------!
-  ! now that this subroutine can find the correct amount of edge points, lets have
-  ! it find the hessian
+  ! after finding candidate critical edge points, now find the hessian
   !-----------------------------------------------------------------------------------!
                CALL getgradhes(p,chg,hes,force)
                hessianMatrix(1,1) = hes%dudu
@@ -214,7 +210,7 @@
                hessianMatrix = MATMUL(chg%car2lat,hessianMatrix)
                hessianMatrix = MATMUL(hessianMatrix,TRANSPOSE(chg%car2lat))
                force = MATMUL(chg%car2lat,force)
-               ! Now everything is cartesian.
+               ! now everything is cartesian
              END IF
 !             tem2 = tem2 * umag 
 !             tem2a = (/ ions%lattice(1,1),ions%lattice(2,1), & 
@@ -248,7 +244,7 @@
              tem = MATMUL(inverseHessian,force)
              ! convert from cartesian to lattice
              tem = MATMUL(chg%car2lat,tem)
-             IF ( ABS(tem(1)) <= 0.5) THEN
+             IF (ABS(tem(1)) <= 0.5) THEN
                IF (ABS(tem(2)) <= 0.5) THEN
                  IF (ABS(tem(3)) <= 0.5) THEN
                    cptnum = cptnum + 1
@@ -289,7 +285,7 @@
                      cpl(1)%eigvecs = eigvecs
                      cpl(1)%r = tem
                      cpl(1)%tempcart = MATMUL(tem + p,chg%car2lat)
-                   ELSE 
+                   ELSE
                      ALLOCATE(cplt(cptnum))
                      DO i = 1, cptnum -1
                        cplt(i) = cpl(i)
@@ -335,7 +331,7 @@
 !!             ABS(cpl(i)%ind(3) - cpl(j)%ind(3)) <= 1) THEN
 !!             cpl(i)%proxy = .TRUE.
 !!             cpl(j)%proxy = .TRUE.
-!!             ! we know the cp is being shared. follow the r to see
+!!             ! we know the cp is being shared. follow r to see
 !!             ! if we go out of cell. 
 !!             ! first step is to linearize dx
 !!             ldu = cpl(i)%du(2) - cpl(j)%du(2)
@@ -485,8 +481,8 @@
 
 
     REAL(q2) FUNCTION projection(r,rp)
-      ! r is input vector pointing towards a CP. 
-      ! rp is a cell vector to be projected onto.
+      ! r is the vector pointing towards a CP
+      ! rp is a cell vector to be projected onto
       REAL(q2),DIMENSION(3) :: r, rp
       projection = DOT_PRODUCT(r,rp)/sqrt((rp(1)**2 + &
       rp(2)**2 + rp(3)**2))
@@ -533,7 +529,7 @@
       RETURN
     END FUNCTION
     
-    ! get indices from cartesian coordinates.
+    ! get indices from cartesian coordinates
     FUNCTION  getinds(car2lat,intcarts) 
       REAL(q2),DIMENSION(6,3) :: getinds, intcarts
       REAL(q2),DIMENSION(3,3) :: car2lat,W
@@ -545,8 +541,8 @@
       RETURN
     END FUNCTION
 
-    ! find neares on grid points for a interpolated point
-    ! to do trilinear interpolation
+    ! finds nearest grid point to a interpolated point
+    ! used for doing trilinear interpolation
     ! p is the centered on grid point. intcart is a nearby point to be
     ! interpolated in cartesian coordinates.
     FUNCTION findnn(p,intcart,chg) ! THIS FUNCTION IS NOT STABLE
@@ -590,9 +586,8 @@
       ! compare each element to all
       ! if it is smaller, it gets score
       ! keep the ones with highest scores
-      ! there should not be points with equal 
-      ! scores. Each point should have a score
-      ! ranging from 0 to 26.
+      ! there should not be points with equal scores
+      ! Each point should have a score ranging from 0 to 26
       DO i = 1, 27
         scores(i) = 0
         DO j = 1, 27
@@ -704,7 +699,7 @@
       RETURN
     END FUNCTION
 
-    ! This function should take in a list of nearest neighbors predetermined.
+    ! This function takes in a list of nearest neighbors
     FUNCTION nn_grad(chg,r,rho,nn)
       TYPE(charge_obj) :: chg
       REAL(q2),DIMENSION(3),INTENT(IN) :: r
@@ -848,7 +843,7 @@
       coorcheck = (/.TRUE.,.TRUE.,.TRUE./)
       IF (lattice(1,2) .NE. 0 .OR. lattice(1,3) .NE. 0) THEN
         coorcheck(1)=.FALSE.
-      END IF 
+      END IF
       IF (lattice(2,1) .NE. 0 .OR. lattice(2,3) .NE. 0) THEN
         coorcheck(2)=.FALSE.
       END IF
@@ -864,14 +859,13 @@
     INTEGER,DIMENSION(3) :: ptxz4, ptyz1, ptyz2, ptyz3, ptyz4
     REAL(q2),DIMENSION(3) :: force
     INTEGER,DIMENSION(3) :: p, pt, ptt, ptx1, ptx2, pty1, pty2, ptz1, ptz2
-    ! to calculate hessian matrix, second derivatives at a point
+    ! calculate hessian matrix, the second derivative at a point
 
     ! is calculated in the following way:
     ! first order derivatives are calculated between the point
-    ! and its first neighbor point to get the first derivative at
-    ! half point.
-    ! the forward and backward half point first derivatives are
-    ! used to calculate second order derivatives at the point.
+    ! and its first neighbor point to get a central difference derivative
+    ! the forward and backward central derivatives are used to calculate
+    ! the second order derivatives
     CALL pbc(p,chg%npts)
     ptx1 = p + (/1,0,0/)
     ptx2 = p + (/-1,0,0/)
