@@ -28,6 +28,7 @@
 
     PUBLIC :: weight_obj
     PUBLIC :: bader_weight_calc
+    PUBLIC :: sort_weight
 
   CONTAINS
 
