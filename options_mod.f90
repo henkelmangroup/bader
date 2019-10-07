@@ -8,7 +8,7 @@
 
     TYPE :: options_obj
       CHARACTER(LEN=128) :: chargefile, refchgfile
-      REAL(q2) :: badertol, stepsize, vacval
+      REAL(q2) :: badertol, stepsize, vacval 
       INTEGER :: out_opt, out_auto = 0, out_cube = 1, out_chgcar4 = 2, out_chgcar5 = 3
       INTEGER :: in_opt, in_auto = 0, in_cube = 1, in_chgcar = 2, in_chgcar4 = 3,in_chgcar5 = 4
       INTEGER :: bader_opt, bader_offgrid = 0, bader_ongrid = 1, bader_neargrid = 2, bader_weight = 3
@@ -25,6 +25,7 @@
       LOGICAL :: print_sum_bader, print_sum_atom
       LOGICAL :: print_bader_index, print_atom_index
       LOGICAL :: verbose_flag, ref_flag, find_critpoints_flag
+      LOGICAL :: leastsquare_flag
       LOGICAL :: print_surfaces_atoms
     END TYPE options_obj
 
@@ -76,6 +77,7 @@
       opts%stepsize = 0.0_q2
       opts%ref_flag = .FALSE.
       opts%find_critpoints_flag = .FALSE.
+      opts%leastsquare_flag = .FALSE.
       opts%print_surfaces_atoms = .FALSE.
 !      n=IARGC()
       n=COMMAND_ARGUMENT_COUNT()
@@ -118,6 +120,10 @@
         ! Find critical points
         ELSEIF (p(1:ip) == '-cp') THEN
           opts%find_critpoints_flag = .TRUE.
+        ! Use least square methods for finding gradient and curvature for crit
+        ! point
+        ELSEIF (p(1:ip) == '-ls') THEN
+          opts%leastsquare_flag = .TRUE.
 
         ! Verbose
         ELSEIF (p(1:ip) == '-v') THEN
@@ -137,6 +143,7 @@
              READ(inc,*) opts%vacval
              opts%vac_flag = .TRUE.
           END IF
+      
 
         ! Bader options
         ELSEIF (p(1:ip) == '-b') THEN

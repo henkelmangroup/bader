@@ -83,7 +83,9 @@
        ENDIF
        CALL bader_mindist(bdr,ions,chgval)
        CALL bader_output(bdr,ions,chgval)
-       IF (opts%find_critpoints_flag) CALL critpoint_find(bdr,chgval,opts,ions)
+       IF (opts%find_critpoints_flag) THEN 
+         CALL critpoint_find(bdr,chgval,opts,ions)
+       END IF
        IF (opts%print_surfaces_atoms) THEN
          CALL bader_check_partitioning(bdr,chgval,scell_dir) ! Ensure that periodic boundary conditions do not collapse bader volumes
          IF ( ANY( scell_dir ) ) THEN
