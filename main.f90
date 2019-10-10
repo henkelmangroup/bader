@@ -67,6 +67,7 @@
      TYPE(voronoi_obj) :: vor
      LOGICAL, DIMENSION(3)  :: scell_dir
      INTEGER, ALLOCATABLE :: sc_atom_map(:)
+     INTEGER :: stat
     ! Write the version number
      WRITE(*,'(/,2X,A)') 'GRID BASED BADER ANALYSIS  (Version 1.03 11/13/17)'
 
@@ -84,7 +85,7 @@
        CALL bader_mindist(bdr,ions,chgval)
        CALL bader_output(bdr,ions,chgval)
        IF (opts%find_critpoints_flag) THEN 
-         CALL critpoint_find(bdr,chgval,opts,ions)
+         CALL critpoint_find(bdr,chgval,opts,ions,stat)
        END IF
        IF (opts%print_surfaces_atoms) THEN
          CALL bader_check_partitioning(bdr,chgval,scell_dir) ! Ensure that periodic boundary conditions do not collapse bader volumes

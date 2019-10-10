@@ -30,10 +30,10 @@
 !NOTE: this subroutine should be called after refine_edge
 !      in order to restrict the calculation to edge points
 !-----------------------------------------------------------------------------------!
-  SUBROUTINE critpoint_find(bdr,chg,opts,ions)
+  SUBROUTINE critpoint_find(bdr,chg,opts,ions,stat)
 ! These are for screening CP due to numerical error. 
     TYPE cpc ! stands for critical point candidate
-      INTEGER,DIMENSION(3) :: ind, colatint ! these are the indices of the cp
+      INTEGER,DIMENSION(3) :: ind  ! these are the indices of the cp
       REAL(q2),DIMENSION(3) :: trueind
       REAL(q2),DIMENSION(3) :: force 
       REAL(q2),DIMENSION(3) :: tempcart, tempind
@@ -51,7 +51,6 @@
       LOGICAL :: proxy, isunique
     END TYPE
     
-
     TYPE(hessian) :: hes
     TYPE(bader_obj) :: bdr
     TYPE(charge_obj) :: chg
@@ -60,6 +59,7 @@
     TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpl, cplt ! critical point list and a temporary
 ! copy
 ! for points, 1 and 2 are +1, -1
+    INTEGER :: stat
     INTEGER,DIMENSION(3) :: p, pt, ptt, ptx1, ptx2, pty1, pty2, ptz1, ptz2
     INTEGER,DIMENSION(3) :: tempind
     INTEGER :: n1, n2, n3, d1, d2, d3, cptnum, ucptnum, i, j, k, debugnum
@@ -75,7 +75,6 @@
     REAL(q2) :: umag, vmag, wmag, threshhold, minmag, tempreal
     REAL(q2),DIMENSION(3,3) :: eigvecs, inverseHessian
     ! linearized approximated derivatives for proxy critical screening
-    LOGICAL :: trilinear ! determines if hessian calculation uses interpolation
     REAL(q2) :: dx0,dx1,dy0,dy1,dz0,dz1 ! outputs from interpolated gradients
     REAL(q2),DIMENSION(6,3) :: intcarts ! positions in cart of 6 interpolated points
     ! row 1 2 are + and 1 x, then + and - y, then + and - z
@@ -109,7 +108,7 @@
 
 
     ! below are variables for least sqaures gradient
-
+    stat = 0 ! 0 means nothing
     WRITE(*,'(A)')  'FINDING CRITICAL POINTS'
     IF (opts%leastsquare_flag == .TRUE. ) THEN
       PRINT *, 'Using least square gradient'
@@ -130,7 +129,6 @@
     maxcount = 0
     ucagecount = 0
     cagecount = 0
-    trilinear = .FALSE. ! let's not interpolate, as it can get messy
     ucptnum = 0
     cptnum = 0
     PRINT * , "These code requires -vac auto or -vac #"
@@ -175,7 +173,6 @@
         matm = matm + wi(i) * outerproduct
       END DO
     END IF
-    IF ( ALL(cartcoor) ) trilinear = .FALSE.
       DO n1 = 1,chg%npts(1)
         DO n2 = 1,chg%npts(2)
           DO n3 = 1,chg%npts(3)
@@ -186,155 +183,57 @@
               END IF
               p = (/n1,n2,n3/)
               preal = p
-              trilinear = .FALSE.
-              IF (trilinear) THEN
-                ! get cartesian coordinates of current point
-                !carts = getcart(p,chg%lat2car)
-                carts = MATMUL(chg%lat2car,p)
-                ! get positions of where interpolated points should be
-                intcarts = getintcarts(carts,umag,vmag,wmag)
-                ! get indices of the interpolated points. 
-                intinds = getinds(chg%car2lat,intcarts)
-                ! get gradients of interpolated points
-                DO i = 1, 6
-                  ! again, 1to 6 are + - x, + - y, + - z
-                  intgrads(i,:) = rho_grad(chg,intinds(i,:),intrhos(i))
-!                  PRINT *, 'old grads', intgrads(1,:)
-                  ! alternative : find closest neighbors to do trilinear
-                  ! approximation
-!                  nn = findnn(p,intcarts(i,:),chg)
-!                  intgrads(i,:) = nn_grad(chg,intinds(i,:),intrhos(i),nn)
-!                  PRINT *, 'new grads', intgrads(1,:)
-                END DO
-                ! get second derivatives
-                ! dxdx
-                hessianMatrix(1,1) = (intgrads(1,1) - intgrads(2,1)) / (2 * minmag)
-                ! dydy
-                hessianMatrix(2,2) = (intgrads(3,2) - intgrads(4,2)) / (2 * minmag)
-                ! dzdz
-                hessianMatrix(3,3) = (intgrads(5,3) - intgrads(6,3)) / (2 * minmag)
-                ! dxdy
-                hessianMatrix(1,2) = (intgrads(1,2) - intgrads(2,2)) / (2 * minmag)
-                hessianMatrix(2,1) = hessianMatrix(1,2)
-                ! dxdz
-                hessianMatrix(1,3) = (intgrads(1,3) - intgrads(2,3)) / (2 * minmag)
-                hessianMatrix(3,1) = hessianMatrix(1,3)
-                ! dydz
-                hessianMatrix(2,3) = (intgrads(3,3) - intgrads(4,3)) / (2 * minmag)
-                hessianMatrix(3,2) = hessianMatrix(3,2)
-                ! force
-                force = rho_grad(chg,preal,rhocur)
-              ELSE 
-  
-                
-  
   !-  ----------------------------------------------------------------------------------!
   !   now that this subroutine can find the correct amount of edge points, lets have
   !   it find the hessian
   !-  ----------------------------------------------------------------------------------!
-                IF (opts%leastsquare_flag == .TRUE.) THEN
-                  force = lsg(p,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
-                  hessianMatrix = &
-                    lsh(p,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
-                  tem = - MATMUL(INVERSE(hessianMatrix),force)
-                  ! tem is now in cartesian. convert it back to lattice
-                  tem = MATMUL(tem, chg%car2lat)
-                ELSE 
-                  CALL getgradhes(p,chg,hes,force)
-                  hessianMatrix(1,1) = hes%dudu
-                  hessianMatrix(1,2) = hes%dudv
-                  hessianMatrix(1,3) = hes%dudw
-                  hessianMatrix(2,1) = hes%dudv
-                  hessianMatrix(2,2) = hes%dvdv
-                  hessianMatrix(2,3) = hes%dvdw
-                  hessianMatrix(3,1) = hes%dudw
-                  hessianMatrix(3,2) = hes%dvdw
-                  hessianMatrix(3,3) = hes%dwdw
-                  inverseHessian = inverse(hessianMatrix)
-                  tem = - MATMUL(inverseHessian,force)
-                  hessianMatrix = MATMUL(chg%car2lat,hessianMatrix)
-                  hessianMatrix = MATMUL(hessianMatrix,TRANSPOSE(chg%car2lat))
-                  force = MATMUL(chg%car2lat,force)
-                  ! Now everything is cartesian.
-                END IF
+              IF (opts%leastsquare_flag == .TRUE.) THEN
+                force = lsg(p,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
+!                IF (force(1) >= 1000 .OR. &
+!                    force(2) >= 1000 .OR. & 
+!                    force(3) >= 1000) THEN
+!                CYCLE
+!                END IF
+                hessianMatrix = &
+                  lsh(p,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
+                tem = - MATMUL(INVERSE(hessianMatrix),force)
+                ! tem is now in cartesian. convert it back to lattice
+                tem = MATMUL(tem, chg%car2lat)
+              ELSE 
+                CALL getgradhes(p,chg,hes,force)
+                hessianMatrix(1,1) = hes%dudu
+                hessianMatrix(1,2) = hes%dudv
+                hessianMatrix(1,3) = hes%dudw
+                hessianMatrix(2,1) = hes%dudv
+                hessianMatrix(2,2) = hes%dvdv
+                hessianMatrix(2,3) = hes%dvdw
+                hessianMatrix(3,1) = hes%dudw
+                hessianMatrix(3,2) = hes%dvdw
+                hessianMatrix(3,3) = hes%dwdw
+                inverseHessian = inverse(hessianMatrix)
+                tem = - MATMUL(inverseHessian,force)
+                hessianMatrix = MATMUL(chg%car2lat,hessianMatrix)
+                hessianMatrix = MATMUL(hessianMatrix,TRANSPOSE(chg%car2lat))
+                force = MATMUL(chg%car2lat,force)
+                ! Now everything is cartesian.
               END IF
-
-!               inverseHessian = inverse(hessianMatrix)
-!               tem = MATMUL(inverseHessian,force)
-               ! convert from cartesian to lattice
-!               tem = MATMUL(chg%car2lat,tem)
+              ! convert from cartesian to lattice
               IF ( ABS(tem(1)) <= 1) THEN
                 IF (ABS(tem(2)) <= 1) THEN
                   IF (ABS(tem(3)) <= 1) THEN              
-!                    PRINT *, 'critical point at :'
-!                    PRINT *, p
-!                    PRINT *, 'default force is in cart'
-!                    PRINT *, force
-!                    PRINT *, 'lsg force is'
-!                    PRINT *, MATMUL(lsg(p,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct) &
-!                             ,chg%lat2car)
-!                    PRINT *, 'now begins lsh'
-!                    temphessian = & 
-!                      lsh(p,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
-!                    PRINT *, 'lsh is'
-!                    DO d1  = 1,3
-!                      PRINT *, temphessian(d1,:)
-!                    END DO
-!                    PRINT *, 'defalt hessian is in cart'
-!                    DO d1 = 1,3
-!                      PRINT *, hessianmatrix(d1,:)
-!                    END DO
-!                    PRINT *, 'default tem is '
-!                    PRINT *, tem
-!                    PRINT *, 'least square tem is'
-!                    PRINT *, MATMUL(INVERSE(temphessian),  & 
-!                             MATMUL(lsg(p,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct) &
-!                             ,chg%lat2car))
                     cptnum = cptnum + 1
                     WRITE(97,*) '*********** A NEW ENTRY *************'
                     bkhessianMatrix = hessianMatrix
-                    CALL DSYEVJ3(hessianMatrix,eigvecs,eigvals)
-                    WRITE(97,*) 'Critical point number: ', cptnum
+!                    CALL DSYEVJ3(hessianMatrix,eigvecs,eigvals)
+                    WRITE(97,*) 'Critical candidate point number: ', cptnum
                     WRITE(97,*) "Indices are"
                     WRITE(97,*) p(1),p(2),p(3)
                     WRITE(97,*) "Density at this point is" 
                     WRITE(97,*) rho_val(chg,p(1),p(2),p(3))
-                    WRITE(97,*) 'Eigenvalues: '
-                    WRITE(97,*) eigvals
-                    negcount = 0
-                    DO d1=1,3
-                      IF (eigvals(d1) <0) THEN
-                        negcount = negcount + 1
-                      END IF
-                    END DO
-                    PRINT *, 'negcount is'
-                    PRINT *, negcount
-                    IF (negcount == 0) THEN
-                      cagecount = cagecount + 1
-                      WRITE(97,*) 'This is a cage critical point'
-                    END IF
-                    IF (negcount == 2) THEN
-                      bondcount = bondcount + 1
-                      WRITE(97,*) 'This is a bond critical point'
-                    ELSEIF(negcount == 1) THEN
-                      ringcount = ringcount + 1
-                      WRITE(97,*) 'This is a ring critical point'
-                    ELSEIF(negcount == 3) THEN
-                      maxcount = maxcount + 1
-                      WRITE(97,*) 'This is a nuclear critical point'
-                    END IF
                     WRITE(97,'(3(1X,E18.11))') 
-                    WRITE(97,*) 'Eigenvectors:'
-                    WRITE(97,*) eigvecs(1,:)
-                    WRITE(97,*) eigvecs(2,:)
-                    WRITE(97,*) eigvecs(3,:)
                     WRITE(97,*) 'tem', tem
-                    WRITE(97,*) 'in lattice units, force is'
-                    WRITE(97,*)  force
-                    WRITE(97,*) 'in lattice units, Hessian is'
-                    WRITE(97,*)  bkhessianMatrix
-                    WRITE(97,*) 'du and dudu is'
-                    WRITE(97,*) hes%du, hes%dudu
+                    WRITE(97,*) 'in cartesian units, force is'
+                    WRITE(97,*)  MATMUL(force,chg%lat2car)
                     IF (cptnum == 1)  THEN
                       ALLOCATE(cpl(1))
                       cpl(1)%du = hes%du
@@ -345,10 +244,7 @@
                       cpl(1)%ind(3) = n3
                       cpl(1)%force = force
                       cpl(1)%proxy = .FALSE.
-                      cpl(1)%eigvals = eigvals
-                      cpl(1)%eigvecs = eigvecs
                       cpl(1)%r = tem
-                      cpl(1)%negcount = negcount
                       cpl(1)%tempcart = MATMUL(tem + p,chg%car2lat)
                     ELSE 
                       ALLOCATE(cplt(cptnum))
@@ -369,10 +265,7 @@
                       cpl(cptnum)%ind(3) = n3
                       cpl(cptnum)%force = force
                       cpl(cptnum)%proxy = .FALSE.
-                      cpl(cptnum)%eigvals = eigvals
-                      cpl(cptnum)%eigvecs = eigvecs
                       cpl(cptnum)%r = tem
-                      cpl(cptnum)%negcount = negcount
                       cpl(cptnum)%tempcart = MATMUL(tem + p, chg%car2lat)
                   END IF
                 END IF
@@ -393,37 +286,7 @@
       END DO
       PRINT *,'CRITICAL POINTS INFO WRITEN TO CPF.dat'
       PRINT *, "CRITICAL POINTS FOUND: ", cptnum 
-      PRINT *, "Found this many cage critical points:", cagecount
-      PRINT *, "Found this many bond critical points:", bondcount
-      PRINT *, "Found this many ring critical points:", ringcount
-      PRINT *, "Found this many nuclear critical points:", maxcount
-      
       PRINT *, 'FINDING UNIQUE CRITICAL POINTS...'
-!! *  ************ DONT DELETE THESE CODE **************************
-!!      ! now go through candidates, for each candidate, see if there is another
-!!      ! within 1 distance on u v w direction.
-!!      DO i = 1 , cptnum - 1
-!!        DO j = i + 1 , cptnum
-!!          IF (i < j) THEN
-!!            IF (ABS(cpl(i)%ind(1) - cpl(j)%ind(1)) <= 1 .AND. &
-!!               ABS(cpl(i)%ind(2) - cpl(j)%ind(2)) <= 1 .AND. & 
-!!               ABS(cpl(i)%ind(3) - cpl(j)%ind(3)) <= 1) THEN
-!!               cpl(i)%proxy = .TRUE.
-!!               cpl(j)%proxy = .TRUE.
-!!               ! we know the cp is being shared. follow the r to see
-!!               ! if we go out of cell. 
-!!               ! first step is to linearize dx
-!!               ldu = cpl(i)%du(2) - cpl(j)%du(2)
-!!               ldv = cpl(i)%dv(2) - cpl(j)%dv(2)
-!!               ldw = cpl(i)%dw(2) - cpl(j)%dw(2) 
-!!!               END IF
-!!               WRITE(97,*)  i, j   
-!!            END IF
-!!          END IF
-!!        END DO
-!!      END DO
-!!      PRINT *, 'number of unique cp :',debugnum
-!!**  *****************************************************************
 !!**  *****************************************************************
       ! To find critical points (unique), start with a cell that contains a
       ! critical point and its hessian and force. Use Newton's method to make a
@@ -433,26 +296,15 @@
       ! r is zero. get the coordinates of the new true critical point. If this
       ! point is within half lattice to another, do not record this new point.
       DO i = 1, cptnum
-        PRINT *, 'processing critical point number: ',i
         cpl(i)%isunique = .FALSE.
         stepcount = 0
         ! move to r in lattice units
-!        cpl(i)%colat = cpl(i)%ind + cpl(i)%r 
         ! find the nearest neighbors to this point.
         ! first find a nearby grid point.
-!        cpl(i)%colatint = (/ &
-!           FLOOR(cpl(i)%colat(1)),&
-!           FLOOR(cpl(i)%colat(2)),& 
-!           FLOOR(cpl(i)%colat(3))/)
         ! get cartesians of the current location
         ! this is not needed if we don't want to guarentee that that NN are 
         ! actually the closest. 
-!        cpl(i)%cocart = MATMUL(chg%lat2car,cpl(i)%colat)
         ! find nearest neighbors
-!        cpl(i)%nnind = findnn(cpl(i)%colatint,cpl(i)%cocart,chg)
-        ! try not to find NN first. rather just assume NN's.
-
-
         ! the following code uses only one side of the criticalpoints
         ! x-1, y-1, z-1 000
         cpl(i)%nnind(1,:) = cpl(i)%ind + & 
@@ -480,28 +332,13 @@
           (/CEILING(cpl(i)%r(1)),CEILING(cpl(i)%r(2)),CEILING(cpl(i)%r(3))/)
         ! get gradients "force" of all nearest neighbors
         ! These codes uses a larger box.
-!        nnind(1,:) = cpl(i)%ind + (/-1,-1,-1/) ! perhaps this box is too large?
-!        nnind(2,:) = cpl(i)%ind + (/1,-1,-1/)  ! This box contains 27 grid points
-!        nnind(3,:) = cpl(i)%ind + (/-1,1,-1/)  ! only 8 are used to interpolate.
-!        nnind(4,:) = cpl(i)%ind + (/1,1,-1/)   ! This box contains 27 voxels
-!        nnind(5,:) = cpl(i)%ind + (/-1,-1,1/)  ! yet new tem is screen against the
-!        nnind(6,:) = cpl(i)%ind + (/1,-1,1/)   ! requirment that it remain in 
-!        nnind(7,:) = cpl(i)%ind + (/-1,1,1/)   ! a single voxel
-!        nnind(8,:) = cpl(i)%ind + (/1,1,1/)
         DO j = 1, 8
-!          PRINT *, 'nn indices is'
-!          PRINT *, nnind(j,:)
-!          tempind(1) = cpl(i)%nnind(j,1)
-!          tempind(2) = cpl(i)%nnind(j,2)
-!          tempind(3) = cpl(i)%nnind(j,3)
           ! getting nn indices are checked. pass. 
           IF (opts%leastsquare_flag == .TRUE.) THEN
             nngrad(j,:) = lsg(cpl(i)%nnind(j,:),chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
           ELSE 
             CALL getgradhes(tempind,chg,hes,nngrad(j,:))
           END IF
-!          PRINT *, 'the gradient at nn is'
-!          PRINT *, nngrad(j,:)
           ! this force is not adjusted with lattice
           !cpl(i)%nngrad(j,:) = MATMUL(chg%car2lat,cpl(i)%nngrad(j,:))
           !PRINT *, cpl(i)%nngrad(j,:)
@@ -516,6 +353,7 @@
         CALL pbc_r_lat(truer,chg%npts)
         previoustem = cpl(i)%r
         DO stepcount = 1,100000
+          CALL pbc_r_lat(truer,chg%npts)
           nnind(1,:) = (/FLOOR(truer(1)),FLOOR(truer(2)),    &
                   FLOOR(truer(3))/)
           nnind(2,:) = (/CEILING(truer(1)),FLOOR(truer(2)),  &
@@ -548,13 +386,13 @@
             END IF
           END DO
           ! Row find the nearest neighbors at this new locaiton
-
           ! First update critical point location
           ! The next big step is to interpolate the force at predicted critical
           ! point.
           tempforce = trilinear_interpol_grad(nngrad,distance) ! val r interpol
           temphessian = trilinear_interpol_hes(nnhes,distance)
           nexttem = - MATMUL(INVERSE(temphessian),tempforce)
+          nexttem = MATMUL(nexttem,chg%car2lat)
           tempr(1) = NINT(truer(1))
           tempr(2) = NINT(truer(2))
           tempr(3) = NINT(truer(3))
@@ -565,22 +403,18 @@
             cpl(i)%isunique = .FALSE.
             EXIT
           END IF
-          IF ( truer(1) == truer(1) + nexttem(1) .AND. &
-               truer(2) == truer(2) + nexttem(2) .AND. &
-               truer(3) == truer(3) + nexttem(3) )  THEN
-!           IF ( nexttem(1) <= 0.000001 .AND. &
-!                nexttem(2) <= 0.000001 .AND. &
-!                nexttem(3) <= 0.000001 ) THEN
+!          IF ( truer(1) == truer(1) + nexttem(1) .AND. &
+!               truer(2) == truer(2) + nexttem(2) .AND. &
+!               truer(3) == truer(3) + nexttem(3) )  THEN
+          IF ( ABS(nexttem(1)) <= 0.0000001 .AND. &
+               ABS(nexttem(2)) <= 0.0000001 .AND. &
+               ABS(nexttem(3)) <= 0.0000001 ) THEN
             cpl(i)%trueind = truer 
             cpl(i)%isunique = .TRUE.
             DO j = 1, i - 1 
               IF (ABS(truer(1) - cpl(j)%trueind(1) )<= 0.5 .AND. &
                   ABS(truer(2) - cpl(j)%trueind(2) )<= 0.5 .AND. &
                   ABS(truer(3) - cpl(j)%trueind(3) )<= 0.5) THEN
-                PRINT *,'Inspecting critical point number: ', i
-                PRINT *, cpl(i)%ind
-                PRINT *, 'true critical point is found to be same with &
-                  critical point: ', j
                 cpl(i)%isunique = .FALSE.
                 EXIT
               END IF
@@ -592,14 +426,26 @@
               WRITE (98,*), 'true critical point is found at'
               WRITE (98,*), truer
               ucptnum = ucptnum + 1
-              IF (cpl(i)%negcount == 2 ) THEN
-                ubondcount = ubondcount + 1
-              ELSE IF (cpl(i)%negcount == 1) THEN
-                uringcount = uringcount + 1
-              ELSE IF (cpl(i)%negcount == 0) THEN
-                ucagecount = ucagecount + 1
-              ELSE IF (cpl(i)%negcount == 3) THEN
-                umaxcount = umaxcount + 1
+              CALL DSYEVJ3(temphessian,eigvecs,eigvals)
+              negcount = 0
+              DO d1=1,3
+                IF (eigvals(d1) <0) THEN
+                  negcount = negcount + 1
+                END IF
+              END DO
+              IF (negcount == 0) THEN
+                cagecount = cagecount + 1
+                WRITE(98,*) 'This is a cage critical point'
+              END IF
+              IF (negcount == 2) THEN
+                bondcount = bondcount + 1
+                WRITE(98,*) 'This is a bond critical point'
+              ELSEIF(negcount == 1) THEN
+                ringcount = ringcount + 1
+                WRITE(98,*) 'This is a ring critical point'
+              ELSEIF(negcount == 3) THEN
+                maxcount = maxcount + 1
+                WRITE(98,*) 'This is a nuclear critical point'
               END IF
               WRITE (98,*), 'Charge density is about'
               WRITE (98,*), rho_val(chg, &
@@ -618,103 +464,22 @@
             ! for the line above:
             ! note here that cpl(i)%r is the vector tem starting from cpl(i)%ind
             ! tem is in lattice unit.
-            ! for a larger box it be the equation below:
-!          tempforce = trilinear_interpol_grad(nngrad, (cpl(i)%r + &
-!                      (/1.0,1.0,1.0/)))
-!          PRINT *, 'force is'
-!          PRINT *, MATMUL(chg%car2lat,tempforce)
-          ! assume the force is calculated correctly. 
-          ! The next step is to find a reasonable step size. 
-          ! cpl(i)%r is in lattice units so step size should also be in lattice
-          ! units. 
-!          PRINT *, 'stepsize is'
-!          PRINT *, stepsize
-          ! it seems to be able to find the correct step size
-          ! the next step is to find the hessian at the new location.
-          ! to do this, forces are needed at the 8 neighbor sites. 
-          ! list of intnngrad is ordered as follows from index 1 to 6
-          ! +x -x +y -y +z -z 
-  !        cpl(i)%tempr = cpl(i)%r + (/stepsize,REAL(0.,q2),REAL(0.,q2)/)
-          ! the following code is not needed if hessian won't be 
-          ! calculated again
-!          intnngrad(1,:) = trilinear_interpol_grad(nngrad, &
-!             (cpl(i)%r + ))
-!          intnngrad(2,:) = trilinear_interpol_grad(nngrad, &
-!             (cpl(i)%r + ))
-!          intnngrad(3,:) = trilinear_interpol_grad(nngrad, &
-!             (cpl(i)%r + ))
-!          intnngrad(4,:) = trilinear_interpol_grad(nngrad, &
-!             (cpl(i)%r + ))
-!          intnngrad(5,:) = trilinear_interpol_grad(nngrad, &
-!             (cpl(i)%r + ))
-!          intnngrad(6,:) = trilinear_interpol_grad(nngrad, &
-!             (cpl(i)%r + ))
-          ! the following code is for the larger box
-!          intnngrad(1,:) = trilinear_interpol_grad(nngrad, &
-!             (cpl(i)%r + (/1.0,1.0,1.0/)))
-!          intnngrad(2,:) = trilinear_interpol_grad(nngrad, &
-!             (cpl(i)%r + (/1.0,1.0,1.0/)))
-!          intnngrad(3,:) = trilinear_interpol_grad(nngrad, &
-!             (cpl(i)%r + (/1.0,1.0,1.0/)))
-!          intnngrad(4,:) = trilinear_interpol_grad(nngrad, &
-!             (cpl(i)%r + (/1.0,1.0,1.0/)))
-!          intnngrad(5,:) = trilinear_interpol_grad(nngrad, &
-!             (cpl(i)%r + (/1.0,1.0,1.0/)))
-!          intnngrad(6,:) = trilinear_interpol_grad(nngrad, &
-!             (cpl(i)%r + (/1.0,1.0,1.0/)))
-!          intnngrad(1,:) = trilinear_interpol_grad(nngrad, &
-!            0.5 * (cpl(i)%r + (/stepsize,REAL(0.,q2),REAL(0.,q2)/) + (/1.0,1.0,1.0/)))
-!          intnngrad(2,:) = trilinear_interpol_grad(nngrad, &
-!            0.5 * (cpl(i)%r + (/-stepsize,REAL(0.,q2),REAL(0.,q2)/) + (/1.0,1.0,1.0/)))
-!          intnngrad(3,:) = trilinear_interpol_grad(nngrad, &
-!            0.5 * (cpl(i)%r + (/REAL(0.,q2),stepsize,REAL(0.,q2)/) + (/1.0,1.0,1.0/)))
-!          intnngrad(4,:) = trilinear_interpol_grad(nngrad, &
-!            0.5 * (cpl(i)%r + (/REAL(0.,q2),-stepsize,REAL(0.,q2)/) + (/1.0,1.0,1.0/)))
-!          intnngrad(5,:) = trilinear_interpol_grad(nngrad, &
-!            0.5 * (cpl(i)%r + (/REAL(0.,q2),REAL(0.,q2),stepsize/) + (/1.0,1.0,1.0/)))
-!          intnngrad(6,:) = trilinear_interpol_grad(nngrad, &
-!            0.5 * (cpl(i)%r + (/REAL(0.,q2),REAL(0.,q2),-stepsize/) + (/1.0,1.0,1.0/)))
-!          PRINT *, 'interpolating gradient at '
-!          PRINT *, (cpl(i)%r + (/stepsize,REAL(0.,q2),REAL(0.,q2)/) + &
-!            (/1.0,1.0,1.0/)) + nnind(1,:)
-!          PRINT *, 'the interpolated gradient is'
-!          PRINT *, intnngrad(1,:) ! the interpolated gradient agrees with
-!                                  ! mathematica using 2gauortho data
-!          PRINT *, 'interpolating gradient at '
-!          PRINT *, (cpl(i)%r + (/-stepsize,REAL(0.,q2),REAL(0.,q2)/) + &
-!            (/1.0,1.0,1.0/)) + nnind(1,:)
-!          PRINT *, 'the interpolated gradient is'
-!          PRINT *, intnngrad(2,:)
-
           ! should expect gradient of neighbors with different diretions
           ! nngrad forces are in lattice. so these forces are also in lattice. 
-        
           ! assuming it is correct.
-          ! now get force and hessian back in cartesian
-          ! lets not worry about the nearest neighbors yet, for finding gradient 
           truer = truer + nexttem ! this keeps track the total movement
           CALL pbc_r_lat(truer,chg%npts)
         END DO
       END DO    
     PRINT *, 'Unique critical point count: ', ucptnum
-    PRINT *, 'Unique bond critical point count: ', ubondcount
-    PRINT *, 'Unique ring critical point count: ', uringcount
-    PRINT *, 'Unique cage critical point count: ', ucagecount
-    PRINT *, 'Unique nucl critical point count: ', umaxcount
+    PRINT *, 'Unique bond critical point count: ', bondcount
+    PRINT *, 'Unique ring critical point count: ', ringcount
+    PRINT *, 'Unique cage critical point count: ', cagecount
+    PRINT *, 'Unique nucl critical point count: ', maxcount
     DEALLOCATE (cpl)
     CLOSE(97)
     CLOSE(98)
     END SUBROUTINE critpoint_find
-
-
-    REAL(q2) FUNCTION projection(r,rp)
-      ! r is input vector pointing towards a CP. 
-      ! rp is a cell vector to be projected onto.
-      REAL(q2),DIMENSION(3) :: r, rp
-      projection = DOT_PRODUCT(r,rp)/sqrt((rp(1)**2 + &
-      rp(2)**2 + rp(3)**2))
-      RETURN
-    END FUNCTION
 
     ! get cartesian coordinates of a point
     FUNCTION getcart(ind,lat2car)

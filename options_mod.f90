@@ -27,6 +27,11 @@
       LOGICAL :: verbose_flag, ref_flag, find_critpoints_flag
       LOGICAL :: leastsquare_flag
       LOGICAL :: print_surfaces_atoms
+      REAL(q2) :: knob_tem 
+      REAL(q2) :: knob_distance
+      LOGICAL :: ismolecule
+      LOGICAL :: iscrystal
+      
     END TYPE options_obj
 
     PRIVATE
@@ -50,6 +55,10 @@
       INTEGER :: COMMAND_ARGUMENT_COUNT
 
 ! Default values
+      opts%knob_tem = 0.
+      opts%knob_distance = 0.
+      opts%ismolecule = .FALSE.
+      opts%iscrystal = .FALSE.
       opts%out_opt = opts%out_chgcar4
       opts%in_opt = opts%in_auto
       ! print options
@@ -117,9 +126,6 @@
         ELSEIF (p(1:ip) == '-h') THEN
           CALL write_help()
           STOP
-        ! Find critical points
-        ELSEIF (p(1:ip) == '-cp') THEN
-          opts%find_critpoints_flag = .TRUE.
         ! Use least square methods for finding gradient and curvature for crit
         ! point
         ELSEIF (p(1:ip) == '-ls') THEN
@@ -129,6 +135,18 @@
         ELSEIF (p(1:ip) == '-v') THEN
           opts%verbose_flag = .TRUE.
 
+        ! critpoint options
+        ELSEIF (p(1:ip) == '-cp') THEN
+          opts%find_critpoints_flag = .TRUE.
+          opts%vac_flag = .TRUE. ! set this to be default
+        ELSEIF (p(1:ip) == '-molecule') THEN
+          opts%ismolecule = .TRUE.
+        ELSEIF (p(1:ip) == '-crystal') THEN
+          opts%iscrystal = .TRUE.  
+        ELSEIF (inc(1:it) == '-knobtem') THEN
+          READ(inc,*) opts%knob_tem
+        ELSEIF (inc(1:it) == 'knobdistance') THEN
+          READ(inc,*) opts%knob_distance
         ! Vacuum options
         ELSEIF (p(1:ip) == '-vac') THEN
           m=m+1
@@ -143,8 +161,6 @@
              READ(inc,*) opts%vacval
              opts%vac_flag = .TRUE.
           END IF
-      
-
         ! Bader options
         ELSEIF (p(1:ip) == '-b') THEN
           m=m+1
