@@ -117,13 +117,13 @@
       PRINT *, 'Using least square gradient'
     END IF
     ! get expected nucleus indices
-    WRITE (97,*) , 'expecting nuclei at:'
+!    WRITE (97,*) , 'expecting nuclei at:'
     ALLOCATE(nucleiInd(ions%nions,3))
     DO d1 = 1, ions%nions
       nucleiInd(d1,1) = NINT(ions%r_lat(d1,1))
       nucleiInd(d1,2) = NINT(ions%r_lat(d1,2))
       nucleiInd(d1,3) = NINT(ions%r_lat(d1,3))
-      WRITE (97,*), nucleiInd(d1,:)
+!      WRITE (97,*), nucleiInd(d1,:)
     END DO
     bondcount = 0
     ubondcount = 0
@@ -139,7 +139,7 @@
     PRINT *, 'Using valence charge may yield useless and confusing results'
     PRINT *, '    It is recommended to use total charge for finding CPs   '
     PRINT *, '____________________________________________________________'
-    OPEN(97,FILE='CPF.dat',STATUS='REPLACE',ACTION='WRITE')
+!    OPEN(97,FILE='CPF.dat',STATUS='REPLACE',ACTION='WRITE')
     OPEN(98,FILE='CPFU.dat',STATUS='REPLACE',ACTION='WRITE')
     debugnum = 0
 
@@ -186,6 +186,11 @@
                  wi,vi,vit,ggrid,outerproduct,opts)
       cptnum = cptnum + 1
       cpl(cptnum)%trueind = temprealr
+      WRITE(98,*), '_________________________________________'
+      WRITE(98,*), 'Nucleus critical point found at'
+      WRITE(98,*), temprealr
+      WRITE(98,*), '_________________________________________'
+      WRITE(98,*), ' ' 
     END DO
     DO n1 = 1,chg%npts(1)
       DO n2 = 1,chg%npts(2)
@@ -236,18 +241,18 @@
               IF (ABS(tem(2)) <= 1 + opts%knob_tem) THEN
                 IF (ABS(tem(3)) <= 1 + opts%knob_tem) THEN              
                   cptnum = cptnum + 1
-                  WRITE(97,*) '*********** A NEW ENTRY *************'
+!                  WRITE(97,*) '*********** A NEW ENTRY *************'
                   bkhessianMatrix = hessianMatrix
 !                  CALL DSYEVJ3(hessianMatrix,eigvecs,eigvals)
-                  WRITE(97,*) 'Critical candidate point number: ', cptnum
-                  WRITE(97,*) "Indices are"
-                  WRITE(97,*) p(1),p(2),p(3)
-                  WRITE(97,*) "Density at this point is" 
-                  WRITE(97,*) rho_val(chg,p(1),p(2),p(3))
-                  WRITE(97,'(3(1X,E18.11))') 
-                  WRITE(97,*) 'tem', tem
-                  WRITE(97,*) 'in cartesian units, force is'
-                  WRITE(97,*)  MATMUL(force,chg%lat2car)
+!                  WRITE(97,*) 'Critical candidate point number: ', cptnum
+!                  WRITE(97,*) "Indices are"
+!                  WRITE(97,*) p(1),p(2),p(3)
+!                  WRITE(97,*) "Density at this point is" 
+!                  WRITE(97,*) rho_val(chg,p(1),p(2),p(3))
+!                  WRITE(97,'(3(1X,E18.11))') 
+!                  WRITE(97,*) 'tem', tem
+!                  WRITE(97,*) 'in cartesian units, force is'
+!                  WRITE(97,*)  MATMUL(force,chg%lat2car)
                   IF (cptnum == 1)  THEN
                     ALLOCATE(cpl(1))
                     cpl(1)%du = hes%du
@@ -288,10 +293,10 @@
               DO i = 1, ions%nions
                 IF (n1 == nucleiInd(i,1) .AND. n2 == nucleiInd(i,2) &
                     .AND. n3 == nucleiInd(i,3)) THEN
-                  WRITE (97,*), '****************** WARNING ******************'
-                  WRITE (97,*), 'Expected Nucleus Critical Point Nout Found at:'
-                  WRITE (97,*), '           ', p
-                  WRITE (97,*), '****************** WARNING ******************'
+!                  WRITE (97,*), '****************** WARNING ******************'
+!                  WRITE (97,*), 'Expected Nucleus Critical Point Nout Found at:'
+!                  WRITE (97,*), '           ', p
+!                  WRITE (97,*), '****************** WARNING ******************'
                 END IF
               END DO
             END IF
@@ -437,13 +442,25 @@
             END IF
           END DO
           IF (cpl(i)%isunique == .TRUE.) THEN
-            WRITE (98,*), 'Inspecting critical point number: ', i 
-            WRITE (98,*), 'Indicies of this point is'
-            WRITE (98,*), cpl(i)%ind
-            WRITE (98,*), 'true critical point is found at'
+!            WRITE (98,*), 'Inspecting critical point number: ', i 
+!            WRITE (98,*), 'Indicies of this point is'
+!            WRITE (98,*), cpl(i)%ind
+            WRITE (98,*), '_______________________________________'
+            WRITE (98,*), 'Critical point is found at'
             WRITE (98,*), truer
             ucptnum = ucptnum + 1
+            WRITE (98,*), 'Gradiant is'
+            WRITE (98,*), tempforce
+            WRITE (98,*), 'Hessian is'
+            WRITE (98,*), temphessian(1,:)
+            WRITE (98,*), temphessian(2,:)
+            WRITE (98,*), temphessian(3,:)
             CALL DSYEVJ3(temphessian,eigvecs,eigvals)
+
+            WRITE (98,*), 'Eigenvalues are'
+            WRITE (98,*), eigvals
+            WRITE (98,*), 'Eigenvectors are'
+            WRITE (98,*), eigvecs
             negcount = 0
             DO d1=1,3
               IF (eigvals(d1) <0) THEN
@@ -453,26 +470,26 @@
             IF (negcount == 0) THEN
               cagecount = cagecount + 1
               WRITE(98,*) 'This is a cage critical point'
+              WRITE(98,*), ' '
             END IF
             IF (negcount == 2) THEN
               bondcount = bondcount + 1
               WRITE(98,*) 'This is a bond critical point'
+              WRITE(98,*), ' '
             ELSEIF(negcount == 1) THEN
               ringcount = ringcount + 1
               WRITE(98,*) 'This is a ring critical point'
+              WRITE(98,*), ' '
             ELSEIF(negcount == 3) THEN
               maxcount = maxcount + 1
               WRITE(98,*) 'This is a nuclear critical point'
+              WRITE(98,*), ' ' 
               IF (maxcount > ions%nions) THEN
                 PRINT *, 'WARNING 1: Finding more nucleus points than  &
                           number of atoms!'
               END IF
             END IF
-            WRITE (98,*), 'Charge density is about'
-            WRITE (98,*), rho_val(chg, &
-                          NINT(truer(1)), &
-                          NINT(truer(2)), &
-                          NINT(truer(3)) ) 
+            WRITE(98,*), '________________________________________'
           END IF
           EXIT
         ELSE 
@@ -513,7 +530,7 @@
       END IF
     END IF
     DEALLOCATE (cpl)
-    CLOSE(97)
+!    CLOSE(97)
     CLOSE(98)
     END SUBROUTINE critpoint_find
 
