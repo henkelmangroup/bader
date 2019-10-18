@@ -73,7 +73,6 @@
 
      ! Get the control variables
      CALL get_options(opts)
-
      ! Call the read routines from io_mod
      CALL read_charge(ions,chgval,opts)
      IF (opts%bader_flag) THEN

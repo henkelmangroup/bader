@@ -29,6 +29,7 @@
       LOGICAL :: print_surfaces_atoms
       REAL(q2) :: knob_tem 
       REAL(q2) :: knob_distance
+      REAL(q2) :: knob_newtonr
       LOGICAL :: ismolecule
       LOGICAL :: iscrystal
       
@@ -57,6 +58,7 @@
 ! Default values
       opts%knob_tem = 0.
       opts%knob_distance = 0.
+      opts%knob_newtonr = 0.
       opts%ismolecule = .FALSE.
       opts%iscrystal = .FALSE.
       opts%out_opt = opts%out_chgcar4
@@ -140,13 +142,31 @@
           opts%find_critpoints_flag = .TRUE.
           opts%vac_flag = .TRUE. ! set this to be default
         ELSEIF (p(1:ip) == '-molecule') THEN
+          PRINT *, 'This system is assigned as a molecule'
           opts%ismolecule = .TRUE.
         ELSEIF (p(1:ip) == '-crystal') THEN
+          PRINT *, 'This system is assigned as a crystal'
           opts%iscrystal = .TRUE.  
-        ELSEIF (inc(1:it) == '-knobtem') THEN
+        ELSEIF (p(1:ip) == '-knobtem') THEN
+          m = m + 1
+          CALL GET_COMMAND_ARGUMENT(m,inc)
+          inc = ADJUSTL(inc)
+          it=LEN_TRIM(inc)
+          PRINT *, 'instructed to read knobtem'
           READ(inc,*) opts%knob_tem
-        ELSEIF (inc(1:it) == 'knobdistance') THEN
+    
+        ELSEIF (p(1:ip) == '-knobdistance') THEN
+          m = m + 1
+          CALL GET_COMMAND_ARGUMENT(m,inc)
+          inc = ADJUSTL(inc)
+          it=LEN_TRIM(inc)
           READ(inc,*) opts%knob_distance
+        ELSEIF (p(1:ip) == '-knobnewtonr') THEN
+          m = m + 1
+          CALL GET_COMMAND_ARGUMENT(m,inc)
+          inc = ADJUSTL(inc)
+          it=LEN_TRIM(inc)
+          READ(inc,*) opts%knob_newtonr
         ! Vacuum options
         ELSEIF (p(1:ip) == '-vac') THEN
           m=m+1
@@ -526,6 +546,7 @@
       WRITE(*,'(/,A)') 'NO BADER VOLUMES SELECTED'
       STOP
     END IF
+    
 
     RETURN
     END SUBROUTINE get_options
