@@ -52,7 +52,7 @@
       INTEGER :: n, i, ip, m, it
       INTEGER :: sel, itmp, istart, iend
       CHARACTER(LEN=128) :: p
-      CHARACTER*128 :: inc
+      CHARACTER(LEN=128) :: inc
       INTEGER :: COMMAND_ARGUMENT_COUNT
 
 ! Default values

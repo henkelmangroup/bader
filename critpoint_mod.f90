@@ -50,7 +50,7 @@
       INTEGER :: negcount
       LOGICAL :: proxy, isunique
     END TYPE
-    
+
     TYPE(hessian) :: hes
     TYPE(bader_obj) :: bdr
     TYPE(charge_obj) :: chg
@@ -118,7 +118,7 @@
     PRINT *, ''//achar(27)//'[95m Critical point is like a box of chocolates. &
               You never know what you are gonna get.'//achar(27)//'[0m'
     !WRITE(*,'(A)')  'FINDING CRITICAL POINTS'
-    IF (opts%leastsquare_flag == .TRUE. ) THEN
+    IF (opts%leastsquare_flag .eqv. .TRUE. ) THEN
       PRINT *, 'Using least square gradient'
     END IF
     ! get expected nucleus indices
@@ -158,7 +158,7 @@
     minmag = MIN(umag,vmag,wmag)
     ! check if axis are cartesian
 !    cartcoor = coorcheck(ions%lattice)
-    IF ( opts%leastsquare_flag == .TRUE. )THEN
+    IF ( opts%leastsquare_flag .eqv. .TRUE. )THEN
       vi = makevi()
       vit = TRANSPOSE(vi)
       ggrid = makeggrid(chg)
@@ -245,16 +245,16 @@
                  wi,vi,vit,ggrid,outerproduct,opts)
       cptnum = cptnum + 1
       cpl(cptnum)%trueind = temprealr
-      WRITE(98,*), '_________________________________________'
-      WRITE(98,*), 'Nucleus critical point found at'
-      WRITE(98,*), temprealr
-      WRITE(98,*), 'Coordinates in cartesian are'
-      WRITE(98,*), MATMUL(temprealr,chg%lat2car)
-      WRITE(98,*), 'Direct coordinates are'
+      WRITE(98,*) '_________________________________________'
+      WRITE(98,*) 'Nucleus critical point found at'
+      WRITE(98,*) temprealr
+      WRITE(98,*) 'Coordinates in cartesian are'
+      WRITE(98,*) MATMUL(temprealr,chg%lat2car)
+      WRITE(98,*) 'Direct coordinates are'
       WRITE(98,*)  temprealr(1)/chg%npts(1),temprealr(2)/chg%npts(2), &
                    temprealr(3)/chg%npts(3)
-      WRITE(98,*), '_________________________________________'
-      WRITE(98,*), ' ' 
+      WRITE(98,*) '_________________________________________'
+      WRITE(98,*) ' ' 
     END DO
     DO n1 = 1,chg%npts(1)
       DO n2 = 1,chg%npts(2)
@@ -270,7 +270,7 @@
   ! now that this subroutine can find the correct amount of edge points, lets have
   ! it find the hessian
   !-----------------------------------------------------------------------------------!
-            IF (opts%leastsquare_flag == .TRUE.) THEN
+            IF (opts%leastsquare_flag .eqv. .TRUE.) THEN
               force = lsg(p,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
               hessianMatrix = &
                 lsh(p,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
@@ -412,7 +412,7 @@
       ! These codes uses a larger box.
       DO j = 1, 8
         ! getting nn indices are checked. pass. 
-        IF (opts%leastsquare_flag == .TRUE.) THEN
+        IF (opts%leastsquare_flag .eqv. .TRUE.) THEN
           nngrad(j,:) = lsg(cpl(i)%nnind(j,:),chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
         ELSE 
           CALL getgradhes(tempind,chg,hes,nngrad(j,:))
@@ -452,7 +452,7 @@
                 ceiling(truer(3))/)
         distance = truer - nnind(1,:)
         do j = 1,8
-          if (opts%leastsquare_flag == .true.) then
+          if (opts%leastsquare_flag .eqv. .true.) then
             nngrad(j,:) = lsg(nnind(j,:),chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
             hessianmatrix = lsh(nnind(j,:),chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
             nnhes(j,1,:) = hessianmatrix(1,:)
@@ -489,8 +489,8 @@
           averagecount = averagecount + 1
         END IF
         IF (stepcount == 2000) THEN
-          WRITE(98,*), 'Special treatment done at'
-          WRITE(98,*), cpl(i)%ind
+          WRITE(98,*) 'Special treatment done at'
+          WRITE(98,*) cpl(i)%ind
           averager = averager / averagecount
           truer = averager
           nexttem = 0.
@@ -504,10 +504,9 @@
 !        IF ( truer(1) == truer(1) + nexttem(1) .AND. &
 !             truer(2) == truer(2) + nexttem(2) .AND. &
 !             truer(3) == truer(3) + nexttem(3) )  THEN
-        IF (cpl(i)%ind(1) == 1 .AND. & cpl(i)%ind(2) == 6 &
+        IF (cpl(i)%ind(1) == 1 .AND. cpl(i)%ind(2) == 6 &
             .AND. cpl(i)%ind(3) == 18 ) THEN
-          PRINT *, 'truer is'
-          PRINT *, truer
+          WRITE(*,*) 'truer is', truer
         END IF
 !        IF (cpl(i)%ind(1) == 6 .AND. & cpl(i)%ind(2) == 10 &
 !            .AND. cpl(i)%ind(3) == 19 ) THEN
@@ -530,78 +529,78 @@
               EXIT
             END IF
           END DO
-          IF (cpl(i)%isunique == .TRUE.) THEN
-!            WRITE (98,*), 'Inspecting critical point number: ', i 
-!            WRITE (98,*), 'Indicies of this point is'
-!            WRITE (98,*), cpl(i)%ind
-            WRITE (98,*), '_______________________________________'
-            WRITE (98,*), 'Critical point is found at indices'
-            WRITE (98,*), truer
-            WRITE (98,*), 'Coordinates in cartesian are'
-            WRITE (98,*), MATMUL(truer,chg%lat2car)
+          IF (cpl(i)%isunique .eqv. .TRUE.) THEN
+!            WRITE (98,*) 'Inspecting critical point number: ', i 
+!            WRITE (98,*) 'Indicies of this point is'
+!            WRITE (98,*) cpl(i)%ind
+            WRITE (98,*) '_______________________________________'
+            WRITE (98,*) 'Critical point is found at indices'
+            WRITE (98,*) truer
+            WRITE (98,*) 'Coordinates in cartesian are'
+            WRITE (98,*) MATMUL(truer,chg%lat2car)
             ucptnum = ucptnum + 1
-            WRITE (98,*), 'Direct coordinates are'
-            WRITE (98,*), truer(1)/chg%npts(1),truer(2)/chg%npts(2), &
+            WRITE (98,*) 'Direct coordinates are'
+            WRITE (98,*) truer(1)/chg%npts(1),truer(2)/chg%npts(2), &
                           truer(3)/chg%npts(3)
-            WRITE (98,*), 'Gradiant is'
-            WRITE (98,*), tempforce
+            WRITE (98,*) 'Gradiant is'
+            WRITE (98,*) tempforce
             !PRINT *, 'original critical point gradient is'
             !PRINT *, cpl(i)%force
             !PRINT *, 'original critical point gradient magnitude is'
             !PRINT *, SQRT(cpl(i)%force(1)**2 + cpl(i)%force(2)**2 + &
             !         cpl(i)%force(3)**2)
-            WRITE (98,*), 'Hessian is'
-            WRITE (98,*), temphessian(1,:)
-            WRITE (98,*), temphessian(2,:)
-            WRITE (98,*), temphessian(3,:)
+            WRITE (98,*) 'Hessian is'
+            WRITE (98,*) temphessian(1,:)
+            WRITE (98,*) temphessian(2,:)
+            WRITE (98,*) temphessian(3,:)
             CALL DSYEVJ3(temphessian,eigvecs,eigvals)
 
-            WRITE (98,*), 'Eigenvalues are'
-            WRITE (98,*), eigvals
-            WRITE (98,*), 'Eigenvectors are'
-            WRITE (98,*), eigvecs
+            WRITE (98,*) 'Eigenvalues are'
+            WRITE (98,*) eigvals
+            WRITE (98,*) 'Eigenvectors are'
+            WRITE (98,*) eigvecs
             negcount = 0
-            DO d1=1,3
+            DO d1 = 1,3
               IF (eigvals(d1) <0) THEN
                 negcount = negcount + 1
               END IF
             END DO
             IF (negcount == 0) THEN
               cagecount = cagecount + 1
-              PRINT *, 'Found a unique cage critical point'
+              WRITE(*,*) 'Found a unique cage critical point'
               WRITE(98,*) 'This is a cage critical point'
-              WRITE(98,*), ' '
+              WRITE(98,*) ' '
             END IF
             IF (negcount == 2) THEN
               bondcount = bondcount + 1
-              PRINT *, 'Found a unique bond critical point'
+              WRITE(*,*) 'Found a unique bond critical point'
               WRITE(98,*) 'This is a bond critical point'
-              WRITE(98,*), ' '
+              WRITE(98,*) ' '
             ELSEIF(negcount == 1) THEN
               ringcount = ringcount + 1
-              PRINT *, 'Found a unique ring critical point'
+              WRITE(*,*) 'Found a unique ring critical point'
               WRITE(98,*) 'This is a ring critical point'
-              WRITE(98,*), ' '
+              WRITE(98,*) ' '
             ELSEIF(negcount == 3) THEN
               maxcount = maxcount + 1
-              PRINT *, 'Found a unique nuclear critical point'
+              WRITE(*,*) 'Found a unique nuclear critical point'
               WRITE(98,*) 'This is a nuclear critical point'
-              WRITE(98,*), ' ' 
+              WRITE(98,*) ' ' 
               IF (maxcount > ions%nions) THEN
-                PRINT *, 'WARNING 1: Finding more nucleus points than  &
+                WRITE(*,*) 'WARNING 1: Finding more nucleus points than  &
                           number of atoms!'
               END IF
             END IF
-            WRITE(98,*), '________________________________________'
+            WRITE(98,*) '________________________________________'
           END IF
           EXIT
         ELSE 
           previoustem = nexttem
         END IF
         IF (stepcount == 1000 ) THEN
-          WRITE (98,*), 'Inspecting critical point number: ', i
-          WRITE (98,*), ' ******* 1000 steps not enough **********'
-          PRINT *, 'WARNING 2: Fail to exit Newton wrapping'
+          WRITE(98,*) 'Inspecting critical point number: ', i
+          WRITE(98,*) ' ******* 1000 steps not enough **********'
+          WRITE(*,*) 'WARNING 2: Fail to exit Newton wrapping'
         END IF
           ! for the line above:
           ! note here that cpl(i)%r is the vector tem starting from cpl(i)%ind
@@ -613,31 +612,31 @@
         CALL pbc_r_lat(truer,chg%npts)
       END DO
     END DO    
-    PRINT *, 'Unique critical point count: ', ucptnum
-    PRINT *, 'Unique bond critical point count: ', bondcount
-    PRINT *, 'Unique ring critical point count: ', ringcount
-    PRINT *, 'Unique cage critical point count: ', cagecount
-    PRINT *, 'Unique nucl critical point count: ', maxcount
-    WRITE(98,*), 'Unique critical point count: ', ucptnum
-    WRITE(98,*), 'Unique bond critical point count: ', bondcount
-    WRITE(98,*), 'Unique ring critical point count: ', ringcount
-    WRITE(98,*), 'Unique cage critical point count: ', cagecount
-    WRITE(98,*), 'Unique nucl critical point count: ', maxcount
+    WRITE(*,*) 'Unique critical point count: ', ucptnum
+    WRITE(*,*) 'Unique bond critical point count: ', bondcount
+    WRITE(*,*) 'Unique ring critical point count: ', ringcount
+    WRITE(*,*) 'Unique cage critical point count: ', cagecount
+    WRITE(*,*) 'Unique nucl critical point count: ', maxcount
+    WRITE(98,*) 'Unique critical point count: ', ucptnum
+    WRITE(98,*) 'Unique bond critical point count: ', bondcount
+    WRITE(98,*) 'Unique ring critical point count: ', ringcount
+    WRITE(98,*) 'Unique cage critical point count: ', cagecount
+    WRITE(98,*) 'Unique nucl critical point count: ', maxcount
     IF (opts%ismolecule) THEN
       IF (maxcount - bondcount + ringcount - cagecount == 1) THEN
-        PRINT *, 'Satisfies The Poincare-Hopf rule for a molecule'
-        WRITE(98,*), 'Satisfies The Poincare-Hopf rule for a molecule'
+        WRITE(*,*) 'Satisfies The Poincare-Hopf rule for a molecule'
+        WRITE(98,*) 'Satisfies The Poincare-Hopf rule for a molecule'
       ELSE
-        PRINT *, 'WARNING 3: Fails The poincare-Hopf rule for a molecule'
-        WRITE(98,*),  'WARNING 3: Fails The poincare-Hopf rule for a molecule'
+        WRITE(*,*) 'WARNING 3: Fails The poincare-Hopf rule for a molecule'
+        WRITE(98,*)  'WARNING 3: Fails The poincare-Hopf rule for a molecule'
       END IF
     ELSE IF (opts%iscrystal) THEN
       IF (maxcount - bondcount + ringcount - cagecount == 0) THEN
-        PRINT *, 'Satisfies The Poincare-Hopf rule for a crystal'
-        WRITE(98,*), 'Satisfies The Poincare-Hopf rule for a crystal'
+        WRITE(*,*) 'Satisfies The Poincare-Hopf rule for a crystal'
+        WRITE(98,*) 'Satisfies The Poincare-Hopf rule for a crystal'
       ELSE
-        PRINT *, 'WARNING 4: Fails The poincare-Hopf rule for a crystal'
-        WRITE(98,*),  'WARNING 4: Fails The poincare-Hopf rule for a crystal'
+        WRITE(*,*) 'WARNING 4: Fails The poincare-Hopf rule for a crystal'
+        WRITE(98,*)  'WARNING 4: Fails The poincare-Hopf rule for a crystal'
 
       END IF
     END IF
@@ -655,10 +654,10 @@
       REAL(q2),DIMENSION(3,3) :: lat2car
       getcart(1) = ind(1) * lat2car(1,1) + & 
         ind(2) * lat2car(1,2) + & 
-        ind(3) *  lat2car(1,3)
+        ind(3) * lat2car(1,3)
       getcart(2) = ind(1) * lat2car(2,1) + &
         ind(2) * lat2car(2,2) + &
-        ind(3) *  lat2car(2,3)
+        ind(3) * lat2car(2,3)
       getcart(3) = ind(1) * lat2car(3,1) + &
         ind(2) * lat2car(3,2) + &
         ind(3) *  lat2car(3,3)
@@ -734,7 +733,7 @@
               (intcart(2) - p2cart(2))**2 + &
               (intcart(3) - p2cart(3))**2 &
               )
-            PRINT *,'dist is',dist(counter)
+            WRITE(*,*) 'dist is',dist(counter)
             counter = counter + 1
           END DO
         END DO
@@ -789,10 +788,10 @@
           CYCLE
         END IF
       END DO     
-      PRINT *,'scores', scores
-      PRINT *, 'tfindnn'
+      WRITE(*,*) 'scores', scores
+      WRITE(*,*) 'tfindnn'
       DO i = 1, 8
-        PRINT *, tfindnn(i,:)
+        WRITE(*,*) tfindnn(i,:)
       END DO
       ! then these needs to be rearranged 
       ! so that is follows this format:

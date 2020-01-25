@@ -138,7 +138,7 @@ MODULE chgcar_mod
     
     TYPE(ions_obj) :: ions
     TYPE(charge_obj) :: chg
-    CHARACTER(128) :: chargefile
+    CHARACTER(LEN=128) :: chargefile
     TYPE(options_obj) :: opts
 
     INTEGER :: i, n1, n2, n3, it
