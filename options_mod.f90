@@ -32,7 +32,7 @@
       REAL(q2) :: knob_newtonr
       LOGICAL :: ismolecule
       LOGICAL :: iscrystal
-      
+
     END TYPE options_obj
 
     PRIVATE
@@ -98,15 +98,15 @@
       END IF
 
       ! Loop over all arguments
-      m=0
+      m = 0
       readchgflag = .FALSE.
       readopts: DO WHILE(m<n)
-210        m=m+1
+210        m = m + 1
 !        CALL GETARG(m,p)
         CALL GET_COMMAND_ARGUMENT(m,p)
-        p=ADJUSTL(p)
-        ip=LEN_TRIM(p)
-        i=INDEX(p,'-')
+        p = ADJUSTL(p)
+        ip = LEN_TRIM(p)
+        i = INDEX(p,'-')
 
         IF (i /= 1) THEN
 
@@ -116,8 +116,8 @@
             CALL write_options()
             STOP
           END IF
-          opts%chargefile=p
-          INQUIRE(FILE=opts%chargefile,EXIST=existflag)
+          opts%chargefile = p
+          INQUIRE(FILE=opts%chargefile, EXIST=existflag)
           IF (.NOT. existflag) THEN
             WRITE(*,'(2X,A,A)') opts%chargefile(1:ip),' does not exist'
             STOP
@@ -128,8 +128,7 @@
         ELSEIF (p(1:ip) == '-h') THEN
           CALL write_help()
           STOP
-        ! Use least square methods for finding gradient and curvature for crit
-        ! point
+        ! Use least square methods for finding gradient and curvature for critical points
         ELSEIF (p(1:ip) == '-ls') THEN
           opts%leastsquare_flag = .TRUE.
 
@@ -137,7 +136,7 @@
         ELSEIF (p(1:ip) == '-v') THEN
           opts%verbose_flag = .TRUE.
 
-        ! critpoint options
+        ! critical point options
         ELSEIF (p(1:ip) == '-cp') THEN
           opts%find_critpoints_flag = .TRUE.
           opts%vac_flag = .TRUE. ! set this to be default
@@ -151,28 +150,28 @@
           m = m + 1
           CALL GET_COMMAND_ARGUMENT(m,inc)
           inc = ADJUSTL(inc)
-          it=LEN_TRIM(inc)
+          it = LEN_TRIM(inc)
           PRINT *, 'instructed to read knobtem'
           READ(inc,*) opts%knob_tem
-    
+
         ELSEIF (p(1:ip) == '-knobdistance') THEN
           m = m + 1
           CALL GET_COMMAND_ARGUMENT(m,inc)
           inc = ADJUSTL(inc)
-          it=LEN_TRIM(inc)
+          it = LEN_TRIM(inc)
           READ(inc,*) opts%knob_distance
         ELSEIF (p(1:ip) == '-knobnewtonr') THEN
           m = m + 1
           CALL GET_COMMAND_ARGUMENT(m,inc)
           inc = ADJUSTL(inc)
-          it=LEN_TRIM(inc)
+          it = LEN_TRIM(inc)
           READ(inc,*) opts%knob_newtonr
         ! Vacuum options
         ELSEIF (p(1:ip) == '-vac') THEN
-          m=m+1
+          m = m + 1
           CALL GET_COMMAND_ARGUMENT(m,inc)
-          inc=ADJUSTL(inc)
-          it=LEN_TRIM(inc)
+          inc = ADJUSTL(inc)
+          it = LEN_TRIM(inc)
           IF (inc(1:it) == 'AUTO' .OR. inc(1:it) == 'auto') THEN
             opts%vac_flag = .TRUE.
           ELSEIF (inc(1:it) == 'OFF' .OR. inc(1:it) == 'off') THEN
@@ -183,11 +182,11 @@
           END IF
         ! Bader options
         ELSEIF (p(1:ip) == '-b') THEN
-          m=m+1
+          m = m + 1
 !          CALL GETARG(m,inc)
           CALL GET_COMMAND_ARGUMENT(m,inc)
-          inc=ADJUSTL(inc)
-          it=LEN_TRIM(inc)
+          inc = ADJUSTL(inc)
+          it = LEN_TRIM(inc)
           IF (inc(1:it) == 'OFFGRID' .OR. inc(1:it) == 'offgrid') THEN
             opts%bader_opt = opts%bader_offgrid
           ELSEIF (inc(1:it) == 'ONGRID' .OR. inc(1:it) == 'ongrid') THEN
@@ -203,11 +202,11 @@
 
         ! Quit options
         ELSEIF (p(1:ip) == '-m') THEN
-          m=m+1
+          m = m + 1
 !          CALL GETARG(m,inc)
           CALL GET_COMMAND_ARGUMENT(m,inc)
-          inc=ADJUSTL(inc)
-          it=LEN_TRIM(inc)
+          inc = ADJUSTL(inc)
+          it = LEN_TRIM(inc)
           IF (inc(1:it) == 'MAX' .OR. inc(1:it) == 'max') THEN
             opts%quit_opt = opts%quit_max
           ELSEIF (inc(1:it) == 'KNOWN' .OR. inc(1:it) == 'known') THEN
@@ -219,11 +218,11 @@
 
         ! Print options
         ELSEIF (p(1:ip) == '-p') THEN
-          m=m+1
+          m = m + 1
 !          CALL GETARG(m,inc)
           CALL GET_COMMAND_ARGUMENT(m,inc)
-          inc=ADJUSTL(inc)
-          it=LEN_TRIM(inc)
+          inc = ADJUSTL(inc)
+          it = LEN_TRIM(inc)
           IF (inc(1:it) == 'BADER_INDEX' .OR. inc(1:it) == 'bader_index') THEN
             opts%print_bader_index = .TRUE.
           ELSEIF (inc(1:it) == 'ATOM_INDEX' .OR. inc(1:it) == 'atom_index') THEN
@@ -236,149 +235,149 @@
             opts%print_surfaces_atoms = .TRUE.
           ELSEIF (inc(1:it) == 'SEL_BADER' .OR. inc(1:it) == 'sel_bader') THEN
             opts%print_sel_bader = .TRUE.
-            opts%selbnum=0
-            m=m+1
+            opts%selbnum = 0
+            m = m + 1
             CALL GET_COMMAND_ARGUMENT(m,inc)
-            inc=ADJUSTL(inc)
-            it=LEN_TRIM(inc)
+            inc = ADJUSTL(inc)
+            it = LEN_TRIM(inc)
             itmp = INDEX(inc,"-")
             IF (itmp .GT. 0) THEN
               READ (inc(1:itmp-1),'(I10)',ERR=110) istart
               READ (inc(itmp+1:it),'(I10)',ERR=110) iend
               ALLOCATE(opts%selbvol(iend-istart+1))
               DO sel = istart, iend
-                opts%selbnum=opts%selbnum+1
-                opts%selbvol(opts%selbnum)=sel
+                opts%selbnum = opts%selbnum + 1
+                opts%selbvol(opts%selbnum) = sel
               END DO
               IF(m==n) EXIT readopts
               GO TO 210
-   110        m=m-1
+   110        m = m - 1
               EXIT
             ELSE
-              m=m-1
+              m = m - 1
               ALLOCATE(opts%selbvol(n))
               DO
-                m=m+1
+                m = m + 1
                 CALL GET_COMMAND_ARGUMENT(m,inc)
-                inc=ADJUSTL(inc)
-                it=LEN_TRIM(inc)
+                inc = ADJUSTL(inc)
+                it = LEN_TRIM(inc)
                 READ (inc(1:it),'(I10)',ERR=120) sel
-                opts%selbnum=opts%selbnum+1
-                opts%selbvol(opts%selbnum)=sel
+                opts%selbnum = opts%selbnum + 1
+                opts%selbvol(opts%selbnum) = sel
                 IF(m==n) EXIT readopts
                 CYCLE
-     120        m=m-1
+   120          m = m - 1
                 EXIT
               END DO
             END IF
           ELSEIF (inc(1:it) == 'SEL_ATOM' .OR. inc(1:it) == 'sel_atom') THEN
             opts%print_sel_atom = .TRUE.
-            opts%selanum=0
-            m=m+1
+            opts%selanum = 0
+            m = m + 1
             CALL GET_COMMAND_ARGUMENT(m,inc)
-            inc=ADJUSTL(inc)
-            it=LEN_TRIM(inc)
+            inc = ADJUSTL(inc)
+            it = LEN_TRIM(inc)
             itmp = INDEX(inc,"-")
             IF (itmp .GT. 0) THEN
               READ (inc(1:itmp-1),'(I10)',ERR=130) istart
               READ (inc(itmp+1:it),'(I10)',ERR=130) iend
               ALLOCATE(opts%selavol(iend-istart+1))
               DO sel = istart, iend
-                opts%selanum=opts%selanum+1
-                opts%selavol(opts%selanum)=sel
+                opts%selanum = opts%selanum + 1
+                opts%selavol(opts%selanum) = sel
               END DO
               IF(m==n) EXIT readopts
               GO TO 210
-   130        m=m-1
+   130        m = m - 1
               EXIT
             ELSE
-              m=m-1
+              m = m - 1
               ALLOCATE(opts%selavol(n))
               DO
-                m=m+1
+                m = m + 1
                 CALL GET_COMMAND_ARGUMENT(m,inc)
-                inc=ADJUSTL(inc)
-                it=LEN_TRIM(inc)
+                inc = ADJUSTL(inc)
+                it = LEN_TRIM(inc)
                 READ (inc(1:it),'(I10)',ERR=140) sel
-                opts%selanum=opts%selanum+1
-                opts%selavol(opts%selanum)=sel
+                opts%selanum = opts%selanum + 1
+                opts%selavol(opts%selanum) = sel
                 IF(m==n) EXIT readopts
                 CYCLE
-     140        m=m-1
+   140          m = m - 1
                 EXIT
               END DO
             END IF
           ELSEIF (inc(1:it) == 'SUM_ATOM' .OR. inc(1:it) == 'sum_atom') THEN
             opts%print_sum_atom = .TRUE.
-            opts%sumanum=0
-            m=m+1
+            opts%sumanum = 0
+            m = m + 1
             CALL GET_COMMAND_ARGUMENT(m,inc)
-            inc=ADJUSTL(inc)
-            it=LEN_TRIM(inc)
+            inc = ADJUSTL(inc)
+            it = LEN_TRIM(inc)
             itmp = INDEX(inc,"-")
             IF (itmp .GT. 0) THEN
               READ (inc(1:itmp-1),'(I10)',ERR=150) istart
               READ (inc(itmp+1:it),'(I10)',ERR=150) iend
               ALLOCATE(opts%sumavol(iend-istart+1))
               DO sel = istart, iend
-                opts%sumanum=opts%sumanum+1
-                opts%sumavol(opts%sumanum)=sel
+                opts%sumanum = opts%sumanum + 1
+                opts%sumavol(opts%sumanum) = sel
               END DO
               IF(m==n) EXIT readopts
               GO TO 210
-   150        m=m-1
+   150        m = m - 1
               EXIT
             ELSE
-              m=m-1
+              m = m - 1
               ALLOCATE(opts%sumavol(n))
               DO
-                m=m+1
+                m = m + 1
                 CALL GET_COMMAND_ARGUMENT(m,inc)
-                inc=ADJUSTL(inc)
-                it=LEN_TRIM(inc)
+                inc = ADJUSTL(inc)
+                it = LEN_TRIM(inc)
                 READ (inc(1:it),'(I10)',ERR=160) sel
-                opts%sumanum=opts%sumanum+1
-                opts%sumavol(opts%sumanum)=sel
+                opts%sumanum = opts%sumanum + 1
+                opts%sumavol(opts%sumanum) = sel
                 IF(m==n) EXIT readopts
                 CYCLE
-     160        m=m-1
+   160          m = m - 1
                 EXIT
               END DO
             END IF
           ELSEIF (inc(1:it) == 'SUM_BADER' .OR. inc(1:it) == 'sum_bader') THEN
             opts%print_sum_bader = .TRUE.
             opts%sumbnum=0
-            m=m+1
+            m = m + 1
             CALL GET_COMMAND_ARGUMENT(m,inc)
-            inc=ADJUSTL(inc)
-            it=LEN_TRIM(inc)
+            inc = ADJUSTL(inc)
+            it = LEN_TRIM(inc)
             itmp = INDEX(inc,"-")
             IF (itmp .GT. 0) THEN
               READ (inc(1:itmp-1),'(I10)',ERR=170) istart
               READ (inc(itmp+1:it),'(I10)',ERR=170) iend
               ALLOCATE(opts%sumbvol(iend-istart+1))
               DO sel = istart, iend
-                opts%sumbnum=opts%sumbnum+1
-                opts%sumbvol(opts%sumbnum)=sel
+                opts%sumbnum = opts%sumbnum + 1
+                opts%sumbvol(opts%sumbnum) = sel
               END DO
               IF(m==n) EXIT readopts
               GO TO 210
-   170        m=m-1
+   170        m = m - 1
               EXIT
             ELSE
-              m=m-1
+              m = m - 1
               ALLOCATE(opts%sumbvol(n))
               DO
-                m=m+1
+                m = m + 1
                 CALL GET_COMMAND_ARGUMENT(m,inc)
-                inc=ADJUSTL(inc)
-                it=LEN_TRIM(inc)
+                inc = ADJUSTL(inc)
+                it = LEN_TRIM(inc)
                 READ (inc(1:it),'(I10)',ERR=180) sel
-                opts%sumbnum=opts%sumbnum+1
-                opts%sumbvol(opts%sumbnum)=sel
+                opts%sumbnum = opts%sumbnum + 1
+                opts%sumbvol(opts%sumbnum) = sel
                 IF(m==n) EXIT readopts
                 CYCLE
-     180        m=m-1
+   180          m = m - 1
                 EXIT
               END DO
             END IF
@@ -388,11 +387,11 @@
           END IF
         ! Output file type
 !        ELSEIF (p(1:ip) == '-o') THEN
-!          m=m+1
+!          m = m + 1
 !          CALL GETARG(m,inc)
 !          CALL GET_COMMAND_ARGUMENT(m,inc)
-!          inc=ADJUSTL(inc)
-!          it=LEN_TRIM(inc)
+!          inc = ADJUSTL(inc)
+!          it = LEN_TRIM(inc)
 !          IF (inc(1:it) == 'CUBE' .OR. inc(1:it) == 'cube') THEN
 !            opts%out_opt = opts%out_cube
 !          ELSEIF (inc(1:it) == 'CHGCAR' .OR. inc(1:it) == 'chgcar') THEN
@@ -404,11 +403,11 @@
 
         ! Calculation options
         ELSEIF (p(1:ip) == '-c') THEN
-          m=m+1
+          m = m + 1
 !          CALL GETARG(m,inc)
           CALL GET_COMMAND_ARGUMENT(m,inc)
-          inc=ADJUSTL(inc)
-          it=LEN_TRIM(inc)
+          inc = ADJUSTL(inc)
+          it = LEN_TRIM(inc)
           IF (inc(1:it) == 'ALL' .OR. inc(1:it) == 'all') THEN
             opts%bader_flag = .TRUE.
             opts%voronoi_flag = .TRUE.
@@ -427,11 +426,11 @@
             STOP
           END IF
         ELSEIF (p(1:ip) == '-n') THEN
-          m=m+1
+          m = m + 1
 !          CALL GETARG(m,inc)
           CALL GET_COMMAND_ARGUMENT(m,inc)
-          inc=ADJUSTL(inc)
-          it=LEN_TRIM(inc)
+          inc = ADJUSTL(inc)
+          it = LEN_TRIM(inc)
           IF (inc(1:it) == 'ALL' .OR. inc(1:it) == 'all') THEN
             opts%bader_flag = .FALSE.
             opts%voronoi_flag = .FALSE.
@@ -452,15 +451,15 @@
 
         ! Input file type
         ELSEIF (p(1:ip) == '-i') THEN
-          m=m+1
+          m = m + 1
 !          CALL GETARG(m,inc)
           CALL GET_COMMAND_ARGUMENT(m,inc)
-          inc=ADJUSTL(inc)
-          it=LEN_TRIM(inc)
+          inc = ADJUSTL(inc)
+          it = LEN_TRIM(inc)
           IF (inc(1:it) == 'CUBE' .OR. inc(1:it) == 'cube') THEN
-            opts%in_opt=opts%in_cube
+            opts%in_opt = opts%in_cube
           ELSEIF (inc(1:it) == 'CHGCAR' .OR. inc(1:it) == 'chgcar') THEN
-            opts%in_opt=opts%in_chgcar
+            opts%in_opt = opts%in_chgcar
           ELSE
             WRITE(*,'(A,A,A)') ' Unknown option "',inc(1:it),'"'
             STOP
@@ -468,20 +467,20 @@
 
         ! Bader tolerance
         ELSEIF (p(1:ip) == '-t') THEN
-          m=m+1
+          m = m + 1
 !          CALL GETARG(m,inc)
           CALL GET_COMMAND_ARGUMENT(m,inc)
           READ(inc,*) opts%badertol
 
         ! Refine edge iterations  -- change this to a flag once working
         ELSEIF (p(1:ip) == '-r') THEN
-          m=m+1
+          m = m + 1
 !          CALL GETARG(m,inc)
           CALL GET_COMMAND_ARGUMENT(m,inc)
-          inc=ADJUSTL(inc)
-          it=LEN_TRIM(inc) 
+          inc = ADJUSTL(inc)
+          it = LEN_TRIM(inc) 
           IF (inc(1:it) == 'AUTO' .OR. inc(1:it) == 'auto') THEN
-            opts%refine_edge_itrs=-1
+            opts%refine_edge_itrs =- 1
           ELSE
             READ(inc,*) opts%refine_edge_itrs
           END IF
@@ -495,11 +494,11 @@
 
         ! Do analysis with a reference charge
         ELSEIF (p(1:ip) == '-ref') THEN
-          m=m+1
+          m = m + 1
 !          CALL GETARG(m,inc)
           CALL GET_COMMAND_ARGUMENT(m,inc)
-          inc=ADJUSTL(inc)
-          it=LEN_TRIM(inc)
+          inc = ADJUSTL(inc)
+          it = LEN_TRIM(inc)
           IF (inc(1:it) == 'NONE' .OR. inc(1:it) == 'none') THEN
             opts%ref_flag = .FALSE.
           ELSE
@@ -524,7 +523,7 @@
 
     ! Default to no edge refinement for the ongrid algorithm
     IF (opts%bader_opt==opts%bader_ongrid) THEN
-      opts%refine_edge_itrs=0
+      opts%refine_edge_itrs = 0
     END IF
    
     IF (opts%print_sel_atom .AND. opts%selanum==0) THEN
@@ -600,7 +599,7 @@
       WRITE(*,*) '        original on-grid based algorithm, or the weight method'
       WRITE(*,*) '        of Yu and Trinkle'
       WRITE(*,*) ''
-!      WRITE(*,*) '   -s < stepsiz >'
+!      WRITE(*,*) '   -s < stepsize >'
 !      WRITE(*,*) '        Steepest ascent trajectory step size.  This parameter is'
 !      WRITE(*,*) '        (only) used for the default offgrid Bader analysis.  If'
 !      WRITE(*,*) '        not specified, the stepsize is set to the minimum distance'
@@ -668,8 +667,8 @@
       WRITE(*,*) '   -cp'
       WRITE(*,*) '        Find critical points of the charge density'
       WRITE(*,*) '        Calculate eigenvalues and eigenvectors at those points'
-      WRITE(*,*) '        Store results in file named CPF.dat'
-      WRITE(*,*) ''    
+      WRITE(*,*) '        Store results in the file CPF.dat'
+      WRITE(*,*) ''
 
     END SUBROUTINE write_help
 
