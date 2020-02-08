@@ -10,7 +10,7 @@
       CHARACTER(LEN=128) :: chargefile, refchgfile
       REAL(q2) :: badertol, stepsize, vacval 
       INTEGER :: out_opt, out_auto = 0, out_cube = 1, out_chgcar4 = 2, out_chgcar5 = 3
-      INTEGER :: in_opt, in_auto = 0, in_cube = 1, in_chgcar = 2, in_chgcar4 = 3,in_chgcar5 = 4
+      INTEGER :: in_opt, in_auto = 0, in_cube = 1, in_chgcar = 2, in_chgcar4 = 3, in_chgcar5 = 4
       INTEGER :: bader_opt, bader_offgrid = 0, bader_ongrid = 1, bader_neargrid = 2, bader_weight = 3
       INTEGER :: quit_opt, quit_max = 0, quit_known = 1
       INTEGER :: refine_edge_itrs
@@ -90,8 +90,8 @@
       opts%find_critpoints_flag = .FALSE.
       opts%leastsquare_flag = .FALSE.
       opts%print_surfaces_atoms = .FALSE.
-!      n=IARGC()
-      n=COMMAND_ARGUMENT_COUNT()
+!      n = IARGC()
+      n = COMMAND_ARGUMENT_COUNT()
       IF (n == 0) THEN
         call write_options()
         STOP
@@ -545,7 +545,6 @@
       WRITE(*,'(/,A)') 'NO BADER VOLUMES SELECTED'
       STOP
     END IF
-    
 
     RETURN
     END SUBROUTINE get_options

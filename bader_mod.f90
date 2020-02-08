@@ -1086,7 +1086,7 @@ MODULE bader_mod
       END DO
 
       bvolnum = opts%selbvol(i)
-!      WRITE(atomfilename,'(A4,I4.4,A4)') "B_weight",bvolnum,".dat"
+      WRITE(atomfilename,'(A4,I4.4,A4)') "Bvol",bvolnum,".dat"
       tmp%rho = 0._q2
 !      WHERE (bdr%volnum == volsig(bvolnum,2)) tmp%rho = chg%rho
       DO n1 = 1,chg%npts(1)
