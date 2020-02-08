@@ -3,7 +3,7 @@
 FC = ifort
 #FC = gfortran
 
-FFLAGS = -O2 -CB
+FFLAGS = -O2
 
 LINK = -static
 
@@ -18,8 +18,8 @@ OBJS = kind_mod.o       \
        bader_mod.o      \
        voronoi_mod.o    \
        multipole_mod.o  \
-       weight_mod.o \
-       dsyevj3_mod.o \
+       weight_mod.o     \
+       dsyevj3_mod.o    \
        critpoint_mod.o 
 
 
