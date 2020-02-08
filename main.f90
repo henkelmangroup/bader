@@ -1,4 +1,4 @@
-! Copyright 2006-2017
+! Copyright 2006-2020
 ! Wenjie Tang, Andri Arnaldsson, Wenrui Chai, Samuel T. Chill, and Graeme Henkelman
 !
 ! Bader is free software: you can redistribute it and/or modify
@@ -69,7 +69,7 @@
      INTEGER, ALLOCATABLE :: sc_atom_map(:)
      INTEGER :: stat
     ! Write the version number
-     WRITE(*,'(/,2X,A)') 'GRID BASED BADER ANALYSIS  (Version 1.03 11/13/17)'
+     WRITE(*,'(/,2X,A)') 'GRID BASED BADER ANALYSIS  (Version 1.04 02/08/20)'
 
      ! Get the control variables
      CALL get_options(opts)
