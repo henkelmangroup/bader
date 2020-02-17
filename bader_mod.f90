@@ -43,7 +43,7 @@ MODULE bader_mod
   PUBLIC :: write_sel_atom, write_sel_bader, write_atom_index, write_bader_index
   PUBLIC :: write_sum_atom, write_sum_bader, assign_chg2atom, cal_atomic_vol
   PUBLIC :: reallocate_volpos, bader_check_partitioning
-  PUBLIC :: write_surfaces_atoms
+  PUBLIC :: write_surfaces_atoms, is_vol_edge
 
 ! scell_dir: flag if we have a doubling of the cell in direction x,y or z
   LOGICAL, DIMENSION(3) :: scell_dir = [.FALSE., .FALSE., .FALSE.]

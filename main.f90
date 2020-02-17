@@ -53,7 +53,7 @@
      USE bader_mod 
      USE voronoi_mod
      USE chgcar_mod
-     USE chgcar_mod
+!     USE chgcar_mod
      USE multipole_mod
      USE critpoints_mod
      USE weight_mod    
@@ -73,6 +73,9 @@
 
      ! Get the control variables
      CALL get_options(opts)
+
+     PRINT *, 'in main, finished reading options'
+    
      ! Call the read routines from io_mod
      CALL read_charge(ions,chgval,opts)
      IF (opts%bader_flag) THEN

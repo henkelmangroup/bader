@@ -1,7 +1,7 @@
 .SUFFIXES: .f90
 
-FC = ifort
-#FC = gfortran
+#FC = ifort
+FC = gfortran
 
 FFLAGS = -O2
 
