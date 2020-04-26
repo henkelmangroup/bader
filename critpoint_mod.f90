@@ -79,7 +79,7 @@
     REAL(q2),DIMENSION(3,3) ::  hessianMatrix, bkhessianMatrix
     ! these are vectors orthogonal to eigenvectors
     REAL(q2),DIMENSION(3) :: tem, tem2a,tem2b,tem2c, eigvals,carts
-    REAL(q2) :: umag, vmag, wmag, threshhold, minmag, tempreal, rndr
+    REAL(q2) :: threshhold, tempreal, rndr
     REAL(q2),DIMENSION(3,3) :: eigvecs, inverseHessian
     ! linearized approximated derivatives for proxy critical screening
     REAL(q2) :: dx0,dx1,dy0,dy1,dz0,dz1 ! outputs from interpolated gradients
@@ -166,6 +166,18 @@
     DO i = 1, ions%nions
       PRINT *, ions%r_lat(i,:)
     END DO
+
+    PRINT *, 'Printing the matrix '
+    PRINT *, '(/ (/1,2,3/) '
+    PRINT *, '   (/4,5,6/) '
+    PRINT *, '   (/7,8,9/) /)'
+    hessianMatrix(1,:)=(/1.,2.,3./)
+    hessianMatrix(2,:) = (/4.,5.,6./)
+    hessianMatrix(3,:) = (/7.,8.,9./)
+    PRINT *, hessianMatrix
+    PRINT *, 'multiplying the matrix with (/1.,1.,1./)'
+    PRINT *, MATMUL(hessianMatrix,(/1.,1.,1./))
+
 !    PRINT * , "These code requires -vac auto or -vac #"
 !    PRINT *, '-----------                  WARNING             -----------'
 !    PRINT *, 'Using valence charge may yield useless and confusing results'
@@ -180,13 +192,6 @@
 !    OPEN(4,FILE='CPFU.dat',STATUS='REPLACE',ACTION='WRITE')
     debugnum = 0
 
-    umag = SQRT(ions%lattice(1,1)**2 + ions%lattice(1,2)**2 + &
-      ions%lattice(1,3)**2) / REAL(chg%npts(1),q2)
-    vmag = SQRT(ions%lattice(2,1)**2 + ions%lattice(2,2)**2 + &
-      ions%lattice(2,3)**2) / REAL(chg%npts(2),q2)
-    wmag = SQRT(ions%lattice(3,1)**2 + ions%lattice(3,2)**2 + &
-      ions%lattice(3,3)**2) / REAL(chg%npts(3),q2)
-    minmag = MIN(umag,vmag,wmag)
     ! check if axis are cartesian
 !    cartcoor = coorcheck(ions%lattice)
     IF ( opts%leastsquare_flag .EQV. .TRUE. )THEN
@@ -266,14 +271,28 @@
 !!      PRINT *, 'gradient is'
 !      p = p + (/1,1,0/)
 !    END DO
-    PRINT *, 'These are on grid values'
-    p = (/2,16,30/)
-    DO n1 = 1,28
+    PRINT *, 'printing debug output for hex he case'
+    PRINT *, 'Printing on grid gradient from 07 43 63 to 43 07 08'
+    truer = (/17.,33.,53./)
+    p = (/17,33,53/)
+    DO n1 = 1,200
       CALL pbc(p,chg%npts)
-      PRINT *, rho_val(chg,p(1),p(2),p(3))
-      p = p + (/2,1,0/)
+      !PRINT *, rho_val(chg,p(1),p(2),p(3))
+      PRINT *, CDGrad(p,chg)
+      truer = truer + (/0.08,-0.08,-0.175/)
+      p(1) = NINT(truer(1))
+      p(2) = NINT(truer(2))
+      p(3) = NINT(truer(3))
     END DO
 
+    PRINT *, 'Printing on grid gradient from 1 28 1 to 28 1 1'
+    p = (/1,28,1/)
+    DO n1 = 1,27
+      CALL pbc(p,chg%npts)
+      !PRINT *, rho_val(chg,p(1),p(2),p(3))
+      PRINT *, CDGrad(p,chg)
+      p = p + (/1,-1,0/)
+    END DO
 
 !    PRINT *, 'These are interpolated values'
 !!    ! These will give you interpolated results
@@ -288,24 +307,73 @@
 !    END DO
 !    
 
-    PRINT *, 'These are interpolated values with trilinear'
-    truer = (/2.,16.,30./)
-    DO n1 = 1, 280
+    PRINT *, 'printing interpolated gradient from 17 33 53 to 33 17 18'
+    truer = (/17.,33.,53./)
+    DO n1 = 1, 200
+      CALL pbc_r_lat(truer,chg%npts)
+      !nnind = FindNN(truer,nnLayers,chg,ions)
+      !PRINT *, trilinear_interpol_rho(chg,truer)
+      nnind = SimpleNN(trueR,chg)
+      DO i = 1, 8
+        nnGrad(i,:) = CDGrad(nnInd(i,:),chg)
+      END DO 
+      distance = trueR - nnInd(1,:)
+      PRINT *, trilinear_interpol_grad(nnGrad,distance)
+      truer = truer + (/0.08,-0.08,-0.175/)
+    END DO
+
+    PRINT *, 'printing tem from 17 33 53 to 33 17 18'
+    truer = (/17.,33.,53./)
+    DO n1 = 1, 200
+      CALL pbc_r_lat(truer,chg%npts)
+      !nnind = FindNN(truer,nnLayers,chg,ions)
+      !PRINT *, trilinear_interpol_rho(chg,truer)
+      nnind = SimpleNN(trueR,chg)
+      DO i = 1, 8
+        nnGrad(i,:) = CDGrad(nnInd(i,:),chg)
+        nnHes(i,:,:) = CDHessian(nnInd(i,:),chg)
+      END DO 
+      distance = trueR - nnInd(1,:)
+      grad = trilinear_interpol_grad(nnGrad,distance)
+      hessianMatrix = trilinear_interpol_hes(nnHes,distance)
+      PRINT *, -MATMUL(INVERSE(hessianMatrix),grad)
+      !PRINT *, trilinear_interpol_grad(nnGrad,distance)
+      truer = truer + (/0.08,-0.08,-0.175/)
+    END DO
+
+    PRINT *, 'printing Hessian from 17 33 53 to 33 17 18'
+    truer = (/17.,33.,53./)
+    DO n1 = 1, 200
+      CALL pbc_r_lat(truer,chg%npts)
+      !nnind = FindNN(truer,nnLayers,chg,ions)
+      !PRINT *, trilinear_interpol_rho(chg,truer)
+      nnind = SimpleNN(trueR,chg)
+      DO i = 1, 8
+        nnHes(i,:,:) = CDHessian(nnInd(i,:),chg)
+      END DO 
+      distance = trueR - nnInd(1,:)
+      hessianMatrix = trilinear_interpol_hes(nnHes,distance)
+      PRINT *, hessianMatrix(1,:)
+      PRINT *, hessianMatrix(2,:)
+      PRINT *, hessianMatrix(3,:)
+      truer = truer + (/0.08,-0.08,-0.175/)
+    END DO
+
+    PRINT *, 'printing interpolated charge from 17 33 53 to 33 17 18'
+    truer = (/17.,33.,53./)
+    DO n1 = 1, 200
       CALL pbc_r_lat(truer,chg%npts)
       !nnind = FindNN(truer,nnLayers,chg,ions)
       PRINT *, trilinear_interpol_rho(chg,truer)
-      truer = truer + (/0.2,0.1,0./)
+      !nnind = SimpleNN(trueR,chg)
+      !DO i = 1, 8
+      !  nnGrad(i,:) = CDGrad(nnInd(i,:),chg)
+      !END DO
+      !distance = trueR - nnInd(1,:)
+      !PRINT *, trilinear_interpol_grad(nnGrad,distance)
+      truer = truer + (/0.08,-0.08,-0.175/)
     END DO
 
-
-    PRINT *, 'interpolated gradient run'
-    truer = (/2.,16.,30./)
-    DO n1 = 1, 280
-      CALL pbc_r_lat(truer,chg%npts)
-      nnind = FindNN(truer,nnLayers,chg,ions)
-      PRINT *, R2GradInterpol(nnind,truer,chg,nnLayers)
-      truer = truer + (/0.2,0.1,0./)
-    END DO
 
 !
 !    PRINT *, 'tem run'
@@ -623,14 +691,14 @@
                   lsh(p,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
                 tem = - MATMUL(INVERSE(hessianMatrix),grad)
                 ! tem is now in cartesian. convert it back to lattice
-                tem = MATMUL(tem, chg%car2lat)
+                tem = MATMUL(chg%car2lat,tem)
               ELSE 
                 ! use central difference
                 grad = CDGrad(p,chg)
                 hessianMatrix = CDHessian(p,chg)
                 tem = - MATMUL(INVERSE(hessianMatrix),grad)
                 ! this tem is in cartesian. Transform it to lattice 
-                tem = MATMUL(tem,chg%car2lat)
+                tem = MATMUL(chg%car2lat,tem)
                 IF (p(1)==66.AND.p(2)==66.AND.p(3)==10) THEN
                   PRINT *,'66 66 10'
                   PRINT *, 'grad is'
@@ -662,6 +730,8 @@
                 PRINT *, 'tem is'
                 PRINT *, tem
                 cptnum = cptnum + 1
+                PRINT *, 'cptnum updated to'
+                PRINT *, cptnum
                 bkhessianMatrix = hessianMatrix
                 ! Check if the candidate list needs to be expanded.
                 IF (cptnum < SIZE(cpcl) - 1 ) THEN
@@ -674,7 +744,7 @@
                   cpcl(cptnum)%grad = grad
                   cpcl(cptnum)%proxy = .FALSE.
                   cpcl(cptnum)%r = tem
-                  cpcl(cptnum)%tempcart = MATMUL(tem + p,chg%car2lat)
+                  cpcl(cptnum)%tempcart = MATMUL(chg%car2lat,tem + p)
                 ELSE 
                   PRINT *, 'expanding cpcl size'
                   ALLOCATE(cpclt(cptnum + 1))
@@ -699,7 +769,7 @@
                   cpcl(cptnum)%grad = grad
                   cpcl(cptnum)%proxy = .FALSE.
                   cpcl(cptnum)%r = tem
-                  cpcl(cptnum)%tempcart = MATMUL(tem + p, chg%car2lat)
+                  cpcl(cptnum)%tempcart = MATMUL( chg%car2lat,tem + p)
                 END IF
               END IF
             END IF
@@ -728,6 +798,7 @@
           temcap = (/1.,1.,1./)
           temscale = (/1.,1.,1./)
           temnormcap = 1.
+          PRINT *, 'this is candidate number ', i
           PRINT *, 'looking at candidate of indices'
           PRINT *, cpcl(i)%ind
           IF (.FALSE.) THEN
@@ -773,6 +844,9 @@
           !   !interpolHessian = R2HesInterpol(nnind,truer,chg,nnlayers)
           ELSE
           ! Begins newton raphson validation process
+            PRINT *, 'looking at candidate ', i
+            PRINT *, 'starting position is'
+            PRINT *, cpcl(i)%ind
             stepcount = 1
             averagecount = 0
             averageR = (/-1.,-1.,-1./)
@@ -800,13 +874,21 @@
             truer =  cpcl(i)%ind + cpcl(i)%r
             CALL pbc_r_lat(truer,chg%npts)
             previoustem = cpcl(i)%r
-            DO stepcount = 1,100
+            DO stepcount = 1,1000
               !IF (truer(1) - cpcl(i)%ind(1) >= 2 + 2 * opts%knob_tem .OR. &
               !    truer(2) - cpcl(i)%ind(2) >= 2 + 2 * opts%knob_tem .OR. &
               !    truer(3) - cpcl(i)%ind(3) >= 2 + 2 * opts%knob_tem) THEN
               !  PRINT *,'too far'
               !  EXIT
               !END IF
+              IF (n1==23.AND.n2==25.AND.n3==35) THEN
+                PRINT *, 'truer is '
+                PRINT *, truer
+                PRINT *, 'grad is'
+                PRINT *, grad
+                PRINT *, 'nexttem is'
+                PRINT *, nexttem
+              END IF 
               IF (stepcount >= 1) THEN
                 prevgrad = grad
               END IF
@@ -842,17 +924,20 @@
                 EXIT
               END IF
               nexttem = - MATMUL(inverse(interpolHessian),grad)
-              nexttem = MATMUL(nexttem,chg%car2lat)
+              nexttem = MATMUL(chg%car2lat,nexttem)
               ! see if movement capping is necessary
               nexttem = TemMods(nexttem,temscale,temnormcap)
               temscale = scaleinspector( nexttem, previoustem, temscale)
               CALL DetectCircling(stepCount,rList,temList,trueR,nextTem,averageR)
               IF (ALL(averageR /= -1.,1)) THEN
+                PRINT *, 'averageR is'
+                PRINT *, averageR
                 cpcl(i)%isUnique = .TRUE.
                 cpcl(i)%trueInd = averageR
                 trueR = averageR
+                PRINT *, 'averaged location at'
                 PRINT *, averageR
-                STOP
+                EXIT
               END IF
               !nexttem = unstuck( nexttem, previoustem, temscale, temnormcap)
               ! There is no reason why the following should work
@@ -892,7 +977,7 @@
                    ABS(nexttem(2)) <= 0.1*opts%knob_newtonr .AND. &
                    ABS(nexttem(3)) <= 0.1*opts%knob_newtonr ) THEN
                 cpcl(i)%trueind = truer 
-                cpcl(i)%isunique = .TRUE.
+                cpcl(i)%isUnique = .TRUE.
                 PRINT *, 'vector small'
                 PRINT *, nexttem
 !                IF (mag(grad)>=0.1) THEN 
@@ -905,6 +990,10 @@
             END DO
           END IF
           PRINT *, 'stepcount : ', stepcount
+          PRINT *, 'residue gradient is'
+          PRINT *,  grad
+          PRINT *, 'last nexttem is'
+          PRINT *,  nexttem
 !          IF (mag(grad) >= 0.1) THEN
 !            PRINT *, 'flagged not unique for residue gradient'
 !            cpcl(i)%isunique = .FALSE.
@@ -1004,26 +1093,6 @@
         ind(2) * lat2car(3,2) + &
         ind(3) *  lat2car(3,3)
 
-      RETURN
-    END FUNCTION
-
-    ! get cartesian coordinates of interpolated points
-    FUNCTION  getintcarts(carts,umag,vmag,wmag)
-      REAL(q2) :: minmag,umag,vmag,wmag
-      REAL(q2),DIMENSION(3) :: carts
-      REAL(q2),DIMENSION(6,3) :: getintcarts
-      INTEGER :: i,j,k
-      ! first find which one is the smallest mag
-      minmag = MIN(umag,vmag,wmag)
-      DO i = 1, 6
-        getintcarts(i,:) = carts
-      END DO
-      getintcarts(1,1) = getintcarts(1,1) + minmag
-      getintcarts(2,1) = getintcarts(2,1) - minmag
-      getintcarts(3,2) = getintcarts(3,2) + minmag
-      getintcarts(4,2) = getintcarts(4,2) - minmag
-      getintcarts(5,3) = getintcarts(5,3) + minmag
-      getintcarts(6,3) = getintcarts(6,3) - minmag
       RETURN
     END FUNCTION
     
@@ -1129,7 +1198,7 @@
       !to calculate distance it is not necessary to run pbc
       !infact pbc should be avoided at this stage
       baseind = (/FLOOR(truer(1)),FLOOR(truer(2)),FLOOR(truer(3))/)
-      truecart = MATMUL(truer,chg%lat2car)
+      truecart = MATMUL(chg%lat2car,truer)
       DO i = -nnlayers, nnlayers
         DO j = -nnlayers, nnlayers
           DO k = -nnlayers, nnlayers
@@ -1138,7 +1207,7 @@
             !END IF
             counter = counter + 1
             nnind(counter,:) = (/i,j,k/) + baseind
-            pcart = MATMUL(nnind(counter,:),chg%lat2car)
+            pcart = MATMUL(chg%lat2car,nnind(counter,:))
             nndist(counter)%rho = mag(truecart - pcart)
             nndist(counter)%pos(:) = (/i,j,k/) + baseind
             ! remember, rho here is really the distance
@@ -1291,7 +1360,7 @@
       rho_grad_lat(2) = rho_1_ - rho_0_
       rho_grad_lat(3) = rho__1 - rho__0
   !   CALL vector_matrix(rho_grad_lat, chg%car2lat, rho_grad)
-      nn_grad = MATMUL(rho_grad_lat, chg%car2lat)
+      nn_grad = MATMUL(chg%car2lat,rho_grad_lat)
     RETURN
     END FUNCTION nn_grad
 
@@ -1487,7 +1556,7 @@
                   rho_val(chg,pym(1),pym(2),pym(3)))
       CDGrad(1) = 0.5*(rho_val(chg,pxp(1),pxp(2),pxp(3)) - &
                   rho_val(chg,pxm(1),pxm(2),pxm(3)))
-      CDGrad = MATMUL(CDGrad,chg%car2lat)
+      CDGrad = MATMUL(chg%car2lat,CDGrad)
       RETURN
       ! now the gradient should be in cartesian
     END FUNCTION
@@ -1601,7 +1670,8 @@
         )
       CDHessian(3,2) = CDHessian(2,3)
       ! Convert the hessian, which is now in lattice coordinates, to cartesian
-      CDHessian = MATMUL(MATMUL(TRANSPOSE(chg%car2lat),CDHessian),chg%car2lat)
+      !CDHessian = MATMUL(MATMUL(chg%car2lat,CDHessian),TRANSPOSE(chg%car2lat))
+      CDHessian = MATMUL(TRANSPOSE(chg%car2lat),MATMUL(CDHessian,chg%car2lat))
       RETURN
     END FUNCTION
     
@@ -1643,20 +1713,6 @@
     RETURN
     END FUNCTION inthessian
 
-    FUNCTION newtonstep(car2lat,lat2car,hessian,grad)
-      REAL(q2),DIMENSION(3,3) :: car2lat,lat2car,hessian,inversehessian
-      REAL(q2),DIMENSION(3) :: grad,newtonstep
-!      PRINT *, 'in newtonstep, grad is'
-!      PRINT *, grad
-!      PRINT *, 'hessian is'
-!      PRINT *, hessian
-      PRINT *, 'in newtonstep'
-      inversehessian = INVERSE(hessian)
-      PRINT *, 'still in newtonstep'
-      newtonstep = MATMUL( inversehessian,grad)
-      newtonstep = MATMUL(car2lat,newtonstep)
-    RETURN
-    END FUNCTION newtonstep
    
     ! below is the function for least sqare gradient
     FUNCTION lsg(r0,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct) 
@@ -1751,7 +1807,7 @@
       PRINT *, 'calculated lsg is'
       PRINT *, lsg
       ! lsg up till now seems to be larger than force in cartesian units by car2lat
-      lsg = MATMUL(lsg,chg%lat2car) ! now force should be in cartesian units
+      lsg = MATMUL(chg%lat2car,lsg) ! now force should be in cartesian units
       PRINT *, 'multiplied with lat2car again is'
       PRINT *, lsg
       RETURN
@@ -1819,9 +1875,9 @@
         )
 
       ! the hessian up till now seems larger than cartesian by car2lat
-      lsh(1,:) = MATMUL(lsh(1,:),chg%lat2car)
-      lsh(2,:) = MATMUL(lsh(2,:),chg%lat2car)
-      lsh(3,:) = MATMUL(lsh(3,:),chg%lat2car)
+      lsh(1,:) = MATMUL(chg%lat2car,lsh(1,:))
+      lsh(2,:) = MATMUL(chg%lat2car,lsh(2,:))
+      lsh(3,:) = MATMUL(chg%lat2car,lsh(3,:))
       average = (lsh(1,2) + lsh(2,1))/2
       lsh(1,2) = average
       lsh(2,1) = average
@@ -1926,7 +1982,7 @@
         grad = cdgrad(ind,chg)
       END IF
       ! this gradient is in cartesian. convert it to lattice
-      grad = MATMUL(grad,chg%lat2car)
+      grad = MATMUL(chg%lat2car,grad)
       DO WHILE (stepsize(1) >= 0.01 .AND. &
                 stepsize(2) >= 0.01 .AND. &
                 stepsize(3) >= 0.01 )
@@ -1959,7 +2015,7 @@
         !nnind = FindNN(rn,nnLayers,chg,ions)
         !grad = R2GradInterpol(nnind,rn,chg,nnLayers)
         ! this grad is in cartesian. convert it to lattice
-        grad = MATMUL(grad,chg%lat2car)
+        grad = MATMUL(chg%lat2car,grad)
         IF (ABS(grad(1)) < 0.001 &
             .AND. ABS(grad(2)) <= 0.001 &
             .AND. ABS(grad(3)) <= 0.001)  THEN
@@ -2025,7 +2081,7 @@
 !      PRINT *, 'initial grad is'
 !      PRINT *, grad
       ! this gradient is in cartesian. convert it to lattice
-      grad = MATMUL(grad,chg%lat2car)
+      grad = MATMUL(chg%lat2car,grad)
       DO WHILE (stepsize(1) >= 0.1 .AND. &
                 stepsize(2) >= 0.1 .AND. &
                 stepsize(3) >= 0.1 )
@@ -2063,7 +2119,7 @@
         !nnInd = FindNN(rn,nnLayers,chg,ions)
         !grad = R2GradInterpol(nnInd,rn,chg,nnLayers)
         ! this grad is in cartesian. convert it to lattice
-        grad = MATMUL(grad,chg%lat2car)
+        grad = MATMUL(chg%lat2car,grad)
         IF (SUM(grad*grad)<=(0.1*opts%knob_gradfloor)**2) THEN
           ! we are at a critical point!
 !          PRINT *, 'descention gradient sufficiently small'
@@ -2416,7 +2472,7 @@
             matwprime) & 
         , delta)
       ! lsg up till now seems to be larger than force in cartesian units by car2lat
-      lsgsqlsg = MATMUL(lsgsqlsg,chg%lat2car) ! now force should be in cartesian units
+      lsgsqlsg = MATMUL(chg%lat2car,lsgsqlsg) ! now force should be in cartesian units
       END FUNCTION lsgsqlsg
 
 
@@ -2796,9 +2852,9 @@
         END IF
         WRITE (98,*) 'Coordinates in cartesian are'
         IF (opts%noInterpolation_flag) THEN
-          WRITE (98,*) MATMUL(cpl(i)%ind,chg%lat2car)
+          WRITE (98,*) MATMUL(chg%lat2car,cpl(i)%ind)
         ELSE 
-          WRITE (98,*) MATMUL(cpl(i)%truer,chg%lat2car)
+          WRITE (98,*) MATMUL(chg%lat2car,cpl(i)%truer)
         END IF
         WRITE (98,*) 'Direct coordinates are'
         IF (opts%noInterpolation_flag) THEN
@@ -2863,7 +2919,7 @@
           DO k = -nnlayer, nnlayer
             IF (i == 0.AND.j == 0.AND.k == 0) CYCLE
             nnp = p + (/i * chg%npts(1), j * chg%npts(2), k * chg%npts(3)/)
-            nnr = MATMUL(nnp, chg%lat2car)
+            nnr = MATMUL(chg%lat2car,nnp)
             distance = mag( nnr - rt)
             GetPointDistance = MIN(GetPointDistance, distance)
           END DO
@@ -2894,7 +2950,7 @@
             IF (i == 0.AND.j == 0.AND.k == 0) CYCLE
             nnp = p + (/REAL(i * chg%npts(1),q2), REAL(j * chg%npts(2),q2), &
                   REAL(k * chg%npts(3),q2)/)
-            nnr = MATMUL(nnp, chg%lat2car)
+            nnr = MATMUL(chg%lat2car,nnp)
             distance = mag( nnr - rt)
             GetPointDistanceR = MIN(GetPointDistanceR, distance)
           END DO
@@ -2939,7 +2995,7 @@
       ALLOCATE(weight(SIZE(nnInd)/3))
       DO i = 1,SIZE(nnInd)/3
         distance = GetPointDistanceR( &
-          MATMUL(r,chg%lat2car),MATMUL(nnInd(i,:),chg%lat2car) &
+          MATMUL(chg%lat2car,r),MATMUL(chg%lat2car,nnInd(i,:)) &
           ,chg,nnlayers)
         IF (distance == 0) THEN
           onGrid = .TRUE.
@@ -2975,7 +3031,7 @@
       ALLOCATE(weight(SIZE(nnInd)/3))
       DO i = 1,SIZE(nnInd)/3
         distance = GetPointDistanceR( &
-          MATMUL(r,chg%lat2car),MATMUL(nnInd(i,:),chg%lat2car) &
+          MATMUL(chg%lat2car,r),MATMUL(chg%lat2car,nnInd(i,:)) &
           ,chg,nnlayers)
         IF (distance == 0) THEN
           onGrid = .TRUE.
@@ -3010,13 +3066,13 @@
       PRINT *, '30 30 30 in cartesian is'
       PRINT *, MATMUL(chg%lat2car,(/30.,30.,30./))
       PRINT *, 'This point is in cartesian'
-      PRINT *, MATMUL(r,chg%lat2car)
+      PRINT *, MATMUL(chg%lat2car,r)
       PRINT *, 'the nns are'
       ALLOCATE(weight(SIZE(nnInd)/3))
       DO i = 1,SIZE(nnInd)/3
         PRINT *, nnInd(i,:)
         distance = GetPointDistanceR( &
-          MATMUL(r,chg%lat2car),MATMUL(nnInd(i,:),chg%lat2car) &
+          MATMUL(chg%lat2car,r),MATMUL(chg%lat2car,nnInd(i,:)) &
           ,chg,nnlayers)
         IF (distance == 0) THEN
           onGrid = .TRUE.
@@ -3027,12 +3083,12 @@
       END DO
       PRINT *, 'the nn in cartesian are'
       DO i = 1, SIZE(nnInd)/3
-        PRINT *, MATMUL(nnInd(i,:),chg%lat2car)
+        PRINT *, MATMUL(chg%lat2car,nnInd(i,:))
       END DO
       PRINT *, 'the distance are'
       DO i = 1, SIZE(nnInd)/3
         PRINT *, GetPointDistanceR( &
-          MATMUL(r,chg%lat2car),MATMUL(nnInd(i,:),chg%lat2car) &
+          MATMUL(chg%lat2car,r),MATMUL(chg%lat2car,nnInd(i,:)) &
           ,chg,nnlayers)
       END DO
       PRINT *, 'the weight are'
@@ -3090,18 +3146,29 @@
       REAL(q2),DIMENSION(8,3,3) :: nnHes
       REAL(q2),DIMENSION(8,3) :: nnGrad
       REAL(q2),DIMENSION(3,3) :: hessianMatrix,eigvecs
-      REAL(q2),DIMENSION(3) :: grad,eigvals,distance
+      REAL(q2),DIMENSION(3) :: grad,eigvals,distance, dir
       INTEGER,DIMENSION(8,3) :: nnInd
       INTEGER :: cptnum,i,n1,negCount, j
       INTEGER :: maxCount,bondCount,ringCount,cageCount
       INTEGER :: im,ib,ir,ic
       CHARACTER(LEN=128) :: atoms, natoms
+      LOGICAL :: isCart
       OPEN(100,FILE=opts%chargefile,STATUS='old',ACTION='read',BLANK='null',PAD='yes')
-      DO n1 = 1, 5
-        READ(100,'(a)')
-      END DO
-      READ(100,'(a)') atoms
-      READ(100,'(a)') natoms
+      IF(opts%in_opt == opts%in_chgcar5) THEN
+        DO n1 = 1, 5
+          READ(100,'(a)')
+        END DO
+        READ(100,'(a)') atoms
+        READ(100,'(a)') natoms
+      ELSE
+        ! have to hope that somewhere in the CHGCAR elements are specified.
+        READ(100,'(a)') atoms
+        DO n1 = 1,4
+          READ(100,'(a)')
+          ! skipping 1 line of scaling factor and 3 lines of lattice coordinates
+        END DO
+        READ(100,'(a)') natoms
+      END IF
       PRINT *, 'atoms are'
       PRINT *, atoms
       PRINT *, 'natoms are'
@@ -3159,36 +3226,45 @@
       PRINT *, maxCount,bondCount,ringCount,cageCount
       ! Write header of allcpPOSCAR
       OPEN(11,FILE='allcpPOSCAR',STATUS='REPLACE',ACTION='WRITE')
-      IF (ringCount>0) WRITE(11,'(a)',ADVANCE='NO') ' Ne'
-      IF (bondCount>0) WRITE(11,'(a)',ADVANCE='NO') ' He'
-      IF (cageCount>0) WRITE(11,'(a)',ADVANCE='NO') ' Ar'
+      IF (cageCount>0) WRITE(11,'(a)',ADVANCE='NO') 'Ar '
+      IF (ringCount>0) WRITE(11,'(a)',ADVANCE='NO') 'Ne '
+      IF (bondCount>0) WRITE(11,'(a)',ADVANCE='NO') 'He '
+      !IF (maxCount>0) WRITE(11,'(a)',ADVANCE='NO') 'Kr'
 !      WRITE(11,'(a)',ADVANCE='NO') ' He  Ne  Ar'
       WRITE(11,'(a)') TRIM(atoms)
       WRITE(11,*) ions%scalefactor
       WRITE(11,*) '     ',ions%lattice(1,:)
       WRITE(11,*) '     ',ions%lattice(2,:)
       WRITE(11,*) '     ',ions%lattice(3,:)
-      IF (ringCount>0) WRITE(11,'(a)',ADVANCE='NO') ' Ne'
-      IF (bondCount>0) WRITE(11,'(a)',ADVANCE='NO') ' He'
-      IF (cageCount>0) WRITE(11,'(a)',ADVANCE='NO') ' Ar'
+      IF (cageCount>0) WRITE(11,'(a)',ADVANCE='NO') 'Ar '
+      IF (ringCount>0) WRITE(11,'(a)',ADVANCE='NO') 'Ne '
+      IF (bondCount>0) WRITE(11,'(a)',ADVANCE='NO') 'He '
+      !IF (maxCount>0) WRITE(11,'(a)',ADVANCE='NO') ' Kr'
       WRITE(11,'(a)') TRIM(atoms)
+      IF (cageCount>0) WRITE(11,'(I)',ADVANCE='NO') cageCount
       IF (ringCount>0) WRITE(11,'(I)',ADVANCE='NO') ringCount
       IF (bondCount>0) WRITE(11,'(I)',ADVANCE='NO') bondCount
-      IF (cageCount>0) WRITE(11,'(I)',ADVANCE='NO') cageCount
+      !IF (maxCount>0) WRITE(11,'(I)',ADVANCE='NO') maxCount
       WRITE(11,'(a)') TRIM(natoms)
       WRITE(11,'(a)') 'Cartesian'
       ! Loop three times, each time writes out one type of CP
-      DO j = 1, 3
+      DO j = 0, 2
       PRINT *, 'looking for negcount ' , j 
         DO n1 = 1, cptnum
 !          PRINT *, n1, j, cpcl(i)%negCount
+          IF (.NOT.cpcl(n1)%isunique) CYCLE
           IF (cpcl(n1)%negCount == j) THEN
-            PRINT *, 'something should be written down'
+            PRINT *, 'negcount ', j, ' found at '
             PRINT *, cpcl(n1)%trueInd
-            WRITE(11,*) MATMUL(cpcl(n1)%trueInd,chg%lat2car)
+            PRINT *, 'cptnum is', n1
+            WRITE(11,*) MATMUL(chg%lat2car,cpcl(n1)%trueInd)
+            dir(1) = cpcl(n1)%trueInd(1)/chg%npts(1)
+            dir(2) = cpcl(n1)%trueInd(2)/chg%npts(2)
+            dir(3) = cpcl(n1)%trueInd(3)/chg%npts(3)
           END IF
         END DO
       END DO
+      PRINT *, 'writting atomic locations'
       DO j = 1, ions%nions
         WRITE(11,*) ions%r_car(j,:)
       END DO
@@ -3206,6 +3282,7 @@
       INTEGER :: stepCount,i,j
       LOGICAL :: isRunningCircles
       ! establish lists if stepCount is low
+      isRunningCircles = .FALSE.
       IF ( stepCount <= 10 ) THEN
         rList(stepCount,:) = trueR
         temList(stepCount,:) = nextTem
@@ -3222,7 +3299,13 @@
           DO j = 1, 10
             IF ( j == i ) CYCLE
             IF (ALL(temList(i,:) == temList(j,:),1) ) THEN 
+              IF (mag(temList(j,:))== 1.) CYCLE
               isRunningCircles = .TRUE.
+              PRINT *, 'a tem found to be familiar!'
+              PRINT *, 'step ', i, ' has tem'
+              PRINT *, temList(i,:)
+              PRINT *, 'step ', j, ' has tem'
+              PRINT *, temList(j,:)
               EXIT outer
             END IF
           END DO
