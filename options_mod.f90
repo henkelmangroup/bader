@@ -58,8 +58,8 @@
 ! Default values
       opts%knob_tem = 1.5
       opts%knob_distance = 0.
-      opts%knob_newtonr = 0.01
-      opts%knob_gradfloor = 0.01
+      opts%knob_newtonr = 0.001
+      opts%knob_gradfloor = 0.000001
       opts%ismolecule = .FALSE.
       opts%iscrystal = .FALSE.
       opts%out_opt = opts%out_chgcar4
@@ -680,6 +680,19 @@
       WRITE(*,*) '        Calculate eigenvalues and eigenvectors at those points'
       WRITE(*,*) '        Store results in file named CPF.dat'
       WRITE(*,*) ''    
+      WRITE(*,*) '   -knob_newtonr'
+      WRITE(*,*) '        Criteria for stopping Newton method for small &
+                          stepsize.'
+      WRITE(*,*) '   -knob_gradfloor '
+      WRITE(*,*) '        Criterial for stopping Newtons method for small &
+                          gradient'
+      WRITE(*,*) '   -knob_tem '
+      WRITE(*,*) '        Proximity criteria for initializing Newtons method &
+                          trajectory'
+      WRITE(*,*) '   -knob_distance = 0.'
+      WRITE(*,*) '        Proximity criteria in Angstrom for declaring two CP &
+                          duplicates of each other'
+
 
     END SUBROUTINE write_help
 

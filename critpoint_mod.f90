@@ -154,29 +154,29 @@
     ucptnum = 0
     cptnum = 0
 
-    PRINT *, 'lat2car is'
-    PRINT *, chg%lat2car(1,:)
-    PRINT *, chg%lat2car(2,:)
-    PRINT *, chg%lat2car(3,:)
-    PRINT *, 'lattice is'
-    PRINT *, ions%lattice(1,:)
-    PRINT *, ions%lattice(2,:)
-    PRINT *, ions%lattice(3,:)
-    PRINT *, 'ions locations are at' 
-    DO i = 1, ions%nions
-      PRINT *, ions%r_lat(i,:)
-    END DO
+!    PRINT *, 'lat2car is'
+!    PRINT *, chg%lat2car(1,:)
+!    PRINT *, chg%lat2car(2,:)
+!    PRINT *, chg%lat2car(3,:)
+!    PRINT *, 'lattice is'
+!    PRINT *, ions%lattice(1,:)
+!    PRINT *, ions%lattice(2,:)
+!    PRINT *, ions%lattice(3,:)
+!    PRINT *, 'ions locations are at' 
+!    DO i = 1, ions%nions
+!      PRINT *, ions%r_lat(i,:)
+!    END DO
 
-    PRINT *, 'Printing the matrix '
-    PRINT *, '(/ (/1,2,3/) '
-    PRINT *, '   (/4,5,6/) '
-    PRINT *, '   (/7,8,9/) /)'
+!    PRINT *, 'Printing the matrix '
+!    PRINT *, '(/ (/1,2,3/) '
+!    PRINT *, '   (/4,5,6/) '
+!    PRINT *, '   (/7,8,9/) /)'
     hessianMatrix(1,:)=(/1.,2.,3./)
     hessianMatrix(2,:) = (/4.,5.,6./)
     hessianMatrix(3,:) = (/7.,8.,9./)
-    PRINT *, hessianMatrix
-    PRINT *, 'multiplying the matrix with (/1.,1.,1./)'
-    PRINT *, MATMUL(hessianMatrix,(/1.,1.,1./))
+!    PRINT *, hessianMatrix
+!    PRINT *, 'multiplying the matrix with (/1.,1.,1./)'
+!    PRINT *, MATMUL(hessianMatrix,(/1.,1.,1./))
 
 !    PRINT * , "These code requires -vac auto or -vac #"
 !    PRINT *, '-----------                  WARNING             -----------'
@@ -198,15 +198,15 @@
       vi = makevi()
       vit = TRANSPOSE(vi)
       ggrid = makeggrid(chg,ions)
-      PRINT *, 'ggrid is'
-      PRINT *, ggrid(1,:)
-      PRINT *, ggrid(2,:)
-      PRINT *, ggrid(3,:)
-      PRINT *, 'wi is'
-      DO i = 1,26
-        wi(i) = DOT_PRODUCT(MATMUL(vit(i,:),ggrid),vi(:,i))
-        wi(i) = 1./wi(i)
-      END DO
+!      PRINT *, 'ggrid is'
+!      PRINT *, ggrid(1,:)
+!      PRINT *, ggrid(2,:)
+!      PRINT *, ggrid(3,:)
+!      PRINT *, 'wi is'
+!      DO i = 1,26
+!        wi(i) = DOT_PRODUCT(MATMUL(vit(i,:),ggrid),vi(:,i))
+!        wi(i) = 1./wi(i)
+!      END DO
       ! The following method checks wi directly. The above code is working
       ! properly.
       !wi = makewi(chg,nnlayers,vi)
@@ -216,11 +216,11 @@
       !END DO
 
       matm = 0.0_q2
-      PRINT *, 'matwprime is'
-      DO i = 1,13
-        matwprime(:,i) = vi(:,i) * wi(i)
-        PRINT *, matwprime(:,i)
-      END DO
+!      PRINT *, 'matwprime is'
+!      DO i = 1,13
+!        matwprime(:,i) = vi(:,i) * wi(i)
+!        PRINT *, matwprime(:,i)
+!      END DO
       DO i = 1, 26
         outerproduct(1,1)= vi(1,i) * vit(i,1)
         outerproduct(1,2)= vi(1,i) * vit(i,2)
@@ -231,20 +231,20 @@
         outerproduct(3,1)= vi(3,i) * vit(i,1)
         outerproduct(3,2)= vi(3,i) * vit(i,2)
         outerproduct(3,3)= vi(3,i) * vit(i,3)
-        PRINT *, 'i is', i
-        PRINT *, 'vi is'
-        PRINT *, vi(:,i)
-        PRINT *, 'outer product is'
-        PRINT *, outerproduct(1,:)
-        PRINT *, outerproduct(2,:)
-        PRINT *, outerproduct(3,:)
-        PRINT *, 'wi vi x vi is'
-        PRINT *, outerproduct * wi(i)
+!        PRINT *, 'i is', i
+!        PRINT *, 'vi is'
+!        PRINT *, vi(:,i)
+!        PRINT *, 'outer product is'
+!        PRINT *, outerproduct(1,:)
+!        PRINT *, outerproduct(2,:)
+!        PRINT *, outerproduct(3,:)
+!        PRINT *, 'wi vi x vi is'
+!        PRINT *, outerproduct * wi(i)
         matm = matm + wi(i) * outerproduct
-        PRINT *, 'matm is now'
-        PRINT *, matm(1,:)
-        PRINT *, matm(2,:)
-        PRINT *, matm(3,:)
+!        PRINT *, 'matm is now'
+!        PRINT *, matm(1,:)
+!        PRINT *, matm(2,:)
+!        PRINT *, matm(3,:)
 !        PRINT *, 'vi is' 
 !        PRINT *, vi(:,i)
 !        PRINT *, 'vit is'
@@ -271,28 +271,42 @@
 !!      PRINT *, 'gradient is'
 !      p = p + (/1,1,0/)
 !    END DO
-    PRINT *, 'printing debug output for hex he case'
-    PRINT *, 'Printing on grid gradient from 07 43 63 to 43 07 08'
-    truer = (/17.,33.,53./)
-    p = (/17,33,53/)
-    DO n1 = 1,200
-      CALL pbc(p,chg%npts)
-      !PRINT *, rho_val(chg,p(1),p(2),p(3))
-      PRINT *, CDGrad(p,chg)
-      truer = truer + (/0.08,-0.08,-0.175/)
-      p(1) = NINT(truer(1))
-      p(2) = NINT(truer(2))
-      p(3) = NINT(truer(3))
-    END DO
+!    PRINT *, 'printing debug output for hex he case'
+!    PRINT *, 'Printing on grid gradient from 07 43 63 to 43 07 08'
+!    truer = (/17.,33.,53./)
+!    p = (/17,33,53/)
+!    DO n1 = 1,200
+!      CALL pbc(p,chg%npts)
+!      !PRINT *, rho_val(chg,p(1),p(2),p(3))
+!      PRINT *, CDGrad(p,chg)
+!      truer = truer + (/0.08,-0.08,-0.175/)
+!      p(1) = NINT(truer(1))
+!      p(2) = NINT(truer(2))
+!      p(3) = NINT(truer(3))
+!    END DO
+!
+!    PRINT *, 'Printing on grid gradient from 07 43 63 to 43 07 08'
+!    truer = (/17.,33.,53./)
+!    p = (/17,33,53/)
+!    DO n1 = 1,200
+!      CALL pbc(p,chg%npts)
+!      !PRINT *, rho_val(chg,p(1),p(2),p(3))
+!      PRINT *, CDGrad(p,chg)
+!      truer = truer + (/0.08,-0.08,-0.175/)
+!      p(1) = NINT(truer(1))
+!      p(2) = NINT(truer(2))
+!      p(3) = NINT(truer(3))
+!    END DO
 
-    PRINT *, 'Printing on grid gradient from 1 28 1 to 28 1 1'
-    p = (/1,28,1/)
-    DO n1 = 1,27
-      CALL pbc(p,chg%npts)
-      !PRINT *, rho_val(chg,p(1),p(2),p(3))
-      PRINT *, CDGrad(p,chg)
-      p = p + (/1,-1,0/)
-    END DO
+
+!    PRINT *, 'Printing on grid gradient from 1 28 1 to 28 1 1'
+!    p = (/1,28,1/)
+!    DO n1 = 1,27
+!      CALL pbc(p,chg%npts)
+!      !PRINT *, rho_val(chg,p(1),p(2),p(3))
+!      PRINT *, CDGrad(p,chg)
+!      p = p + (/1,-1,0/)
+!    END DO
 
 !    PRINT *, 'These are interpolated values'
 !!    ! These will give you interpolated results
@@ -307,72 +321,72 @@
 !    END DO
 !    
 
-    PRINT *, 'printing interpolated gradient from 17 33 53 to 33 17 18'
-    truer = (/17.,33.,53./)
-    DO n1 = 1, 200
-      CALL pbc_r_lat(truer,chg%npts)
-      !nnind = FindNN(truer,nnLayers,chg,ions)
-      !PRINT *, trilinear_interpol_rho(chg,truer)
-      nnind = SimpleNN(trueR,chg)
-      DO i = 1, 8
-        nnGrad(i,:) = CDGrad(nnInd(i,:),chg)
-      END DO 
-      distance = trueR - nnInd(1,:)
-      PRINT *, trilinear_interpol_grad(nnGrad,distance)
-      truer = truer + (/0.08,-0.08,-0.175/)
-    END DO
+!    PRINT *, 'printing interpolated gradient from 17 33 53 to 33 17 18'
+!    truer = (/17.,33.,53./)
+!    DO n1 = 1, 200
+!      CALL pbc_r_lat(truer,chg%npts)
+!      !nnind = FindNN(truer,nnLayers,chg,ions)
+!      !PRINT *, trilinear_interpol_rho(chg,truer)
+!      nnind = SimpleNN(trueR,chg)
+!      DO i = 1, 8
+!        nnGrad(i,:) = CDGrad(nnInd(i,:),chg)
+!      END DO 
+!      distance = trueR - nnInd(1,:)
+!      PRINT *, trilinear_interpol_grad(nnGrad,distance)
+!      truer = truer + (/0.08,-0.08,-0.175/)
+!    END DO
 
-    PRINT *, 'printing tem from 17 33 53 to 33 17 18'
-    truer = (/17.,33.,53./)
-    DO n1 = 1, 200
-      CALL pbc_r_lat(truer,chg%npts)
-      !nnind = FindNN(truer,nnLayers,chg,ions)
-      !PRINT *, trilinear_interpol_rho(chg,truer)
-      nnind = SimpleNN(trueR,chg)
-      DO i = 1, 8
-        nnGrad(i,:) = CDGrad(nnInd(i,:),chg)
-        nnHes(i,:,:) = CDHessian(nnInd(i,:),chg)
-      END DO 
-      distance = trueR - nnInd(1,:)
-      grad = trilinear_interpol_grad(nnGrad,distance)
-      hessianMatrix = trilinear_interpol_hes(nnHes,distance)
-      PRINT *, -MATMUL(INVERSE(hessianMatrix),grad)
-      !PRINT *, trilinear_interpol_grad(nnGrad,distance)
-      truer = truer + (/0.08,-0.08,-0.175/)
-    END DO
+!    PRINT *, 'printing tem from 17 33 53 to 33 17 18'
+!    truer = (/17.,33.,53./)
+!    DO n1 = 1, 200
+!      CALL pbc_r_lat(truer,chg%npts)
+!      !nnind = FindNN(truer,nnLayers,chg,ions)
+!      !PRINT *, trilinear_interpol_rho(chg,truer)
+!      nnind = SimpleNN(trueR,chg)
+!      DO i = 1, 8
+!        nnGrad(i,:) = CDGrad(nnInd(i,:),chg)
+!        nnHes(i,:,:) = CDHessian(nnInd(i,:),chg)
+!      END DO 
+!      distance = trueR - nnInd(1,:)
+!      grad = trilinear_interpol_grad(nnGrad,distance)
+!      hessianMatrix = trilinear_interpol_hes(nnHes,distance)
+!      PRINT *, -MATMUL(INVERSE(hessianMatrix),grad)
+!      !PRINT *, trilinear_interpol_grad(nnGrad,distance)
+!      truer = truer + (/0.08,-0.08,-0.175/)
+!    END DO
 
-    PRINT *, 'printing Hessian from 17 33 53 to 33 17 18'
-    truer = (/17.,33.,53./)
-    DO n1 = 1, 200
-      CALL pbc_r_lat(truer,chg%npts)
-      !nnind = FindNN(truer,nnLayers,chg,ions)
-      !PRINT *, trilinear_interpol_rho(chg,truer)
-      nnind = SimpleNN(trueR,chg)
-      DO i = 1, 8
-        nnHes(i,:,:) = CDHessian(nnInd(i,:),chg)
-      END DO 
-      distance = trueR - nnInd(1,:)
-      hessianMatrix = trilinear_interpol_hes(nnHes,distance)
-      PRINT *, hessianMatrix(1,:)
-      PRINT *, hessianMatrix(2,:)
-      PRINT *, hessianMatrix(3,:)
-      truer = truer + (/0.08,-0.08,-0.175/)
-    END DO
+!    PRINT *, 'printing Hessian from 17 33 53 to 33 17 18'
+!    truer = (/17.,33.,53./)
+!    DO n1 = 1, 200
+!      CALL pbc_r_lat(truer,chg%npts)
+!      !nnind = FindNN(truer,nnLayers,chg,ions)
+!      !PRINT *, trilinear_interpol_rho(chg,truer)
+!      nnind = SimpleNN(trueR,chg)
+!      DO i = 1, 8
+!        nnHes(i,:,:) = CDHessian(nnInd(i,:),chg)
+!      END DO 
+!      distance = trueR - nnInd(1,:)
+!      hessianMatrix = trilinear_interpol_hes(nnHes,distance)
+!      PRINT *, hessianMatrix(1,:)
+!      PRINT *, hessianMatrix(2,:)
+!      PRINT *, hessianMatrix(3,:)
+!      truer = truer + (/0.08,-0.08,-0.175/)
+!    END DO
 
-    PRINT *, 'printing interpolated charge from 17 33 53 to 33 17 18'
-    truer = (/17.,33.,53./)
-    DO n1 = 1, 200
-      CALL pbc_r_lat(truer,chg%npts)
-      !nnind = FindNN(truer,nnLayers,chg,ions)
-      PRINT *, trilinear_interpol_rho(chg,truer)
-      !nnind = SimpleNN(trueR,chg)
-      !DO i = 1, 8
-      !  nnGrad(i,:) = CDGrad(nnInd(i,:),chg)
-      !END DO
-      !distance = trueR - nnInd(1,:)
-      !PRINT *, trilinear_interpol_grad(nnGrad,distance)
-      truer = truer + (/0.08,-0.08,-0.175/)
-    END DO
+!    PRINT *, 'printing interpolated charge from 17 33 53 to 33 17 18'
+!    truer = (/17.,33.,53./)
+!    DO n1 = 1, 200
+!      CALL pbc_r_lat(truer,chg%npts)
+!      !nnind = FindNN(truer,nnLayers,chg,ions)
+!      PRINT *, trilinear_interpol_rho(chg,truer)
+!      !nnind = SimpleNN(trueR,chg)
+!      !DO i = 1, 8
+!      !  nnGrad(i,:) = CDGrad(nnInd(i,:),chg)
+!      !END DO
+!      !distance = trueR - nnInd(1,:)
+!      !PRINT *, trilinear_interpol_grad(nnGrad,distance)
+!      truer = truer + (/0.08,-0.08,-0.175/)
+!    END DO
 
 
 !
@@ -423,7 +437,7 @@
     ALLOCATE (cpl(10000)) ! start with 10000 capacity
     ALLOCATE (cpcl(10000))
       ! Maxima should always be found first with gradient ascension
-    PRINT *, 'finding maxima'
+    PRINT *, 'Finding maxima'
     DO n1 = 1, ions%nions
       tempr(1) = NINT(ions%r_dir(n1,1) * chg%npts(1)) 
       tempr(2) = NINT(ions%r_dir(n1,2) * chg%npts(2)) 
@@ -436,7 +450,7 @@
       p(1) = NINT(cpl(ucptnum)%trueind(1))
       p(2) = NINT(cpl(ucptnum)%trueind(2))
       p(3) = NINT(cpl(ucptnum)%trueind(3))
-      PRINT *, 'ascension has point ', p
+!      PRINT *, 'ascension has point ', p
 !      CALL RecordCP(p,chg,matm,matwprime,wi,vi,vit,ggrid &
 !        ,outerproduct,cpl,ucptnum,eigvals,eigvecs, maxcount, uringcount, &
 !        ubondcount, ucagecount, opts)
@@ -444,7 +458,7 @@
         ubondcount, ucagecount,opts,grad,hessianMatrix)
       ! without interpolation, atomic maxima may not be correctly characterized. 
       ! The solution is to manually correct it
-      PRINT *, 'ucptnum is', ucptnum
+!      PRINT *, 'ucptnum is', ucptnum
       IF (opts%noInterpolation_flag) THEN
         maxcount = ucptnum
         uringcount = 0
@@ -455,8 +469,8 @@
         cpl(ucptnum)%negcount = 3
       END IF
     END DO
-    PRINT *, 'CPs after ascension is, max, bond, ring, min'
-    PRINT *, maxcount, ubondcount, uringcount, ucagecount
+!    PRINT *, 'CPs after ascension is, max, bond, ring, min'
+!    PRINT *, maxcount, ubondcount, uringcount, ucagecount
     ! ascension results may not give the best hessian. so the types are set
     ! manually.
     IF (maxcount /= ucptnum) THEN
@@ -699,15 +713,15 @@
                 tem = - MATMUL(INVERSE(hessianMatrix),grad)
                 ! this tem is in cartesian. Transform it to lattice 
                 tem = MATMUL(chg%car2lat,tem)
-                IF (p(1)==66.AND.p(2)==66.AND.p(3)==10) THEN
-                  PRINT *,'66 66 10'
-                  PRINT *, 'grad is'
-                  PRINT *, grad
-                  PRINT *, 'hessian is'
-                  PRINT *, hessianMatrix
-                  PRINT *, 'tem is'
-                  PRINT *, tem
-                END IF
+!                IF (p(1)==66.AND.p(2)==66.AND.p(3)==10) THEN
+!                  PRINT *,'66 66 10'
+!                  PRINT *, 'grad is'
+!                  PRINT *, grad
+!                  PRINT *, 'hessian is'
+!                  PRINT *, hessianMatrix
+!                  PRINT *, 'tem is'
+!                  PRINT *, tem
+!                END IF
               END IF
 !              IF (mag(grad) >= 50 ) THEN
                 ! This threshhold should be more flexible.
@@ -719,19 +733,19 @@
                   (SUM(grad*grad) <= (0.1*opts%knob_gradfloor)**2 )) THEN              
                 ! finding proximity could potentially be costly
                 IF (ProxyToCPCandidate(p,opts,cpcl,cptnum,chg,nnLayers)) THEN
-                  PRINT *, 'for proximity to a candidate, skipped '
-                  PRINT *, n1,n2,n3
+!                  PRINT *, 'for proximity to a candidate, skipped '
+!                  PRINT *, n1,n2,n3
                   CYCLE
                 END IF
-                PRINT *, 'candidate found at'
-                PRINT *, p
-                PRINT *, 'gradient is'
-                PRINT *, grad
-                PRINT *, 'tem is'
-                PRINT *, tem
+!                PRINT *, 'candidate found at'
+!                PRINT *, p
+!                PRINT *, 'gradient is'
+!                PRINT *, grad
+!                PRINT *, 'tem is'
+!                PRINT *, tem
                 cptnum = cptnum + 1
-                PRINT *, 'cptnum updated to'
-                PRINT *, cptnum
+!                PRINT *, 'cptnum updated to'
+!                PRINT *, cptnum
                 bkhessianMatrix = hessianMatrix
                 ! Check if the candidate list needs to be expanded.
                 IF (cptnum < SIZE(cpcl) - 1 ) THEN
@@ -776,8 +790,7 @@
           END DO
         END DO
       END DO
-      PRINT *, "CRITICAL POINT CANDIDATES FOUND: ", cptnum 
-      PRINT *, 'FINDING UNIQUE CRITICAL POINTS...'
+      PRINT *, "Number of Newton Rhapson trajectory needed: ", cptnum 
 !!**  *****************************************************************
       ! To find critical points (unique), start with a cell that contains a
       ! critical point and its hessian and force. Use Newton's method to make a
@@ -798,9 +811,9 @@
           temcap = (/1.,1.,1./)
           temscale = (/1.,1.,1./)
           temnormcap = 1.
-          PRINT *, 'this is candidate number ', i
-          PRINT *, 'looking at candidate of indices'
-          PRINT *, cpcl(i)%ind
+!          PRINT *, 'this is candidate number ', i
+!          PRINT *, 'looking at candidate of indices'
+!          PRINT *, cpcl(i)%ind
           IF (.FALSE.) THEN
           ! This determins if validation is done with gradient descend
           !    PRINT *, 'looking at critical point candidate # ', i
@@ -844,9 +857,9 @@
           !   !interpolHessian = R2HesInterpol(nnind,truer,chg,nnlayers)
           ELSE
           ! Begins newton raphson validation process
-            PRINT *, 'looking at candidate ', i
-            PRINT *, 'starting position is'
-            PRINT *, cpcl(i)%ind
+!            PRINT *, 'looking at candidate ', i
+!            PRINT *, 'starting position is'
+!            PRINT *, cpcl(i)%ind
             stepcount = 1
             averagecount = 0
             averageR = (/-1.,-1.,-1./)
@@ -881,14 +894,14 @@
               !  PRINT *,'too far'
               !  EXIT
               !END IF
-              IF (n1==23.AND.n2==25.AND.n3==35) THEN
-                PRINT *, 'truer is '
-                PRINT *, truer
-                PRINT *, 'grad is'
-                PRINT *, grad
-                PRINT *, 'nexttem is'
-                PRINT *, nexttem
-              END IF 
+!              IF (n1==23.AND.n2==25.AND.n3==35) THEN
+!                PRINT *, 'truer is '
+!                PRINT *, truer
+!                PRINT *, 'grad is'
+!                PRINT *, grad
+!                PRINT *, 'nexttem is'
+!                PRINT *, nexttem
+!              END IF 
               IF (stepcount >= 1) THEN
                 prevgrad = grad
               END IF
@@ -970,7 +983,7 @@
                   tempr(2),tempr(3)) == bdr%bnum + 1) THEN
                 ! We are heading into the vacuum space, cosmonaughts! 
                 cpcl(i)%isunique = .FALSE.
-                PRINT *, 'not unique because it wondered off to vacuum'
+!                PRINT *, 'not unique because it wondered off to vacuum'
                 EXIT
               END IF
               IF ( ABS(nexttem(1)) <= 0.1*opts%knob_newtonr .AND. &
@@ -978,8 +991,8 @@
                    ABS(nexttem(3)) <= 0.1*opts%knob_newtonr ) THEN
                 cpcl(i)%trueind = truer 
                 cpcl(i)%isUnique = .TRUE.
-                PRINT *, 'vector small'
-                PRINT *, nexttem
+!                PRINT *, 'vector small'
+!                PRINT *, nexttem
 !                IF (mag(grad)>=0.1) THEN 
 !                  PRINT *, 'gradient still over 0.1'
 !                  cpcl(i)%isunique = .FALSE.
@@ -989,11 +1002,11 @@
               truer = truer + nexttem
             END DO
           END IF
-          PRINT *, 'stepcount : ', stepcount
-          PRINT *, 'residue gradient is'
-          PRINT *,  grad
-          PRINT *, 'last nexttem is'
-          PRINT *,  nexttem
+!          PRINT *, 'stepcount : ', stepcount
+!          PRINT *, 'residue gradient is'
+!          PRINT *,  grad
+!          PRINT *, 'last nexttem is'
+!          PRINT *,  nexttem
 !          IF (mag(grad) >= 0.1) THEN
 !            PRINT *, 'flagged not unique for residue gradient'
 !            cpcl(i)%isunique = .FALSE.
@@ -1023,7 +1036,7 @@
             ucptnum = ucptnum + 1
             CALL RecordCPR(truer,chg,cpl,ucptnum,eigvals,eigvecs, maxcount, &
               uringcount,ubondcount,ucagecount, opts, grad, interpolHessian)
-            PRINT *, 'ucptnum is', ucptnum
+!            PRINT *, 'ucptnum is', ucptnum
             CYCLE
           END IF
           truer = truer + nexttem ! this keeps track the total movement
@@ -1031,12 +1044,11 @@
         ! moving on to the next critical pint candidate
         END DO
       END IF
-      PRINT *, 'Unique critical point count: ', ucptnum
-      PRINT *, 'Unique bond critical point count: ', ubondcount
-      PRINT *, 'Unique ring critical point count: ', uringcount
-      PRINT *, 'Unique cage critical point count: ', ucagecount
-      PRINT *, 'Unique nucl critical point count: ', maxcount
-      PRINT *, 'right before outputCP, ucptnum is', ucptnum
+      PRINT *, 'Number of critical point count: ', ucptnum
+      PRINT *, 'Number of bond critical point count: ', ubondcount
+      PRINT *, 'Number of ring critical point count: ', uringcount
+      PRINT *, 'Number of cage critical point count: ', ucagecount
+      PRINT *, 'Number of nucl critical point count: ', maxcount
       CALL outputCP(cpl,opts,ucptnum,chg,setcount, ubondcount, &
         uringcount, ucagecount, maxcount)
       IF (opts%ismolecule) THEN
@@ -1064,8 +1076,6 @@
       DEALLOCATE(cpRoster)
     END IF
     PRINT *, 'outputting debugging information to allcpPOSCAR'
-    PRINT *, 'cpcl 1 trueind is'
-    PRINT *, cpcl(1)%trueInd 
     CALL VisAllCP(cpcl,cptnum,chg,ions,opts)
     DEALLOCATE (cpl)
     DEALLOCATE (cpcl)
@@ -2020,9 +2030,9 @@
             .AND. ABS(grad(2)) <= 0.001 &
             .AND. ABS(grad(3)) <= 0.001)  THEN
           ! we are at a critical point!
-          PRINT *, 'ascention gradient sufficiently small'
-          PRINT *, 'ascension rn is'
-          PRINT *, rn
+!          PRINT *, 'ascention gradient sufficiently small'
+!          PRINT *, 'ascension rn is'
+!          PRINT *, rn
           EXIT
         END IF
         ! if grad points backwards, reduce stepsize
@@ -2036,10 +2046,10 @@
           stepsize(3) = stepsize(3)/2
         END IF
         stepcount = stepcount + 1
-        PRINT *, rn
+!        PRINT *, rn
       END DO 
       ascension = rn
-      PRINT *, 'ascension step count is ', stepcount
+!      PRINT *, 'ascension step count is ', stepcount
       RETURN 
     END FUNCTION ascension
     
@@ -2812,9 +2822,9 @@
       CALL DSYEVJ3(hessianMatrix,eigvecs,eigvals)
       negCount = CountNegModes(eigvals)
       CALL UpDateCounts(negCount,maxCount,uBondCount,uRingCount,uCageCount)
-      PRINT *, 'in recprd CP, updated counts are'
-      PRINT *, 'bond, ring, cage, max'
-      PRINT *, ubondcount, uringcount, ucagecount, maxcount
+!      PRINT *, 'in recprd CP, updated counts are'
+!      PRINT *, 'bond, ring, cage, max'
+!      PRINT *, ubondcount, uringcount, ucagecount, maxcount
       cpl(ucptnum)%truer = p
       cpl(ucptnum)%grad = grad
       cpl(ucptnum)%eigvecs = eigvecs
@@ -2830,17 +2840,16 @@
       INTEGER :: ucptnum, i, setcount
       INTEGER :: ubondcount, uringcount, ucagecount, maxcount
       CHARACTER(10) :: fileName
-      PRINT *, 'entered outputCP'
+      PRINT *, 'Writting critical point output files'
       PRINT *, 'setcount is', setcount
       WRITE(fileName,fmt='(a,i2.2,a)') TRIM('CPFU'), setcount,TRIM('.dat')
       PRINT *, 'filename is ', filename
       OPEN(98,FILE=filename,STATUS='REPLACE',ACTION='WRITE')
-      WRITE(98,*) 'Unique critical point count: ', ucptnum
-      WRITE(98,*) 'Unique bond critical point count: ', ubondcount
-      WRITE(98,*) 'Unique ring critical point count: ', uringcount
-      WRITE(98,*) 'Unique cage critical point count: ', ucagecount
-      WRITE(98,*) 'Unique nucl critical point count: ', maxcount
-      PRINT *, 'in outputCP ucptnum is', ucptnum
+      WRITE(98,*) 'Number of critical points written: ', ucptnum
+      WRITE(98,*) 'Number of bond critical point written: ', ubondcount
+      WRITE(98,*) 'Number of ring critical point written: ', uringcount
+      WRITE(98,*) 'Number of cage critical point written: ', ucagecount
+      WRITE(98,*) 'Number of nucl critical point written: ', maxcount
       DO i = 1, ucptnum
         WRITE (98,*) '_______________________________________'
         WRITE (98,*) 'Unique CP # : ', i
@@ -3169,10 +3178,10 @@
         END DO
         READ(100,'(a)') natoms
       END IF
-      PRINT *, 'atoms are'
-      PRINT *, atoms
-      PRINT *, 'natoms are'
-      PRINT *, natoms
+!      PRINT *, 'atoms are'
+!      PRINT *, atoms
+!      PRINT *, 'natoms are'
+!      PRINT *, natoms
       CLOSE(100)
       maxCount = 0
       bondCount = 0
@@ -3193,9 +3202,9 @@
 
       DO n1 = 1, cptnum
         IF (.NOT.cpcl(n1)%isunique) CYCLE
-        PRINT *, n1
-        PRINT *, 'trueind is'
-        PRINT *, cpcl(n1)%trueInd
+!        PRINT *, n1
+!        PRINT *, 'trueind is'
+!        PRINT *, cpcl(n1)%trueInd
         nnInd = SimpleNN(cpcl(n1)%trueInd,chg)
 !        PRINT *, 'nnInd is'
 !        PRINT *, nnInd
@@ -3217,13 +3226,13 @@
 !        PRINT *, eigvals
         negCount = CountNegModes(eigvals)
         cpcl(n1)%negCount = negCount
-        PRINT *, 'negcount is'
-        PRINT *, negCount
+!        PRINT *, 'negcount is'
+!        PRINT *, negCount
         CALL UpDateCounts(cpcl(n1)%negCount,maxCount,bondCount,ringCount, & 
           cageCount)
       END DO
-      PRINT *, 'updated counts are'
-      PRINT *, maxCount,bondCount,ringCount,cageCount
+!      PRINT *, 'updated counts are'
+!      PRINT *, maxCount,bondCount,ringCount,cageCount
       ! Write header of allcpPOSCAR
       OPEN(11,FILE='allcpPOSCAR',STATUS='REPLACE',ACTION='WRITE')
       IF (cageCount>0) WRITE(11,'(a)',ADVANCE='NO') 'Ar '
@@ -3249,14 +3258,14 @@
       WRITE(11,'(a)') 'Cartesian'
       ! Loop three times, each time writes out one type of CP
       DO j = 0, 2
-      PRINT *, 'looking for negcount ' , j 
+!      PRINT *, 'looking for negcount ' , j 
         DO n1 = 1, cptnum
 !          PRINT *, n1, j, cpcl(i)%negCount
           IF (.NOT.cpcl(n1)%isunique) CYCLE
           IF (cpcl(n1)%negCount == j) THEN
-            PRINT *, 'negcount ', j, ' found at '
-            PRINT *, cpcl(n1)%trueInd
-            PRINT *, 'cptnum is', n1
+!            PRINT *, 'negcount ', j, ' found at '
+!            PRINT *, cpcl(n1)%trueInd
+!            PRINT *, 'cptnum is', n1
             WRITE(11,*) MATMUL(chg%lat2car,cpcl(n1)%trueInd)
             dir(1) = cpcl(n1)%trueInd(1)/chg%npts(1)
             dir(2) = cpcl(n1)%trueInd(2)/chg%npts(2)
@@ -3301,11 +3310,11 @@
             IF (ALL(temList(i,:) == temList(j,:),1) ) THEN 
               IF (mag(temList(j,:))== 1.) CYCLE
               isRunningCircles = .TRUE.
-              PRINT *, 'a tem found to be familiar!'
-              PRINT *, 'step ', i, ' has tem'
-              PRINT *, temList(i,:)
-              PRINT *, 'step ', j, ' has tem'
-              PRINT *, temList(j,:)
+!              PRINT *, 'a tem found to be familiar!'
+!              PRINT *, 'step ', i, ' has tem'
+!              PRINT *, temList(i,:)
+!              PRINT *, 'step ', j, ' has tem'
+!              PRINT *, temList(j,:)
               EXIT outer
             END IF
           END DO
