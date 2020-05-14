@@ -57,7 +57,7 @@
 
 ! Default values
       opts%knob_tem = 1.5
-      opts%knob_distance = 0.
+      opts%knob_distance = 0.1
       opts%knob_newtonr = 0.001
       opts%knob_gradfloor = 0.000001
       opts%ismolecule = .FALSE.

@@ -41,7 +41,7 @@
       ! used to find interpolated hessians.
       REAL(q2),DIMENSION(3,3) :: eigvecs
       INTEGER :: negcount
-      LOGICAL :: proxy, isunique
+      LOGICAL :: hasProxy, isunique
     END TYPE
     CONTAINS
 
@@ -97,7 +97,7 @@
     ! points
     LOGICAL,DIMENSION(3) :: cartcoor ! check if axis are alone cartesian.
     LOGICAL :: invac ! this point is in vacuum
-    LOGICAL :: proxy
+    LOGICAL :: proxy, isReduced
     ! The followings are for finding unique critical points
     REAL(q2),DIMENSION(8,3) :: nngrad
     REAL(q2),DIMENSION(8,3,3) :: nnhes !hessian of 8 nn
@@ -756,7 +756,7 @@
                   cpcl(cptnum)%ind(2) = n2
                   cpcl(cptnum)%ind(3) = n3
                   cpcl(cptnum)%grad = grad
-                  cpcl(cptnum)%proxy = .FALSE.
+                  cpcl(cptnum)%hasProxy = .FALSE.
                   cpcl(cptnum)%r = tem
                   cpcl(cptnum)%tempcart = MATMUL(chg%car2lat,tem + p)
                 ELSE 
@@ -781,7 +781,7 @@
                   cpcl(cptnum)%ind(2) = n2
                   cpcl(cptnum)%ind(3) = n3
                   cpcl(cptnum)%grad = grad
-                  cpcl(cptnum)%proxy = .FALSE.
+                  cpcl(cptnum)%hasproxy = .FALSE.
                   cpcl(cptnum)%r = tem
                   cpcl(cptnum)%tempcart = MATMUL( chg%car2lat,tem + p)
                 END IF
@@ -1049,6 +1049,18 @@
       PRINT *, 'Number of ring critical point count: ', uringcount
       PRINT *, 'Number of cage critical point count: ', ucagecount
       PRINT *, 'Number of nucl critical point count: ', maxcount
+      ! remove duplicate CPs
+      isReduced = .FALSE.
+      CALL ReduceCP(cpl,opts,ucptnum,chg,uBondCount, &
+        uringcount,uCageCount,maxCount,isReduced)
+      PRINT *, 'After a round of reduction'
+      PRINT *, 'Number of critical point count: ', ucptnum
+      PRINT *, 'Number of bond critical point count: ', ubondcount
+      PRINT *, 'Number of ring critical point count: ', uringcount
+      PRINT *, 'Number of cage critical point count: ', ucagecount
+      PRINT *, 'Number of nucl critical point count: ', maxcount
+
+      ! output the cp to files
       CALL outputCP(cpl,opts,ucptnum,chg,setcount, ubondcount, &
         uringcount, ucagecount, maxcount)
       IF (opts%ismolecule) THEN
@@ -2831,6 +2843,37 @@
       cpl(ucptnum)%eigvals = eigvals
       cpl(ucptnum)%negcount = negcount
     END SUBROUTINE RecordCPR
+    
+    SUBROUTINE RecordCPRLight(p,chg,cpl,ucptnum, maxcount, uringcount, &
+      ubondcount, ucagecount)
+      TYPE(charge_obj) :: chg
+      TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpl
+      REAL(q2), DIMENSION(3) :: eigvals, grad
+      REAL(q2), DIMENSION(3,3) :: eigvecs, hessianMatrix
+      REAL(q2), DIMENSION(3) :: p
+      INTEGER, DIMENSION(3,26) :: vi
+      INTEGER, DIMENSION(26,3) :: vit
+      REAL(q2), DIMENSION(3,3) :: ggrid
+      REAL(q2), DIMENSION(26) :: wi
+      REAL(q2), DIMENSION(3,13) :: matwprime
+      REAL(q2), DIMENSION(3,3) :: matm
+      REAL(q2), DIMENSION(3,3) :: outerproduct
+      INTEGER :: i, j, k, ucptnum, negCount
+      INTEGER :: maxcount, uringcount, ubondcount, ucagecount
+      hessianMatrix = CDHessianR(p,chg)
+      cpl(ucptnum)%hessianMatrix = hessianMatrix
+      CALL DSYEVJ3(hessianMatrix,eigvecs,eigvals)
+      negCount = CountNegModes(eigvals)
+      CALL UpDateCounts(negCount,maxCount,uBondCount,uRingCount,uCageCount)
+!      PRINT *, 'in recprd CP, updated counts are'
+!      PRINT *, 'bond, ring, cage, max'
+!      PRINT *, ubondcount, uringcount, ucagecount, maxcount
+      cpl(ucptnum)%truer = p
+      cpl(ucptnum)%grad = grad
+      cpl(ucptnum)%eigvecs = eigvecs
+      cpl(ucptnum)%eigvals = eigvals
+      cpl(ucptnum)%negcount = negcount
+    END SUBROUTINE RecordCPRLight
 
     SUBROUTINE  outputCP(cpl,opts,ucptnum,chg,setcount,ubondcount, &
       uringcount,ucagecount, maxcount)
@@ -3332,6 +3375,118 @@
 
 
     END SUBROUTINE DetectCircling
+
+    ! This subroutine looks for critical points in the list that is too close to
+    ! another, and averages the same types into one to remove duplicate critical
+    ! points. 
+    SUBROUTINE ReduceCP(cpl,opts,ucptnum,chg,uBondCount, &
+        uRingCount,uCageCount,maxCount,isReduced)
+      TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpl,rcpl
+      TYPE(charge_obj) :: chg
+      TYPE(options_obj) :: opts
+      REAL(q2),DIMENSION(3) :: avgR
+      INTEGER :: uCPTNum, uBondCount,uRingCount,uCageCount,maxCount
+      INTEGER :: rCPTNum, rBondCount,rRingCount,rCageCount,rmaxCount
+      INTEGER :: i,j, nUCPTNum, weight, dupCount
+      LOGICAL :: isReduced
+      PRINT *, 'Checking for duplicate CP'
+      isReduced = .TRUE. 
+      dupCount = 0
+      rmaxCount = 0
+      rRingCount = 0
+      rBondCount = 0
+      rCageCount = 0
+      ! Give the reduced list same length as before, it's ok if a little goes to
+      ! waste
+      ALLOCATE(rcpl(ucptnum))
+      ! start from a critical point. loop through the entire list, look for
+      ! another entry 
+      nUCPTNum = 0
+      DO i = 1, ucptnum
+        ! check if this point is already determined as a proxy to some other
+        ! point before
+        weight = 1
+        avgR = cpl(i)%truer
+        IF (cpl(i)%hasProxy ) THEN 
+          CYCLE
+        END IF
+        DO j = i, ucptnum
+          ! Periodic boundary condition will come to haunt me, periodically. 
+          IF (j == i) CYCLE
+          IF ( mag(cpl(i)%truer - cpl(j)%truer) <= opts%knob_distance ) THEN
+            cpl(j)%hasProxy = .TRUE.
+            avgR = (avgR * weight + cpl(j)%truer )/(weight + 1)
+            weight = weight + 1
+            dupCount = dupCount + 1
+            ! The two CP should be the same type!
+            IF (cpl(i)%negCount /= cpl(j)%negCount) THEN
+              PRINT *,'ERROR: TWO TYPES OF CP ARE TOO CLOSE TO EACH OTHER'
+            END IF 
+            isReduced = .FALSE.
+          END IF
+        END DO
+        nUCPTNum = nUCPTNum + 1
+        ! record the reduced CP
+        CALL RecordCPRLight(avgR,chg,rcpl,nUCPTnum, rMaxCount, rRingCount, &
+          rBondCount, rCageCount)
+      END DO
+      CALL ReplaceCPL(cpl,rcpl)
+      maxCount = rMaxCount
+      uRingCount = rRingCount
+      uBondCount = rBondCount
+      uCageCount = rCageCount
+      ucptnum = nUCPTnum
+      PRINT *, 'The number of duplicate CP found is', dupcount
+      DEALLOCATE(rcpl)
+    END SUBROUTINE ReduceCP
+   
+    SUBROUTINE ReplaceCPL(replacee,replacer)
+      TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: replacee,replacer
+      INTEGER :: i
+      DEALLOCATE (replacee)
+      ALLOCATE (replacee(SIZE(replacer)))
+      DO i = 1, SIZE(replacer)
+        replacee(i) = replacer(i)
+      END DO
+    END SUBROUTINE ReplaceCPL
+ 
+    SUBROUTINE ResizeCPL(cpl,newSize)
+      TYPE(cpc),ALLOCATABLE,DIMENSION(:) ::cpl,newcpl
+      INTEGER :: newSize, i, oldSize
+      ALLOCATE (newcpl(newSize))
+      oldSize = SIZE(cpl)
+      DO i = 1, oldSize
+        newcpl(i) = cpl(i)
+      END DO
+      DEALLOCATE (cpl)
+      ALLOCATE (cpl(newSize))
+      DO i = 1, oldSize
+        cpl(i) = newcpl(i)
+      END DO
+      DEALLOCATE (newCPL)
+    END SUBROUTINE ResizeCPL
+ 
+    ! takes in coordinates, gives out interpolated Hessian using central
+    ! difference
+    FUNCTION CDHessianR(r,chg)
+      TYPE(charge_obj) :: chg
+      REAL(q2),DIMENSION(8,3,3) :: nnhes
+      REAL(q2),DIMENSION(3,3) :: CDHessianR
+      REAL(q2),DIMENSION(3) :: r, distance
+      INTEGER,DIMENSION(8,3) :: nnind
+      INTEGER :: i
+      nnind = simpleNN(r,chg)
+      distance = r - nnind(1,:)
+      DO i = 1,8
+        nnHes(i,:,:) = CDHessian(nnind(i,:),chg)
+      END DO
+       !row find the nearest neighbors at this new locaiton
+       !first update critical point location
+       !the next big step is to interpolate the force at predicted critical
+       !point.
+      CDHessianR = trilinear_interpol_hes(nnHes,distance)
+      RETURN
+    END FUNCTION CDHessianR
 
   END MODULE
 
