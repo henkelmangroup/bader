@@ -97,7 +97,7 @@
     ! points
     LOGICAL,DIMENSION(3) :: cartcoor ! check if axis are alone cartesian.
     LOGICAL :: invac ! this point is in vacuum
-    LOGICAL :: proxy, isReduced
+    LOGICAL :: proxy, isReduced, phmrCompliant
     ! The followings are for finding unique critical points
     REAL(q2),DIMENSION(8,3) :: nngrad
     REAL(q2),DIMENSION(8,3,3) :: nnhes !hessian of 8 nn
@@ -943,13 +943,15 @@
               temscale = scaleinspector( nexttem, previoustem, temscale)
               CALL DetectCircling(stepCount,rList,temList,trueR,nextTem,averageR)
               IF (ALL(averageR /= -1.,1)) THEN
-                PRINT *, 'averageR is'
-                PRINT *, averageR
+                !PRINT *, 'averageR is'
+                !PRINT *, averageR
                 cpcl(i)%isUnique = .TRUE.
                 cpcl(i)%trueInd = averageR
                 trueR = averageR
-                PRINT *, 'averaged location at'
-                PRINT *, averageR
+                !PRINT *, 'averaged location at'
+                !PRINT *, averageR
+                ! the following code is temporary. it disables averaging.
+                cpcl(i)%isUnique = .FALSE.
                 EXIT
               END IF
               !nexttem = unstuck( nexttem, previoustem, temscale, temnormcap)
@@ -1045,42 +1047,46 @@
         END DO
       END IF
       PRINT *, 'Number of critical point count: ', ucptnum
+      PRINT *, 'Number of nucl critical point count: ', maxcount
       PRINT *, 'Number of bond critical point count: ', ubondcount
       PRINT *, 'Number of ring critical point count: ', uringcount
       PRINT *, 'Number of cage critical point count: ', ucagecount
-      PRINT *, 'Number of nucl critical point count: ', maxcount
+
       ! remove duplicate CPs
       isReduced = .FALSE.
       CALL ReduceCP(cpl,opts,ucptnum,chg,uBondCount, &
         uringcount,uCageCount,maxCount,isReduced)
       PRINT *, 'After a round of reduction'
+      PRINT *, 'Numbver of atoms: ', ions%nions
       PRINT *, 'Number of critical point count: ', ucptnum
+      PRINT *, 'Number of nucl critical point count: ', maxcount
       PRINT *, 'Number of bond critical point count: ', ubondcount
       PRINT *, 'Number of ring critical point count: ', uringcount
       PRINT *, 'Number of cage critical point count: ', ucagecount
-      PRINT *, 'Number of nucl critical point count: ', maxcount
 
+      CALL  PHRuleExam(maxCount,ubondCount,uringCount,ucageCount,opts,&
+        ions,phmrCompliant)
       ! output the cp to files
       CALL outputCP(cpl,opts,ucptnum,chg,setcount, ubondcount, &
         uringcount, ucagecount, maxcount)
-      IF (opts%ismolecule) THEN
-        IF (maxcount - bondcount + ringcount - cagecount == 1) THEN
-          PRINT *, 'Satisfies The Poincare-Hopf rule for a molecule'
-!          WRITE(98,*) 'Satisfies The Poincare-Hopf rule for a molecule'
-        ELSE
-          PRINT *, 'WARNING 3: Fails The poincare-Hopf rule for a molecule'
-!          WRITE(98,*)  'WARNING 3: Fails The poincare-Hopf rule for a molecule'
-        END IF
-      ELSE IF (opts%iscrystal) THEN
-        IF (maxcount - bondcount + ringcount - cagecount == 0) THEN
-          PRINT *, 'Satisfies The Poincare-Hopf rule for a crystal'
-!          WRITE(98,*) 'Satisfies The Poincare-Hopf rule for a crystal'
-        ELSE
-          PRINT *, 'WARNING 4: Fails The poincare-Hopf rule for a crystal'
-!          WRITE(98,*)  'WARNING 4: Fails The poincare-Hopf rule for a crystal'
-
-        END IF
-      END IF
+!      IF (opts%ismolecule) THEN
+!        IF (maxcount - bondcount + ringcount - cagecount == 1) THEN
+!          PRINT *, 'Satisfies The Poincare-Hopf rule for a molecule'
+!!          WRITE(98,*) 'Satisfies The Poincare-Hopf rule for a molecule'
+!        ELSE
+!          PRINT *, 'WARNING 3: Fails The poincare-Hopf rule for a molecule'
+!!          WRITE(98,*)  'WARNING 3: Fails The poincare-Hopf rule for a molecule'
+!        END IF
+!      ELSE IF (opts%iscrystal) THEN
+!        IF (maxcount - bondcount + ringcount - cagecount == 0) THEN
+!          PRINT *, 'Satisfies The Poincare-Hopf rule for a crystal'
+!!          WRITE(98,*) 'Satisfies The Poincare-Hopf rule for a crystal'
+!        ELSE
+!          PRINT *, 'WARNING 4: Fails The poincare-Hopf rule for a crystal'
+!!          WRITE(98,*)  'WARNING 4: Fails The poincare-Hopf rule for a crystal'
+!
+!        END IF
+!      END IF
       ! ending noInterpolation if
 !      DO i = 1, cptnum
 !        PRINT *, cpRoster(i,:)
@@ -1088,7 +1094,8 @@
       DEALLOCATE(cpRoster)
     END IF
     PRINT *, 'outputting debugging information to allcpPOSCAR'
-    CALL VisAllCP(cpcl,cptnum,chg,ions,opts)
+!    CALL VisAllCP(cpcl,cptnum,chg,ions,opts)
+    CALL VisAllCP(cpl,ucptnum,chg,ions,opts,uringCount,ubondCount,ucageCount)
     DEALLOCATE (cpl)
     DEALLOCATE (cpcl)
 !    CLOSE(97)
@@ -2048,15 +2055,18 @@
           EXIT
         END IF
         ! if grad points backwards, reduce stepsize
-        IF (grad(1) * gradnm1(1) < 0) THEN
-          stepsize(1) = stepsize(1)/2
+        IF (DOT_PRODUCT(grad,gradnm1) <= 0) THEN
+          stepsize = 0.5*stepsize
         END IF
-        IF (grad(2) * gradnm1(2) < 0) THEN
-          stepsize(2) = stepsize(2)/2
-        END IF
-        IF (grad(3) * gradnm1(3) < 0) THEN
-          stepsize(3) = stepsize(3)/2
-        END IF
+        !IF (grad(1) * gradnm1(1) < 0) THEN
+        !  stepsize(1) = stepsize(1)/2
+        !END IF
+        !IF (grad(2) * gradnm1(2) < 0) THEN
+        !  stepsize(2) = stepsize(2)/2
+        !END IF
+        !IF (grad(3) * gradnm1(3) < 0) THEN
+        !  stepsize(3) = stepsize(3)/2
+        !END IF
         stepcount = stepcount + 1
 !        PRINT *, rn
       END DO 
@@ -2744,9 +2754,9 @@
 
     ! check if the number of each type of critical point satisfies the
     ! Poincare-Hopf rule
-    FUNCTION phrulechecker(maxcount, ubondcount, uringcount, ucagecount, opts, &
+    FUNCTION PHRuleChecker(maxcount, ubondcount, uringcount, ucagecount, opts, &
       ions )
-      LOGICAL :: phrulechecker
+      LOGICAL :: PHRuleChecker
       INTEGER :: maxcount, ubondcount, uringcount, ucagecount
       TYPE(options_obj) :: opts
       TYPE(ions_obj) :: ions
@@ -2767,8 +2777,108 @@
         END IF
       END IF
       RETURN
-    END FUNCTION phrulechecker
-
+    END FUNCTION PHRuleChecker
+    
+    ! This subroutine checks if PH rule is satisfied given crystal/molecule
+    ! inport or not
+    SUBROUTINE PHRuleExam(maxCount,bondCount,ringCount,cageCount,opts,ions,&
+      phmrCompliant)
+      TYPE(options_obj) :: opts
+      TYPE(ions_obj) :: ions
+      INTEGER :: maxCount,bondCount,ringCount,cageCount,phSum,iphsum
+      LOGICAL :: phmrCompliant
+      phSum = maxCount - bondCount + ringCount - cageCount
+      iphSum = ions%nions - bondCount + ringCount - cageCount
+      phmrCompliant = .FALSE.
+      IF (opts%isCrystal) THEN
+        PRINT *, 'The system is assigned as a Crystal'
+        IF (phSum == 0) THEN
+          PRINT *, ''//achar(27)//'[32m Satisfies the Morse Relationship' &
+            //achar(27)//'[0m'
+          phmrCompliant = .TRUE.
+        ELSE IF (phSum == 1) THEN
+          PRINT *, ''//achar(27)//'[31m ERROR: The result satisfies the  & 
+            Poincare Hopf Rule for a & molecule, not a crystal.' &
+            //achar(27)//'[0m'
+        ELSE IF (iphSum == 0 .AND. iphSum /= phSum) THEN
+          PRINT *, ''//achar(27)//'[33m Using the number of atoms  &
+            instead of the number of the number of maxima found' &
+            //achar(27)//'[0m'
+          PRINT *, ''//achar(27)//'[32m Satisfies the Morse Relationship' &
+            //achar(27)//'[0m'
+          phmrCompliant = .TRUE.
+        ELSE IF (iphSum == 1 .AND. iphSum /= phSum) THEN
+          PRINT *, ''//achar(27)//'[33m Using the number of atoms  &
+            instead of the number of the number of maxima found' &
+            //achar(27)//'[0m'
+          PRINT *, ''//achar(27)//'[31m ERROR: The result satisfies the  & 
+            Poincare Hopf Rule for a & molecule, not a crystal.' &
+            //achar(27)//'[0m'
+        ELSE 
+          PRINT *, ''//achar(27)//'[31m ERROR: FAILED Morse relationship' &
+            //achar(27)//'[0m'
+        END IF
+      ELSE IF (opts%isMolecule) THEN
+        PRINT *, 'The system is assigned as a Molecule'
+        IF (phSum == 0) THEN
+          PRINT *, ''//achar(27)//'[31m ERROR: The result satisfies the Morse Relationship &
+            for a crystal, not a molecule.'//char(27)//'[0m'
+        ELSE IF (phSum == 1) THEN
+          phmrCompliant = .TRUE.
+          PRINT *, ''//achar(27)//'[32m Satisfies the Poincare Hopf Rule' &
+            //achar(27)//'[0m'
+        ELSE IF (iphSum == 0 .AND. iphSum /= phSum) THEN
+          PRINT *, ''//achar(27)//'[33m Using the number of atoms  &
+            instead of the number of the number of maxima found' &
+            //achar(27)//'[0m'
+          PRINT *, ''//achar(27)//'[31m ERROR: The result satisfies the Morse Relationship &
+            for a crystal, not a molecule.'//char(27)//'[0m'
+        ELSE IF (iphSum == 1 .AND. iphSum /= phSum) THEN
+          PRINT *, ''//achar(27)//'[33m Using the number of atoms  &
+            instead of the number of the number of maxima found' &
+            //achar(27)//'[0m'
+          phmrCompliant = .TRUE.
+          PRINT *, ''//achar(27)//'[32m Satisfies the Poincare Hopf Rule' &
+            //achar(27)//'[0m'
+        ELSE 
+          PRINT *, ''//achar(27)//'[31m ERROR: FAILED Poincare Hopf Rule' &
+            //achar(27)//'[0m'
+        END IF
+      ELSE 
+        IF (phSum == 0) THEN
+          phmrCompliant = .TRUE.
+          PRINT *, ''//achar(27)//'[32m This system has not be designated & 
+            as a molecule or crystal but the Morse relationship for & 
+            crystals are satisfied.' //achar(27)//'[0m'
+        ELSE IF (phSum == 1) THEN
+          phmrCompliant = .TRUE.
+          PRINT *, ''//achar(27)//'[32m This system has not be designated & 
+            as a molecule or crystal but the Poincare-Hopf rule for &
+            moleculess are satisfied.' //achar(27)//'[0m'
+        END IF
+        IF (iphSum == 0 .AND. iphSum /= phSum) THEN
+          phmrCompliant = .TRUE.
+          PRINT *, ''//achar(27)//'[33m Using the number of atoms  &
+            instead of the number of the number of maxima found' &
+            //achar(27)//'[0m'
+          PRINT *, ''//achar(27)//'[32m This system has not be designated & 
+            as a molecule or crystal but the Morse relationship for & 
+            crystals are satisfied.' //achar(27)//'[0m'
+        ELSE IF (iphSum == 1 .AND. iphSum /= phSum) THEN
+          phmrCompliant = .TRUE.
+          PRINT *, ''//achar(27)//'[33m Using the number of atoms  &
+            instead of the number of the number of maxima found' &
+            //achar(27)//'[0m'
+          PRINT *, ''//achar(27)//'[32m This system has not be designated & 
+            as a molecule or crystal but the Poincare-Hopf rule for &
+            moleculess are satisfied.' //achar(27)//'[0m'
+        END IF
+        IF (.NOT. phmrCompliant) THEN
+          PRINT *, ''//achar(27)//'[31m ERROR: FAILED Poincare Hopf Rule & 
+            and Morse Relationship' //achar(27)//'[0m'
+        END IF
+      END IF
+    END SUBROUTINE 
     ! count the number of negative eigenvalues to characterize a critical point
     SUBROUTINE RecordCP(p,chg,matm,matwprime,wi,vi,vit,ggrid &
       ,outerproduct,cpl,ucptnum,eigvals,eigvecs, maxcount, uringcount, &
@@ -2861,6 +2971,7 @@
       INTEGER :: i, j, k, ucptnum, negCount
       INTEGER :: maxcount, uringcount, ubondcount, ucagecount
       hessianMatrix = CDHessianR(p,chg)
+      grad = CDGradR(p,chg)
       cpl(ucptnum)%hessianMatrix = hessianMatrix
       CALL DSYEVJ3(hessianMatrix,eigvecs,eigvals)
       negCount = CountNegModes(eigvals)
@@ -3190,7 +3301,8 @@
     ! locations of all CP candidates, and outputs them. Bond CP are marked as He,
     ! Ring CP are marked as Ne, cage CP are marked as Ar. Nucleus are written as
     ! normal
-    SUBROUTINE VisAllCP (cpcl,cptnum,chg,ions,opts)
+    SUBROUTINE VisAllCP (cpcl,cptnum,chg,ions,opts,&
+      ringCount,bondCount,cageCount)
       TYPE(charge_obj) :: chg
       TYPE(ions_obj) :: ions
       TYPE(options_obj) :: opts
@@ -3226,10 +3338,6 @@
 !      PRINT *, 'natoms are'
 !      PRINT *, natoms
       CLOSE(100)
-      maxCount = 0
-      bondCount = 0
-      ringCount = 0
-      cageCount = 0
 
 !      DO n1 = 1, cptnum
 !        CALL  UpDatecOUNTS(cpcl(n1)%negCount,maxCount,bondCount,ringCount, &
@@ -3243,37 +3351,37 @@
 
       !First get the number of each type of CP
 
-      DO n1 = 1, cptnum
-        IF (.NOT.cpcl(n1)%isunique) CYCLE
-!        PRINT *, n1
-!        PRINT *, 'trueind is'
-!        PRINT *, cpcl(n1)%trueInd
-        nnInd = SimpleNN(cpcl(n1)%trueInd,chg)
-!        PRINT *, 'nnInd is'
-!        PRINT *, nnInd
-        DO i = 1, 8
-          nnGrad(i,:) = CDGrad(nnInd(i,:),chg)
-          nnHes(i,:,:) = CDHessian(nnInd(i,:),chg)
-        END DO
-        distance = cpcl(n1)%trueind - nnInd(1,:)
-!        PRINT *, 'distance is'
-!        PRINT *, distance
-        grad = trilinear_interpol_grad(nnGrad,distance)
-!        PRINT *, 'grad is'
-!        PRINT *, grad
-        hessianMatrix = trilinear_interpol_hes(nnHes,distance)
-!        PRINT *, 'hessian is'
-!        PRINT *, hessianMatrix
-        CALL DSYEVJ3(hessianMatrix,eigvecs,eigvals)
-!        PRINT *, 'eigvals are'
-!        PRINT *, eigvals
-        negCount = CountNegModes(eigvals)
-        cpcl(n1)%negCount = negCount
-!        PRINT *, 'negcount is'
-!        PRINT *, negCount
-        CALL UpDateCounts(cpcl(n1)%negCount,maxCount,bondCount,ringCount, & 
-          cageCount)
-      END DO
+!      DO n1 = 1, cptnum
+!        IF (.NOT.cpcl(n1)%isunique) CYCLE
+!!        PRINT *, n1
+!!        PRINT *, 'trueind is'
+!!        PRINT *, cpcl(n1)%trueInd
+!        nnInd = SimpleNN(cpcl(n1)%trueInd,chg)
+!!        PRINT *, 'nnInd is'
+!!        PRINT *, nnInd
+!        DO i = 1, 8
+!          nnGrad(i,:) = CDGrad(nnInd(i,:),chg)
+!          nnHes(i,:,:) = CDHessian(nnInd(i,:),chg)
+!        END DO
+!        distance = cpcl(n1)%trueind - nnInd(1,:)
+!!        PRINT *, 'distance is'
+!!        PRINT *, distance
+!        grad = trilinear_interpol_grad(nnGrad,distance)
+!!        PRINT *, 'grad is'
+!!        PRINT *, grad
+!        hessianMatrix = trilinear_interpol_hes(nnHes,distance)
+!!        PRINT *, 'hessian is'
+!!        PRINT *, hessianMatrix
+!        CALL DSYEVJ3(hessianMatrix,eigvecs,eigvals)
+!!        PRINT *, 'eigvals are'
+!!        PRINT *, eigvals
+!        negCount = CountNegModes(eigvals)
+!        cpcl(n1)%negCount = negCount
+!!        PRINT *, 'negcount is'
+!!        PRINT *, negCount
+!        CALL UpDateCounts(cpcl(n1)%negCount,maxCount,bondCount,ringCount, & 
+!          cageCount)
+!      END DO
 !      PRINT *, 'updated counts are'
 !      PRINT *, maxCount,bondCount,ringCount,cageCount
       ! Write header of allcpPOSCAR
@@ -3309,10 +3417,10 @@
 !            PRINT *, 'negcount ', j, ' found at '
 !            PRINT *, cpcl(n1)%trueInd
 !            PRINT *, 'cptnum is', n1
-            WRITE(11,*) MATMUL(chg%lat2car,cpcl(n1)%trueInd)
-            dir(1) = cpcl(n1)%trueInd(1)/chg%npts(1)
-            dir(2) = cpcl(n1)%trueInd(2)/chg%npts(2)
-            dir(3) = cpcl(n1)%trueInd(3)/chg%npts(3)
+            WRITE(11,*) MATMUL(chg%lat2car,cpcl(n1)%trueR)
+            dir(1) = cpcl(n1)%trueR(1)/chg%npts(1)
+            dir(2) = cpcl(n1)%trueR(2)/chg%npts(2)
+            dir(3) = cpcl(n1)%trueR(3)/chg%npts(3)
           END IF
         END DO
       END DO
@@ -3431,6 +3539,9 @@
           rBondCount, rCageCount)
       END DO
       CALL ReplaceCPL(cpl,rcpl)
+      DO i = 1, SIZE(cpl)
+        cpl(i)%isUnique = .TRUE.
+      END DO
       maxCount = rMaxCount
       uRingCount = rRingCount
       uBondCount = rBondCount
@@ -3488,6 +3599,25 @@
       RETURN
     END FUNCTION CDHessianR
 
+    FUNCTION CDGradR(r,chg)
+      TYPE(charge_obj) :: chg
+      REAL(q2),DIMENSION(8,3) :: nnGrad
+      REAL(q2),DIMENSION(3) :: CDGradR
+      REAL(q2),DIMENSION(3) :: r, distance
+      INTEGER,DIMENSION(8,3) :: nnind
+      INTEGER :: i
+      nnind = simpleNN(r,chg)
+      distance = r - nnind(1,:)
+      DO i = 1,8
+        nnGrad(i,:) = CDGrad(nnind(i,:),chg)
+      END DO
+       !row find the nearest neighbors at this new locaiton
+       !first update critical point location
+       !the next big step is to interpolate the force at predicted critical
+       !point.
+      CDGradR = trilinear_interpol_grad(nnGrad,distance)
+      RETURN
+    END FUNCTION CDGradR
   END MODULE
 
 
