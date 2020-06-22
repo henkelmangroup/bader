@@ -29,7 +29,7 @@
       LOGICAL :: print_surfaces_atoms
       REAL(q2) :: knob_tem, knob_gradfloor
       REAL(q2) :: knob_distance
-      REAL(q2) :: knob_newtonr
+      REAL(q2) :: knob_newtonr, par_sr
       LOGICAL :: ismolecule
       LOGICAL :: iscrystal
       LOGICAL :: noInterpolation_flag
@@ -57,6 +57,7 @@
 
 ! Default values
       opts%knob_tem = 1.5
+      opts%par_sr = 0
       opts%knob_distance = 0.00001
       opts%knob_newtonr = 0.000001
       opts%knob_gradfloor = 0.000001
@@ -158,7 +159,13 @@
           it=LEN_TRIM(inc)
           PRINT *, 'instructed to read knobtem'
           READ(inc,*) opts%knob_tem
-    
+        ELSEIF (p(1:ip) == '-parsr') THEN
+          m = m + 1
+          CALL GET_COMMAND_ARGUMENT(m,inc)
+          inc = ADJUSTL(inc)
+          it=LEN_TRIM(inc)
+          PRINT *, 'instructed to read knobtem'
+          READ(inc,*) opts%par_sr
         ELSEIF (p(1:ip) == '-knobdistance') THEN
           m = m + 1
           CALL GET_COMMAND_ARGUMENT(m,inc)
@@ -680,19 +687,22 @@
       WRITE(*,*) '        Calculate eigenvalues and eigenvectors at those points'
       WRITE(*,*) '        Store results in file named CPF.dat'
       WRITE(*,*) ''    
-      WRITE(*,*) '   -knob_newtonr'
+      WRITE(*,*) '   -knobnewtonr'
       WRITE(*,*) '        Criteria for stopping Newton method for small &
                           stepsize.'
-      WRITE(*,*) '   -knob_gradfloor '
+      WRITE(*,*) '   -knobgradfloor '
       WRITE(*,*) '        Criterial for stopping Newtons method for small &
                           gradient'
-      WRITE(*,*) '   -knob_tem '
+      WRITE(*,*) '   -knobtem '
       WRITE(*,*) '        Proximity criteria for initializing Newtons method &
                           trajectory'
-      WRITE(*,*) '   -knob_distance = 0.'
+      WRITE(*,*) '   -knobdistance '
       WRITE(*,*) '        Proximity criteria in Angstrom for declaring two CP &
                           duplicates of each other'
-
+      WRITE(*,*) '   -parsr'
+      WRITE(*,*) '        Search radius. If a Newton Rhapson trajectory &
+                          initiated at a point, no more trajectory will &
+                          initiate within this radius'
 
     END SUBROUTINE write_help
 

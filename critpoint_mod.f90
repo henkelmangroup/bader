@@ -2570,9 +2570,9 @@
       ProxyToCPCandidate = .FALSE.
       ! These are lattice based and do not take PBC into consideration
       DO i = 1, cptnum
-        IF (ABS(cpl(i)%ind(1) - p(1)) <= 1.5 * (opts%knob_tem + 1) .AND. &
-            ABS(cpl(i)%ind(2) - p(2)) <= 1.5 * (opts%knob_tem + 1) .AND. &
-            ABS(cpl(i)%ind(3) - p(3)) <= 1.5 * (opts%knob_tem + 1) ) THEN
+        IF (ABS(cpl(i)%ind(1) - p(1)) <= opts%par_sr .AND. &
+            ABS(cpl(i)%ind(2) - p(2)) <= opts%par_sr .AND. &
+            ABS(cpl(i)%ind(3) - p(3)) <= opts%par_sr ) THEN
           ProxyToCPCandidate = .TRUE.
         END IF
       END DO  
