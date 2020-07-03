@@ -2796,7 +2796,7 @@
           PRINT *, ''//achar(27)//'[32m Satisfies the Morse Relationship' &
             //achar(27)//'[0m'
           phmrCompliant = .TRUE.
-        ELSE IF (phSum == 1) THEN
+        ELSE IF (phSum == 1 .AND. iphSum == phSum ) THEN
           PRINT *, ''//achar(27)//'[31m ERROR: The result satisfies the  & 
             Poincare Hopf Rule for a & molecule, not a crystal.' &
             //achar(27)//'[0m'
