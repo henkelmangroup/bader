@@ -27,9 +27,9 @@
       LOGICAL :: verbose_flag, ref_flag, find_critpoints_flag
       LOGICAL :: leastsquare_flag
       LOGICAL :: print_surfaces_atoms
-      REAL(q2) :: knob_tem, knob_gradfloor
-      REAL(q2) :: knob_distance
-      REAL(q2) :: knob_newtonr, par_sr
+      REAL(q2) :: par_tem, par_gradfloor
+      REAL(q2) :: par_distance
+      REAL(q2) :: par_newtonr, par_sr
       LOGICAL :: ismolecule
       LOGICAL :: iscrystal
       LOGICAL :: noInterpolation_flag
@@ -56,11 +56,11 @@
       INTEGER :: COMMAND_ARGUMENT_COUNT
 
 ! Default values
-      opts%knob_tem = 1.5
-      opts%par_sr = 0
-      opts%knob_distance = 0.00001
-      opts%knob_newtonr = 0.000001
-      opts%knob_gradfloor = 0.000001
+      opts%par_tem = 1.5
+      opts%par_sr = 2
+      opts%par_distance = 0.00001
+      opts%par_newtonr = 0.000001
+      opts%par_gradfloor = 0.000001
       opts%ismolecule = .FALSE.
       opts%iscrystal = .FALSE.
       opts%out_opt = opts%out_chgcar4
@@ -152,38 +152,38 @@
         ELSEIF (p(1:ip) == '-crystal') THEN
           PRINT *, 'This system is assigned as a crystal'
           opts%iscrystal = .TRUE.  
-        ELSEIF (p(1:ip) == '-knobtem') THEN
+        ELSEIF (p(1:ip) == '-partem') THEN
           m = m + 1
           CALL GET_COMMAND_ARGUMENT(m,inc)
           inc = ADJUSTL(inc)
           it=LEN_TRIM(inc)
-          PRINT *, 'instructed to read knobtem'
-          READ(inc,*) opts%knob_tem
+          PRINT *, 'instructed to read partem'
+          READ(inc,*) opts%par_tem
         ELSEIF (p(1:ip) == '-parsr') THEN
           m = m + 1
           CALL GET_COMMAND_ARGUMENT(m,inc)
           inc = ADJUSTL(inc)
           it=LEN_TRIM(inc)
-          PRINT *, 'instructed to read knobtem'
+          PRINT *, 'instructed to read partem'
           READ(inc,*) opts%par_sr
-        ELSEIF (p(1:ip) == '-knobdistance') THEN
+        ELSEIF (p(1:ip) == '-pardistance') THEN
           m = m + 1
           CALL GET_COMMAND_ARGUMENT(m,inc)
           inc = ADJUSTL(inc)
           it=LEN_TRIM(inc)
-          READ(inc,*) opts%knob_distance
-        ELSEIF (p(1:ip) == '-knobnewtonr') THEN
+          READ(inc,*) opts%par_distance
+        ELSEIF (p(1:ip) == '-parnewtonr') THEN
           m = m + 1
           CALL GET_COMMAND_ARGUMENT(m,inc)
           inc = ADJUSTL(inc)
           it=LEN_TRIM(inc)
-          READ(inc,*) opts%knob_newtonr
-        ELSEIF (p(1:ip) == '-knobgradfloor') THEN
+          READ(inc,*) opts%par_newtonr
+        ELSEIF (p(1:ip) == '-pargradfloor') THEN
           m = m + 1
           CALL GET_COMMAND_ARGUMENT(m,inc)
           inc = ADJUSTL(inc)
           it=LEN_TRIM(inc)
-          READ(inc,*) opts%knob_gradfloor
+          READ(inc,*) opts%par_gradfloor
         ! Vacuum options
         ELSEIF (p(1:ip) == '-vac') THEN
           m=m+1
@@ -687,16 +687,16 @@
       WRITE(*,*) '        Calculate eigenvalues and eigenvectors at those points'
       WRITE(*,*) '        Store results in file named CPF.dat'
       WRITE(*,*) ''    
-      WRITE(*,*) '   -knobnewtonr'
+      WRITE(*,*) '   -parnewtonr'
       WRITE(*,*) '        Criteria for stopping Newton method for small &
                           stepsize.'
-      WRITE(*,*) '   -knobgradfloor '
+      WRITE(*,*) '   -pargradfloor '
       WRITE(*,*) '        Criterial for stopping Newtons method for small &
                           gradient'
-      WRITE(*,*) '   -knobtem '
+      WRITE(*,*) '   -partem '
       WRITE(*,*) '        Proximity criteria for initializing Newtons method &
                           trajectory'
-      WRITE(*,*) '   -knobdistance '
+      WRITE(*,*) '   -pardistance '
       WRITE(*,*) '        Proximity criteria in Angstrom for declaring two CP &
                           duplicates of each other'
       WRITE(*,*) '   -parsr'

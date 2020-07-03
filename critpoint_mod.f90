@@ -727,10 +727,10 @@
                 ! This threshhold should be more flexible.
 !                CYCLE
 !              END IF
-              IF ( (ABS(tem(1)) <= 1 + opts%knob_tem .AND. &
-                   ABS(tem(2)) <= 1 + opts%knob_tem .AND. &
-                   ABS(tem(3)) <= 1 + opts%knob_tem) .OR. &
-                  (SUM(grad*grad) <= (0.1*opts%knob_gradfloor)**2 )) THEN              
+              IF ( (ABS(tem(1)) <= 1 + opts%par_tem .AND. &
+                   ABS(tem(2)) <= 1 + opts%par_tem .AND. &
+                   ABS(tem(3)) <= 1 + opts%par_tem) .OR. &
+                  (SUM(grad*grad) <= (0.1*opts%par_gradfloor)**2 )) THEN              
                 ! finding proximity could potentially be costly
                 IF (ProxyToCPCandidate(p,opts,cpcl,cptnum,chg,nnLayers)) THEN
 !                  PRINT *, 'for proximity to a candidate, skipped '
@@ -928,9 +928,9 @@
               grad = trilinear_interpol_grad(nnGrad,distance) ! val r interpol
               interpolHessian = trilinear_interpol_hes(nnHes,distance)
               !grad = R2GradInterpol(nnind,truer,chg,nnLayers)
-              IF (ABS(grad(1)) <= 0.1*opts%knob_gradfloor .AND. &
-                  ABS(grad(2)) <= 0.1*opts%knob_gradfloor .AND. &
-                  ABS(grad(3)) <= 0.1*opts%knob_gradfloor) THEN
+              IF (ABS(grad(1)) <= 0.1*opts%par_gradfloor .AND. &
+                  ABS(grad(2)) <= 0.1*opts%par_gradfloor .AND. &
+                  ABS(grad(3)) <= 0.1*opts%par_gradfloor) THEN
 
                 cpcl(i)%trueind = truer 
                 cpcl(i)%isunique = .TRUE.
@@ -988,9 +988,9 @@
 !                PRINT *, 'not unique because it wondered off to vacuum'
                 EXIT
               END IF
-              IF ( ABS(nexttem(1)) <= 0.1*opts%knob_newtonr .AND. &
-                   ABS(nexttem(2)) <= 0.1*opts%knob_newtonr .AND. &
-                   ABS(nexttem(3)) <= 0.1*opts%knob_newtonr ) THEN
+              IF ( ABS(nexttem(1)) <= 0.1*opts%par_newtonr .AND. &
+                   ABS(nexttem(2)) <= 0.1*opts%par_newtonr .AND. &
+                   ABS(nexttem(3)) <= 0.1*opts%par_newtonr ) THEN
                 cpcl(i)%trueind = truer 
                 cpcl(i)%isUnique = .TRUE.
 !                PRINT *, 'vector small'
@@ -2122,7 +2122,7 @@
 !        PRINT *, grad
 !        PRINT *, 'rn is'
 !        PRINT *, rn
-        IF (SUM(grad*grad) <= (0.1*opts%knob_gradfloor)**2) THEN
+        IF (SUM(grad*grad) <= (0.1*opts%par_gradfloor)**2) THEN
           PRINT *, 'descension grad small enough'
           EXIT
         END IF
@@ -2152,7 +2152,7 @@
         !grad = R2GradInterpol(nnInd,rn,chg,nnLayers)
         ! this grad is in cartesian. convert it to lattice
         grad = MATMUL(chg%lat2car,grad)
-        IF (SUM(grad*grad)<=(0.1*opts%knob_gradfloor)**2) THEN
+        IF (SUM(grad*grad)<=(0.1*opts%par_gradfloor)**2) THEN
           ! we are at a critical point!
 !          PRINT *, 'descention gradient sufficiently small'
 !          PRINT *, 'descension rn is'
@@ -2398,9 +2398,9 @@
         PRINT *, ABS(rn(1) - REAL(r0(1),q2) - pbccorrectionr(1)), & 
                  ABS(rn(2) - REAL(r0(2),q2) - pbccorrectionr(2)), &
                  ABS(rn(3) - REAL(r0(3),q2) - pbccorrectionr(3))
-        IF (ABS(rn(1) - REAL(r0(1),q2) - pbccorrectionr(1)) >= 3 + opts%knob_tem * 3 .OR. &
-            ABS(rn(2) - REAL(r0(2),q2) - pbccorrectionr(2)) >= 3 + opts%knob_tem * 3 .OR. &
-            ABS(rn(3) - REAL(r0(3),q2) - pbccorrectionr(3)) >= 3 + opts%knob_tem * 3 ) THEN
+        IF (ABS(rn(1) - REAL(r0(1),q2) - pbccorrectionr(1)) >= 3 + opts%par_tem * 3 .OR. &
+            ABS(rn(2) - REAL(r0(2),q2) - pbccorrectionr(2)) >= 3 + opts%par_tem * 3 .OR. &
+            ABS(rn(3) - REAL(r0(3),q2) - pbccorrectionr(3)) >= 3 + opts%par_tem * 3 ) THEN
             rn = (/-1.,-1.,-1./)
             PRINT *, 'youve gone too far'
             EXIT
@@ -3521,7 +3521,7 @@
         DO j = i, ucptnum
           ! Periodic boundary condition will come to haunt me, periodically. 
           IF (j == i) CYCLE
-          IF ( mag(cpl(i)%truer - cpl(j)%truer) <= opts%knob_distance ) THEN
+          IF ( mag(cpl(i)%truer - cpl(j)%truer) <= opts%par_distance ) THEN
             cpl(j)%hasProxy = .TRUE.
             avgR = (avgR * weight + cpl(j)%truer )/(weight + 1)
             weight = weight + 1
