@@ -727,10 +727,11 @@
                 ! This threshhold should be more flexible.
 !                CYCLE
 !              END IF
-              IF ( (ABS(tem(1)) <= 1 + opts%par_tem .AND. &
-                   ABS(tem(2)) <= 1 + opts%par_tem .AND. &
-                   ABS(tem(3)) <= 1 + opts%par_tem) .OR. &
-                  (SUM(grad*grad) <= (0.1*opts%par_gradfloor)**2 )) THEN              
+              IF ( (ABS(tem(1)) <= 1.5 + opts%par_tem .AND. &
+                   ABS(tem(2)) <= 1.5 + opts%par_tem .AND. &
+                   ABS(tem(3)) <= 1.5 + opts%par_tem)) THEN
+                  ! ABS(tem(3)) <= 0.5 + opts%par_tem) .OR. &
+                  !(SUM(grad*grad) <= (0.1*opts%par_gradfloor)**2 )) THEN              
                 ! finding proximity could potentially be costly
                 IF (ProxyToCPCandidate(p,opts,cpcl,cptnum,chg,nnLayers)) THEN
 !                  PRINT *, 'for proximity to a candidate, skipped '
@@ -3401,9 +3402,9 @@
       IF (bondCount>0) WRITE(11,'(a)',ADVANCE='NO') 'He '
       !IF (maxCount>0) WRITE(11,'(a)',ADVANCE='NO') ' Kr'
       WRITE(11,'(a)') TRIM(atoms)
-      IF (cageCount>0) WRITE(11,'(I)',ADVANCE='NO') cageCount
-      IF (ringCount>0) WRITE(11,'(I)',ADVANCE='NO') ringCount
-      IF (bondCount>0) WRITE(11,'(I)',ADVANCE='NO') bondCount
+      IF (cageCount>0) WRITE(11,'(I4)',ADVANCE='NO') cageCount
+      IF (ringCount>0) WRITE(11,'(I4)',ADVANCE='NO') ringCount
+      IF (bondCount>0) WRITE(11,'(I4)',ADVANCE='NO') bondCount
       !IF (maxCount>0) WRITE(11,'(I)',ADVANCE='NO') maxCount
       WRITE(11,'(a)') TRIM(natoms)
       WRITE(11,'(a)') 'Cartesian'

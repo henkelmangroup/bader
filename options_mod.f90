@@ -56,7 +56,7 @@
       INTEGER :: COMMAND_ARGUMENT_COUNT
 
 ! Default values
-      opts%par_tem = 1.5
+      opts%par_tem = 0
       opts%par_sr = 2
       opts%par_distance = 0.00001
       opts%par_newtonr = 0.000001
