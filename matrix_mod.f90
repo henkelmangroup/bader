@@ -13,7 +13,7 @@ MODULE matrix_mod
   CONTAINS
 
 !-----------------------------------------------------------------------------------!
-! inverse:  return the inverse of A(3,3)
+! inverse: return the inverse of A(3,3)
 !-----------------------------------------------------------------------------------!
 
   FUNCTION inverse(A)
@@ -33,7 +33,7 @@ MODULE matrix_mod
   END FUNCTION inverse
 
 !-----------------------------------------------------------------------------------!
-! adjoint:  return the adjoint of A(3,3)
+! adjoint: return the adjoint of A(3,3)
 !-----------------------------------------------------------------------------------!
 
   FUNCTION adjoint(A)
@@ -57,7 +57,7 @@ MODULE matrix_mod
   END FUNCTION adjoint
 
 !-----------------------------------------------------------------------------------!
-! matrix_volume: Function returning the triple product of the lattice vectors.
+! matrix_volume: function returning the triple product of the lattice vectors
 !-----------------------------------------------------------------------------------!
 
   FUNCTION matrix_volume(h)
@@ -79,7 +79,7 @@ MODULE matrix_mod
 
   FUNCTION triple_product(a,b,c)
 
-    REAL(q2),INTENT(IN),DIMENSION(:) :: a,b,c
+    REAL(q2), INTENT(IN), DIMENSION(:) :: a,b,c
     REAL(q2) :: triple_product
 
     triple_product = c(1)*(a(2)*b(3) - a(3)*b(2))  & 
@@ -95,7 +95,7 @@ MODULE matrix_mod
 
   FUNCTION cross_product(A,B)
 
-    REAL(q2),INTENT(IN),DIMENSION(3) :: A,B
+    REAL(q2), INTENT(IN), DIMENSION(3) :: A,B
     REAL(q2), DIMENSION(3) :: cross_product
 
     cross_product(1) = A(2)*B(3) - A(3)*B(2)
@@ -106,12 +106,12 @@ MODULE matrix_mod
   END FUNCTION
 
 !-----------------------------------------------------------------------------------!
-! determinant: of a 3x3 matrix 
+! determinant: of a 3x3 matrix
 !-----------------------------------------------------------------------------------!
 
   FUNCTION determinant(A)
 
-    REAL(q2),INTENT(IN),DIMENSION(3,3) :: A
+    REAL(q2), INTENT(IN), DIMENSION(3,3) :: A
     REAL(q2) :: determinant
 
     determinant = A(1,1)*A(2,2)*A(3,3) &
@@ -132,12 +132,12 @@ MODULE matrix_mod
 
   SUBROUTINE eigenvectors(yita2,iDM,dM,s1,s2,v1,v2,v3)
 
-    REAL(q2),INTENT(IN) :: yita2
-    REAL(q2),INTENT(IN),DIMENSION(3) :: s1, s2, v1
-    REAL(q2),INTENT(IN),DIMENSION(3,3) :: iDM, dM
-    REAL(q2),INTENT(OUT),DIMENSION(3) :: v2, v3
-    REAL(q2),DIMENSION(3) :: u1, u2, w1
-    REAL(q2),DIMENSION(3,3) :: tempMat
+    REAL(q2), INTENT(IN) :: yita2
+    REAL(q2), INTENT(IN), DIMENSION(3) :: s1, s2, v1
+    REAL(q2), INTENT(IN), DIMENSION(3,3) :: iDM, dM
+    REAL(q2), INTENT(OUT), DIMENSION(3) :: v2, v3
+    REAL(q2), DIMENSION(3) :: u1, u2, w1
+    REAL(q2), DIMENSION(3,3) :: tempMat
     REAL(q2) :: norm
 
     tempMat = iDM*yita2

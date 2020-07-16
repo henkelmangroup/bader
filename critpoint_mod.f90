@@ -19,27 +19,27 @@
 
       ! du dv dw are derivatives of the three original lattice vectors read from
       ! CHGCAR
-      REAL(q2),DIMENSION(3) ::  du, dv, dw
+      REAL(q2), DIMENSION(3) ::  du, dv, dw
       REAL(q2) :: dudu, dvdv, dwdw, dudv, dudw, dvdw
       ! eigval and eigvec are eigenvalues and eigvectors of hessian matrix
     END TYPE
 
     TYPE cpc ! stands for critical point candidate
-      INTEGER,DIMENSION(3) :: ind  ! these are the indices of the cp
-      REAL(q2),DIMENSION(3) :: trueind, truer
-      REAL(q2),DIMENSION(3) :: grad
+      INTEGER, DIMENSION(3) :: ind  ! these are the indices of the cp
+      REAL(q2), DIMENSION(3) :: trueind, truer
+      REAL(q2), DIMENSION(3) :: grad
       REAL(q2), DIMENSION(3,3) :: hessianMatrix
-      REAL(q2),DIMENSION(3) :: tempcart, tempind
-      REAL(q2),DIMENSION(3,3,3) :: dx, dy, dz ! first derivatives of neighbors
+      REAL(q2), DIMENSION(3) :: tempcart, tempind
+      REAL(q2), DIMENSION(3,3,3) :: dx, dy, dz ! first derivatives of neighbors
 !      REAL(q2),DIMENSION(3,3,3) :: du, dv, dw
-      REAL(q2),DIMENSION(3) :: du, dv, dw ! 1 2 3 are backward, present, forward
-      REAL(q2),DIMENSION(3) :: eigvals, r, cocart, colat, tempr
-      INTEGER,DIMENSION(8,3) :: nnind ! indices of neighbors 
+      REAL(q2), DIMENSION(3) :: du, dv, dw ! 1 2 3 are backward, present, forward
+      REAL(q2), DIMENSION(3) :: eigvals, r, cocart, colat, tempr
+      INTEGER, DIMENSION(8,3) :: nnind ! indices of neighbors 
       ! indices from 0 to 8 are zyx 000 001 010 011 100 101 110 111
 !      REAL(q2),DIMENSION(8,3) :: nngrad ! gradients of nn mentioned above.
 !      REAL(q2),DIMENSION(6,3) :: intnngrad ! gradients of interpolated neighbors
       ! used to find interpolated hessians.
-      REAL(q2),DIMENSION(3,3) :: eigvecs
+      REAL(q2), DIMENSION(3,3) :: eigvecs
       INTEGER :: negcount
       LOGICAL :: hasProxy, isunique
     END TYPE
@@ -65,48 +65,48 @@
 ! copy
 ! for points, 1 and 2 are +1, -1
     INTEGER :: stat, setcount, counter
-    INTEGER,DIMENSION(3) :: p, pt, ptt, ptx1, ptx2, pty1, pty2, ptz1, ptz2
-    INTEGER,DIMENSION(3) :: tempind
+    INTEGER, DIMENSION(3) :: p, pt, ptt, ptx1, ptx2, pty1, pty2, ptz1, ptz2
+    INTEGER, DIMENSION(3) :: tempind
     INTEGER :: n1, n2, n3, d1, d2, d3, cptnum, ucptnum, i, j, k, debugnum
     INTEGER :: negcount, bondcount, ringcount, maxcount, cagecount
     INTEGER :: ubondcount, uringcount, umaxcount, ucagecount
-    REAL(q2),DIMENSION(3) :: eigvec1, eigvec2, eigvec3, tempVec
-    REAL(q2),DIMENSION(3) :: truer, interpolGrad
-    REAL(q2),DIMENSION(3) :: grad, prevgrad
+    REAL(q2), DIMENSION(3) :: eigvec1, eigvec2, eigvec3, tempVec
+    REAL(q2), DIMENSION(3) :: truer, interpolGrad
+    REAL(q2), DIMENSION(3) :: grad, prevgrad
     INTEGER, DIMENSION(3) :: tempr
     REAL(q2), DIMENSION(3) :: temprealr, tempreal3d
     ! to be used in newton method in finding unique critical points.
-    REAL(q2),DIMENSION(3,3) ::  hessianMatrix, bkhessianMatrix
+    REAL(q2), DIMENSION(3,3) ::  hessianMatrix, bkhessianMatrix
     ! these are vectors orthogonal to eigenvectors
-    REAL(q2),DIMENSION(3) :: tem, tem2a,tem2b,tem2c, eigvals,carts
+    REAL(q2), DIMENSION(3) :: tem, tem2a,tem2b,tem2c, eigvals,carts
     REAL(q2) :: threshhold, tempreal, rndr
-    REAL(q2),DIMENSION(3,3) :: eigvecs, inverseHessian
+    REAL(q2), DIMENSION(3,3) :: eigvecs, inverseHessian
     ! linearized approximated derivatives for proxy critical screening
     REAL(q2) :: dx0,dx1,dy0,dy1,dz0,dz1 ! outputs from interpolated gradients
-    REAL(q2),DIMENSION(6,3) :: intcarts ! positions in cart of 6 interpolated points
+    REAL(q2), DIMENSION(6,3) :: intcarts ! positions in cart of 6 interpolated points
     ! row 1 2 are + and 1 x, then + and - y, then + and - z
-    REAL(q2),DIMENSION(6,3) :: intgrads ! gradients of interpolated points
-    REAL(q2),DIMENSION(6) :: intrhos ! rhos of interpolated points 
-    REAL(q2),DIMENSION(6,3) :: intinds ! fraction indicies for interpolated
+    REAL(q2), DIMENSION(6,3) :: intgrads ! gradients of interpolated points
+    REAL(q2), DIMENSION(6) :: intrhos ! rhos of interpolated points 
+    REAL(q2), DIMENSION(6,3) :: intinds ! fraction indicies for interpolated
     REAL(q2) :: rhocur ! rho of current point
     REAL(q2) :: stepsize, temnormcap
-    REAL(q2),DIMENSION(3) :: distance ! vector to 000 in trilinear
-    REAL(q2),DIMENSION(3) :: preal
-    INTEGER,DIMENSION(8,3) :: nn ! alternative trilinear approx.
-    REAL(q2),DIMENSION(8) :: vals
+    REAL(q2), DIMENSION(3) :: distance ! vector to 000 in trilinear
+    REAL(q2), DIMENSION(3) :: preal
+    INTEGER, DIMENSION(8,3) :: nn ! alternative trilinear approx.
+    REAL(q2), DIMENSION(8) :: vals
     ! points
-    LOGICAL,DIMENSION(3) :: cartcoor ! check if axis are alone cartesian.
+    LOGICAL, DIMENSION(3) :: cartcoor ! check if axis are alone cartesian.
     LOGICAL :: invac ! this point is in vacuum
     LOGICAL :: proxy, isReduced, phmrCompliant
     ! The followings are for finding unique critical points
-    REAL(q2),DIMENSION(8,3) :: nngrad
-    REAL(q2),DIMENSION(8,3,3) :: nnhes !hessian of 8 nn
+    REAL(q2), DIMENSION(8,3) :: nngrad
+    REAL(q2), DIMENSION(8,3,3) :: nnhes !hessian of 8 nn
     INTEGER, DIMENSION(:,:),ALLOCATABLE :: nnind
-    REAL(q2),DIMENSION(6,3) :: intnngrad
-    REAL(q2),DIMENSION(3,3) :: interpolHessian
-    REAL(q2),DIMENSION(3) :: nexttem, previoustem, averager, temcap, temscale
+    REAL(q2), DIMENSION(6,3) :: intnngrad
+    REAL(q2), DIMENSION(3,3) :: interpolHessian
+    REAL(q2), DIMENSION(3) :: nexttem, previoustem, averager, temcap, temscale
     INTEGER :: averagecount, repeatcount
-    INTEGER,ALLOCATABLE,DIMENSION(:,:) :: nucleiInd
+    INTEGER, DIMENSION(:,:), ALLOCATABLE :: nucleiInd
     REAL(q2), DIMENSION(:,:), ALLOCATABLE :: cpRoster
     INTEGER :: stepcount, nnlayers
     ! The following are for least square calculations

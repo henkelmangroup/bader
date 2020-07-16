@@ -27,11 +27,11 @@ MODULE bader_mod
 ! minsurfdist: minimum distance from the Bader surface to the included ion
 
   TYPE bader_obj
-    REAL(q2),ALLOCATABLE,DIMENSION(:,:) :: volpos_lat, volpos_car, volpos_dir
-    REAL(q2),ALLOCATABLE,DIMENSION(:) :: volchg, iondist, ionchg, minsurfdist, ionvol
-    INTEGER,ALLOCATABLE,DIMENSION(:,:,:) :: volnum, known
-    INTEGER,ALLOCATABLE,DIMENSION(:,:) :: path
-    INTEGER,ALLOCATABLE,DIMENSION(:) :: nnion
+    REAL(q2), ALLOCATABLE, DIMENSION(:,:) :: volpos_lat, volpos_car, volpos_dir
+    REAL(q2), ALLOCATABLE, DIMENSION(:) :: volchg, iondist, ionchg, minsurfdist, ionvol
+    INTEGER, ALLOCATABLE, DIMENSION(:,:,:) :: volnum, known
+    INTEGER, ALLOCATABLE, DIMENSION(:,:) :: path
+    INTEGER, ALLOCATABLE, DIMENSION(:) :: nnion
     REAL(q2) :: stepsize, tol
     REAL(q2) :: vacchg, vacvol
     INTEGER nvols, pnum, bnum, pdim, bdim, refine_edge_itrs
@@ -62,12 +62,12 @@ MODULE bader_mod
     TYPE(charge_obj) :: chgval
     TYPE(options_obj) :: opts
 
-    INTEGER,DIMENSION(3) :: p, ptemp
+    INTEGER, DIMENSION(3) :: p, ptemp
     INTEGER :: n1, n2, n3, i, path_volnum, tenths_done
     INTEGER :: cr, count_max, t1, t2
     INTEGER :: ref_itrs = 1
 
-    REAL(q2),DIMENSION(3) :: voxlen
+    REAL(q2), DIMENSION(3) :: voxlen
     REAL(q2) :: vol
     TYPE(charge_obj) :: chgtemp
     TYPE(ions_obj) :: ionstemp
@@ -126,7 +126,6 @@ MODULE bader_mod
     ! find vacuum points, get the charge and volume
     bdr%vacchg = 0.0_q2
     bdr%vacvol = 0.0_q2
-
 
     vol = matrix_volume(ions%lattice)
     IF (opts%vac_flag) THEN
@@ -326,9 +325,9 @@ MODULE bader_mod
 
     TYPE(bader_obj) :: bdr
     TYPE(charge_obj) :: chg
-    REAL(q2),DIMENSION(3),INTENT(INOUT) :: r
+    REAL(q2), DIMENSION(3), INTENT(INOUT) :: r
 
-    REAL(q2),DIMENSION(3) :: grad,dr_car,dr_lat
+    REAL(q2), DIMENSION(3) :: grad,dr_car,dr_lat
     REAL(q2) :: rho
 
     grad = rho_grad(chg,r,rho)
@@ -349,7 +348,7 @@ MODULE bader_mod
 
     TYPE(bader_obj) :: bdr
     TYPE(charge_obj) :: chg
-    INTEGER,DIMENSION(3),INTENT(INOUT) :: p
+    INTEGER, DIMENSION(3), INTENT(INOUT) :: p
 
     bdr%pnum = 1
     bdr%path(bdr%pnum,:) = p
@@ -381,10 +380,10 @@ MODULE bader_mod
   SUBROUTINE step_ongrid(chg,p)
 
     TYPE(charge_obj) :: chg
-    INTEGER,DIMENSION(3),INTENT(INOUT) :: p
+    INTEGER, DIMENSION(3), INTENT(INOUT) :: p
 
     REAL(q2) :: rho_max,rho_tmp,rho_ctr
-    INTEGER,DIMENSION(3) :: pt,pm
+    INTEGER, DIMENSION(3) :: pt,pm
     INTEGER :: d1,d2,d3
 
     pm = p
@@ -420,7 +419,7 @@ MODULE bader_mod
     TYPE(charge_obj) :: chg
     TYPE(options_obj) :: opts
 
-    INTEGER,DIMENSION(3),INTENT(INOUT) :: p
+    INTEGER, DIMENSION(3), INTENT(INOUT) :: p
 
     bdr%pnum=1
     bdr%path(bdr%pnum,:)=p
@@ -456,9 +455,9 @@ MODULE bader_mod
 
     TYPE(bader_obj) :: bdr
     TYPE(charge_obj) :: chg
-    INTEGER,DIMENSION(3),INTENT(INOUT) :: p
-    INTEGER,DIMENSION(3) :: pm
-    REAL(q2),DIMENSION(3) :: gradrl, dr=(/0._q2,0._q2,0._q2/)
+    INTEGER, DIMENSION(3), INTENT(INOUT) :: p
+    INTEGER, DIMENSION(3) :: pm
+    REAL(q2), DIMENSION(3) :: gradrl, dr=(/0._q2,0._q2,0._q2/)
     REAL(q2) :: coeff
     SAVE dr
 
@@ -511,7 +510,7 @@ MODULE bader_mod
     TYPE(ions_obj) :: ions
     INTEGER :: ref_itrs
 
-    INTEGER,DIMENSION(3) :: p,pt
+    INTEGER, DIMENSION(3) :: p,pt
     INTEGER :: n1,n2,n3,path_volnum,bvolnum,i
     INTEGER :: num_edge,num_reassign,num_check
     INTEGER :: d1,d2,d3
@@ -661,7 +660,7 @@ MODULE bader_mod
     TYPE(ions_obj) :: ions
     TYPE(charge_obj) :: chg
 
-    REAL(q2),DIMENSION(3) :: dv, v
+    REAL(q2), DIMENSION(3) :: dv, v
     REAL(q2) :: dsq, dminsq
     INTEGER :: i, j, dindex
 
@@ -703,8 +702,8 @@ MODULE bader_mod
     TYPE(ions_obj) :: ions
     TYPE(charge_obj) :: chg
 
-    REAL(q2),DIMENSION(3) :: v, dv_dir, dv_car
-    INTEGER,DIMENSION(3) :: p
+    REAL(q2), DIMENSION(3) :: v, dv_dir, dv_car
+    INTEGER, DIMENSION(3) :: p
     REAL :: dist
     INTEGER :: i, atom, n1, n2, n3
     INTEGER :: cr, count_max, t1, t2, tenths_done
@@ -835,7 +834,7 @@ MODULE bader_mod
     INTEGER :: j, b, mab, mib, ik, sc, cc
     INTEGER :: tenths_done, t1, t2, cr, count_max
     INTEGER :: n1, n2, n3
-    INTEGER,DIMENSION(bdr%nvols) :: rck
+    INTEGER, DIMENSION(bdr%nvols) :: rck
     CHARACTER(LEN=128) :: atomfilename
 
     CALL SYSTEM_CLOCK(t1, cr, count_max)
@@ -906,7 +905,7 @@ MODULE bader_mod
 
     INTEGER :: n1, n2, n3, i, j, b, ik, sc, cc
     INTEGER :: tenths_done, t1, t2, cr, count_max
-    INTEGER,DIMENSION(bdr%nvols) :: rck
+    INTEGER, DIMENSION(bdr%nvols) :: rck
     CHARACTER(LEN=128) :: atomfilename
 
     CALL SYSTEM_CLOCK(t1,cr,count_max)
@@ -978,7 +977,7 @@ MODULE bader_mod
 
     INTEGER :: n1, n2, n3, i, j, b, ik, sc, cc
     INTEGER :: tenths_done, t1, t2, cr, count_max
-    INTEGER,DIMENSION(bdr%nvols) :: rck
+    INTEGER, DIMENSION(bdr%nvols) :: rck
     CHARACTER(LEN=128) :: atomfilename
 
     CALL SYSTEM_CLOCK(t1, cr, count_max)
@@ -1052,7 +1051,7 @@ MODULE bader_mod
 
     TYPE(charge_obj) :: tmp
     CHARACTER(LEN=128) :: atomfilename
-    INTEGER,DIMENSION(bdr%nvols,2) :: volsig
+    INTEGER, DIMENSION(bdr%nvols,2) :: volsig
     INTEGER :: n1, n2, n3, cr, count_max, t1, t2
     INTEGER :: tenths_done, i, bdimsig, bvolnum
 
@@ -1123,7 +1122,7 @@ MODULE bader_mod
 
     TYPE(charge_obj) :: tmp
     CHARACTER(LEN=128) :: atomfilename
-    INTEGER,DIMENSION(bdr%nvols,2) :: volsig
+    INTEGER, DIMENSION(bdr%nvols,2) :: volsig
     INTEGER :: n1, n2, n3, cr, count_max, t1, t2
     INTEGER :: tenths_done, i, bdimsig, bvolnum
 
@@ -1418,7 +1417,7 @@ MODULE bader_mod
 
     REAL(q2) :: sum_ionchg, ne
     INTEGER :: i, bdimsig, mib, mab, cc, j, nmax
-    INTEGER,DIMENSION(bdr%nvols) :: rck
+    INTEGER, DIMENSION(bdr%nvols) :: rck
 
     mab=MAXVAL(bdr%nnion)
     mib=MINVAL(bdr%nnion)
@@ -1506,9 +1505,9 @@ MODULE bader_mod
 
     TYPE(bader_obj) :: bdr
     TYPE(charge_obj) :: chg
-    INTEGER,INTENT(IN) :: p1, p2, p3
+    INTEGER, INTENT(IN) :: p1, p2, p3
     INTEGER :: i, volnum_val
-    INTEGER,DIMENSION(3) :: p
+    INTEGER, DIMENSION(3) :: p
 
     p = (/p1,p2,p3/)
     DO i = 1,3
@@ -1536,7 +1535,7 @@ MODULE bader_mod
 
     TYPE(bader_obj) :: bdr
     TYPE(charge_obj) :: chg
-    REAL(q2),DIMENSION(3),INTENT(IN) :: p
+    REAL(q2), DIMENSION(3), INTENT(IN) :: p
     INTEGER :: known_volnum
 
     INTEGER :: volnum, d1, d2, d3, p1, p2, p3
@@ -1578,8 +1577,8 @@ MODULE bader_mod
 
     TYPE(bader_obj) :: bdr
     TYPE(charge_obj) :: chg
-    INTEGER,DIMENSION(3),INTENT(IN) :: p
-    INTEGER,DIMENSION(3) :: pt
+    INTEGER, DIMENSION(3), INTENT(IN) :: p
+    INTEGER, DIMENSION(3) :: pt
 
     pt = p + (/1,0,0/)
     CALL pbc(pt,chg%npts)
@@ -1624,8 +1623,8 @@ MODULE bader_mod
 
     TYPE(bader_obj) :: bdr
     TYPE(charge_obj) :: chg
-    INTEGER,DIMENSION(3),INTENT(IN) :: p
-    INTEGER,DIMENSION(3) :: pt
+    INTEGER, DIMENSION(3), INTENT(IN) :: p
+    INTEGER, DIMENSION(3) :: pt
     INTEGER :: d1, d2, d3
 
     DO d1 = -1,1
@@ -1652,7 +1651,7 @@ MODULE bader_mod
 
     TYPE(bader_obj) :: bdr
     TYPE(charge_obj) :: chg
-    INTEGER,DIMENSION(3),INTENT(IN) :: p
+    INTEGER, DIMENSION(3), INTENT(IN) :: p
     INTEGER :: volnum, p1, p2, p3
 
     p1 = p(1)
@@ -1683,8 +1682,8 @@ MODULE bader_mod
 
     TYPE(bader_obj) :: bdr
     TYPE(charge_obj) :: chg
-    INTEGER,DIMENSION(3),INTENT(IN) :: p
-    INTEGER,DIMENSION(3) :: pt
+    INTEGER, DIMENSION(3), INTENT(IN) :: p
+    INTEGER, DIMENSION(3) :: pt
     INTEGER :: volnum, d1, d2, d3, p1, p2, p3
 
     p1 = p(1)
@@ -1716,8 +1715,8 @@ MODULE bader_mod
 
     TYPE(bader_obj) :: bdr
     TYPE(charge_obj) :: chg
-    INTEGER,DIMENSION(3),INTENT(IN) :: p
-    INTEGER,DIMENSION(3) :: pt
+    INTEGER, DIMENSION(3), INTENT(IN) :: p
+    INTEGER, DIMENSION(3) :: pt
 
     pt = (/p(1)+1,p(2),p(3)/)
     CALL pbc(pt,chg%npts)
@@ -1750,8 +1749,8 @@ MODULE bader_mod
 
     TYPE(bader_obj) :: bdr
     TYPE(charge_obj) :: chg
-    INTEGER,DIMENSION(3),INTENT(IN) :: p
-    INTEGER,DIMENSION(3) :: pt
+    INTEGER, DIMENSION(3), INTENT(IN) :: p
+    INTEGER, DIMENSION(3) :: pt
     INTEGER :: d1, d2, d3
 
     DO d1 = -1,1
@@ -1777,8 +1776,8 @@ MODULE bader_mod
     TYPE(charge_obj) :: chg
     LOGICAL :: is_vol_edge
 
-    INTEGER,DIMENSION(3),INTENT(IN) :: p
-    INTEGER,DIMENSION(3) ::pt
+    INTEGER, DIMENSION(3), INTENT(IN) :: p
+    INTEGER, DIMENSION(3) ::pt
     INTEGER :: d1,d2,d3,volnum,volnbr
 
     volnum = bdr%volnum(p(1),p(2),p(3))
@@ -1810,10 +1809,10 @@ MODULE bader_mod
     TYPE(charge_obj) :: chg
     LOGICAL :: is_atm_edge
 
-    INTEGER,DIMENSION(3),INTENT(IN) :: p
-    INTEGER,DIMENSION(3) ::pt
+    INTEGER, DIMENSION(3), INTENT(IN) :: p
+    INTEGER, DIMENSION(3) ::pt
     INTEGER :: d1, d2, d3, atmnbr
-    INTEGER,INTENT(INOUT) ::atom 
+    INTEGER, INTENT(INOUT) ::atom 
     
     atom = bdr%nnion(bdr%volnum(p(1),p(2),p(3)))
     is_atm_edge = .FALSE.
@@ -1845,10 +1844,10 @@ MODULE bader_mod
     TYPE(charge_obj) :: chg
     LOGICAL :: is_vol_neighbor
 
-    INTEGER,DIMENSION(3),INTENT(IN) :: p
-    INTEGER,DIMENSION(3) :: pt
+    INTEGER, DIMENSION(3), INTENT(IN) :: p
+    INTEGER, DIMENSION(3) :: pt
     INTEGER :: d1, d2, d3, volneighbor
-    INTEGER,INTENT(IN) :: vol
+    INTEGER, INTENT(IN) :: vol
 
     is_vol_neighbor = .FALSE.
 
@@ -1884,7 +1883,7 @@ MODULE bader_mod
     !STC: tmpvolpos was INTEGER should have been REAL(q2), this caused a crash
     !STC: when bader was run with -ref and compiled with floating point
     !STC: exception handling (-fpe0).
-    REAL(q2),ALLOCATABLE,DIMENSION(:,:) :: tmpvolpos
+    REAL(q2), ALLOCATABLE, DIMENSION(:,:) :: tmpvolpos
 
     IF (newsize < bdr%bnum) write(*,*) 'Error: new volpos length too small'
 
@@ -1907,7 +1906,7 @@ MODULE bader_mod
     TYPE(bader_obj) :: bdr
     INTEGER :: newsize
 
-    INTEGER,ALLOCATABLE,DIMENSION(:,:) :: tmppath
+    INTEGER, ALLOCATABLE, DIMENSION(:,:) :: tmppath
 
     IF (newsize < bdr%pnum) write(*,*) 'Error: new path length too small'
 
@@ -1935,8 +1934,8 @@ MODULE bader_mod
     LOGICAL, DIMENSION(3), intent(out) :: scell_dir_out
 
     INTEGER :: atom, n1, n2, n3
-    INTEGER,DIMENSION(3) :: p
-    INTEGER,ALLOCATABLE :: strings(:,:)
+    INTEGER, DIMENSION(3) :: p
+    INTEGER, ALLOCATABLE :: strings(:,:)
     ! Check if there is a path taking us from the x=0 to x=max plane without 
     ! crossing a surface in which case we need a supercell ... 
     ALLOCATE( strings(chgval%npts(2),chgval%npts(3)) )

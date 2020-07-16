@@ -12,7 +12,7 @@ MODULE chgcar_mod
   IMPLICIT NONE
 
   PRIVATE
-  PUBLIC :: read_charge_chgcar,write_charge_chgcar
+  PUBLIC :: read_charge_chgcar, write_charge_chgcar
 
   CONTAINS
 
@@ -29,9 +29,9 @@ MODULE chgcar_mod
     TYPE(options_obj) :: opts
 
     REAL(q2) :: scalefactor
-    REAL(q2),DIMENSION(3) :: dlat,dcar
+    REAL(q2), DIMENSION(3) :: dlat,dcar
     INTEGER :: i,n1,n2,n3,d1,d2,d3
-    INTEGER,DIMENSION(110) :: nionlist=0
+    INTEGER, DIMENSION(110) :: nionlist=0
 
     OPEN(100,FILE=chargefile,STATUS='old',ACTION='read',BLANK='null',PAD='yes')
     WRITE(*,'(/,1A11,1A20)') 'OPEN ... ',chargefile
