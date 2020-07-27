@@ -73,8 +73,6 @@
 
      ! Get the control variables
      CALL get_options(opts)
-
-     PRINT *, 'in main, finished reading options'
     
      ! Call the read routines from io_mod
      CALL read_charge(ions,chgval,opts)

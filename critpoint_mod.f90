@@ -125,7 +125,7 @@
     PRINT *, ''//achar(27)//'[33m Did I turn on vacuum ?'//achar(27)//'[0m'
     PRINT *, ''//achar(27)//'[92m Did I tell if this is a crystall or molecule?'//achar(27)//'[0m'
     PRINT *, ''//achar(27)//'[36m Did I use the CHGCAR_sum ?'//achar(27)//'[0m'
-    PRINT *, ''//achar(27)//'[34m Did I make sure to not use the least square flag -ls ? '//achar(27)//'[0m'
+    PRINT *, ''//achar(27)//'[34m Did I use reasonable values for parameters ? '//achar(27)//'[0m'
     PRINT *, ''//achar(27)//'[95m Critical point is like a box of chocolates. &
               You never know what you are gonna get.'//achar(27)//'[0m'
     !WRITE(*,'(A)')  'FINDING CRITICAL POINTS'
@@ -228,8 +228,8 @@
       uringcount = 0
       maxcount = ucptnum
     END IF
-    PRINT *, 'after adjustments, CP counts are'
-    PRINT *, maxcount, ubondcount, uringcount, ucagecount
+    !PRINT *, 'after adjustments, CP counts are'
+    !PRINT *, maxcount, ubondcount, uringcount, ucagecount
 
     IF (.NOT. opts%noInterpolation_flag) THEN
       !CALL minimasearch(chg,cptnum,cpl,bdr,matm,matwprime, &
@@ -331,12 +331,6 @@
           temcap = (/1.,1.,1./)
           temscale = (/1.,1.,1./)
           temnormcap = 1.
-          PRINT *, cpcl(i)%ind
-          IF (cpcl(i)%ind(1) == 38 .AND. &
-              cpcl(i)%ind(2) == 42 .AND. &
-              cpcl(i)%ind(3) == 71 ) THEN
-            PRINT *, 'looking at point 38 42 71'
-          END IF
           IF (.FALSE.) THEN
           ! This determins if validation is done with gradient descend
           !    PRINT *, 'looking at critical point candidate # ', i
@@ -1505,7 +1499,7 @@
               CALL pbc(nn(i,:),chg%npts)
               IF (rho_val(chg,n1,n2,n3) >= rho_val(chg,nn(i,1),nn(i,2),nn(i,3))) THEN
                 isminimum = .FALSE.
-                EXIT
+                !EXIT
               END IF
             END DO
 !            PRINT *,'finished comparing values'
@@ -2090,12 +2084,12 @@
       ELSE 
         IF (phSum == 0) THEN
           phmrCompliant = .TRUE.
-          PRINT *, ''//achar(27)//'[32m This system has not be designated & 
+          PRINT *, ''//achar(27)//'[32m This system has not been designated & 
             as a molecule or crystal but the Morse relationship for & 
             crystals are satisfied.' //achar(27)//'[0m'
         ELSE IF (phSum == 1) THEN
           phmrCompliant = .TRUE.
-          PRINT *, ''//achar(27)//'[32m This system has not be designated & 
+          PRINT *, ''//achar(27)//'[32m This system has not been designated & 
             as a molecule or crystal but the Poincare-Hopf rule for &
             moleculess are satisfied.' //achar(27)//'[0m'
         END IF
@@ -2104,7 +2098,7 @@
           PRINT *, ''//achar(27)//'[33m Using the number of atoms  &
             instead of the number of the number of maxima found' &
             //achar(27)//'[0m'
-          PRINT *, ''//achar(27)//'[32m This system has not be designated & 
+          PRINT *, ''//achar(27)//'[32m This system has not been designated & 
             as a molecule or crystal but the Morse relationship for & 
             crystals are satisfied.' //achar(27)//'[0m'
         ELSE IF (iphSum == 1 .AND. iphSum /= phSum) THEN
@@ -2112,7 +2106,7 @@
           PRINT *, ''//achar(27)//'[33m Using the number of atoms  &
             instead of the number of the number of maxima found' &
             //achar(27)//'[0m'
-          PRINT *, ''//achar(27)//'[32m This system has not be designated & 
+          PRINT *, ''//achar(27)//'[32m This system has not been designated & 
             as a molecule or crystal but the Poincare-Hopf rule for &
             moleculess are satisfied.' //achar(27)//'[0m'
         END IF
@@ -2234,16 +2228,17 @@
       INTEGER :: ubondcount, uringcount, ucagecount, maxcount
       CHARACTER(10) :: fileName
       PRINT *, 'Writting critical point output files'
-      PRINT *, 'setcount is', setcount
       WRITE(fileName,fmt='(a,i2.2,a)') TRIM('CPFU'), setcount,TRIM('.dat')
-      PRINT *, 'filename is ', filename
+      PRINT *, 'Critical point information are written in file: ', filename
       OPEN(98,FILE=filename,STATUS='REPLACE',ACTION='WRITE')
       WRITE(98,*) 'Number of critical points written: ', ucptnum
       WRITE(98,*) 'Number of bond critical point written: ', ubondcount
       WRITE(98,*) 'Number of ring critical point written: ', uringcount
       WRITE(98,*) 'Number of cage critical point written: ', ucagecount
-      WRITE(98,*) 'Number of nucl critical point written: ', maxcount
+      !WRITE(98,*) 'Number of nucl critical point written: ', maxcount
+      WRITE(98,*) 'Nuclear critical points are omitted. Use atomic positions.'
       DO i = 1, ucptnum
+        IF (cpl(i)%negCount == 3 ) CYCLE
         WRITE (98,*) '_______________________________________'
         WRITE (98,*) 'Unique CP # : ', i
         WRITE (98,*) 'Critical point is found at indices'
@@ -2277,7 +2272,9 @@
         WRITE (98,*) 'Eigenvalues are'
         WRITE (98,*) cpl(i)%eigvals
         WRITE (98,*) 'Eigenvectors are'
-        WRITE (98,*) cpl(i)%eigvecs
+        WRITE (98,*) cpl(i)%eigvecs(1,:)
+        WRITE (98,*) cpl(i)%eigvecs(2,:)
+        WRITE (98,*) cpl(i)%eigvecs(3,:)
         IF (cpl(i)%negcount == 0) THEN
           WRITE(98,*) 'This is a cage critical point'
           WRITE(98,*) ' '
@@ -2292,7 +2289,7 @@
           WRITE(98,*) 'This is a nuclear critical point'
           WRITE(98,*) ' ' 
         END IF
-        WRITE(98,*) '________________________________________'
+        WRITE(98,*) '_________________________________________'
       END DO
     WRITE(98,*) ''
     CLOSE(98)
@@ -2778,6 +2775,18 @@
       CDGradR = trilinear_interpol_grad(nnGrad,distance)
       RETURN
     END FUNCTION CDGradR
+
+    SUBROUTINE PBCPerformanceTest(chg)
+      TYPE(charge_obj) :: chg
+      INTEGER :: i
+      INTEGER, DIMENSION(3) :: it
+      it = (/1,1,1/)
+      DO i = 1, 10000000
+        CALL pbc(it,chg%npts)
+      END DO
+
+    END SUBROUTINE
   END MODULE
 
 
+  
