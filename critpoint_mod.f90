@@ -154,73 +154,19 @@
     ucptnum = 0
     cptnum = 0
 
-!    PRINT *, 'lat2car is'
-!    PRINT *, chg%lat2car(1,:)
-!    PRINT *, chg%lat2car(2,:)
-!    PRINT *, chg%lat2car(3,:)
-!    PRINT *, 'lattice is'
-!    PRINT *, ions%lattice(1,:)
-!    PRINT *, ions%lattice(2,:)
-!    PRINT *, ions%lattice(3,:)
-!    PRINT *, 'ions locations are at' 
-!    DO i = 1, ions%nions
-!      PRINT *, ions%r_lat(i,:)
-!    END DO
-
-!    PRINT *, 'Printing the matrix '
-!    PRINT *, '(/ (/1,2,3/) '
-!    PRINT *, '   (/4,5,6/) '
-!    PRINT *, '   (/7,8,9/) /)'
     hessianMatrix(1,:)=(/1.,2.,3./)
     hessianMatrix(2,:) = (/4.,5.,6./)
     hessianMatrix(3,:) = (/7.,8.,9./)
-!    PRINT *, hessianMatrix
-!    PRINT *, 'multiplying the matrix with (/1.,1.,1./)'
-!    PRINT *, MATMUL(hessianMatrix,(/1.,1.,1./))
-
-!    PRINT * , "These code requires -vac auto or -vac #"
-!    PRINT *, '-----------                  WARNING             -----------'
-!    PRINT *, 'Using valence charge may yield useless and confusing results'
-!    PRINT *, '    It is recommended to use total charge for finding CPs   '
-!    PRINT *, '____________________________________________________________'
-!    OPEN(97,FILE='CPF.dat',STATUS='REPLACE',ACTION='WRITE')
-!    OPEN(98,FILE='CPFU.dat',STATUS='REPLACE',ACTION='WRITE')
     OPEN(1,FILE='GRAD.dat',STATUS='REPLACE',ACTION='WRITE')
     WRITE(1,*) 'norm      ','| del a      | ','    del b     |','    del c'
     OPEN(2,FILE='HES.dat',STATUS='REPLACE',ACTION='WRITE')
-!    OPEN(3,FILE='CPFU.dat',STATUS='REPLACE',ACTION='WRITE')
-!    OPEN(4,FILE='CPFU.dat',STATUS='REPLACE',ACTION='WRITE')
     debugnum = 0
 
-    ! check if axis are cartesian
-!    cartcoor = coorcheck(ions%lattice)
     IF ( opts%leastsquare_flag .EQV. .TRUE. )THEN
       vi = makevi()
       vit = TRANSPOSE(vi)
       ggrid = makeggrid(chg,ions)
-!      PRINT *, 'ggrid is'
-!      PRINT *, ggrid(1,:)
-!      PRINT *, ggrid(2,:)
-!      PRINT *, ggrid(3,:)
-!      PRINT *, 'wi is'
-!      DO i = 1,26
-!        wi(i) = DOT_PRODUCT(MATMUL(vit(i,:),ggrid),vi(:,i))
-!        wi(i) = 1./wi(i)
-!      END DO
-      ! The following method checks wi directly. The above code is working
-      ! properly.
-      !wi = makewi(chg,nnlayers,vi)
-      !PRINT *, 'new wi are'
-      !DO i = 1,26
-      !  PRINT *, wi(i)
-      !END DO
-
       matm = 0.0_q2
-!      PRINT *, 'matwprime is'
-!      DO i = 1,13
-!        matwprime(:,i) = vi(:,i) * wi(i)
-!        PRINT *, matwprime(:,i)
-!      END DO
       DO i = 1, 26
         outerproduct(1,1)= vi(1,i) * vit(i,1)
         outerproduct(1,2)= vi(1,i) * vit(i,2)
@@ -231,207 +177,13 @@
         outerproduct(3,1)= vi(3,i) * vit(i,1)
         outerproduct(3,2)= vi(3,i) * vit(i,2)
         outerproduct(3,3)= vi(3,i) * vit(i,3)
-!        PRINT *, 'i is', i
-!        PRINT *, 'vi is'
-!        PRINT *, vi(:,i)
-!        PRINT *, 'outer product is'
-!        PRINT *, outerproduct(1,:)
-!        PRINT *, outerproduct(2,:)
-!        PRINT *, outerproduct(3,:)
-!        PRINT *, 'wi vi x vi is'
-!        PRINT *, outerproduct * wi(i)
         matm = matm + wi(i) * outerproduct
-!        PRINT *, 'matm is now'
-!        PRINT *, matm(1,:)
-!        PRINT *, matm(2,:)
-!        PRINT *, matm(3,:)
-!        PRINT *, 'vi is' 
-!        PRINT *, vi(:,i)
-!        PRINT *, 'vit is'
-!        PRINT *, vit(i,:)
-!        PRINT *, 'outer product is'
-!        PRINT *, outerproduct
-
       END DO
     END IF
     nnlayers = findnnlayers(ions)
     nnind = findnn(truer,nnlayers,chg,ions)
 
 
-
-!    PRINT *, 'density run around the center on y=x direction '
-!    ! This is the on grid part
-!    p = (/1,7,7/)
-!    !p = (/4,4,10/)
-!    DO n1 = 1,66
-!      CALL pbc(p,chg%npts)
-!      PRINT *, rho_val(chg,p(1),p(2),p(3))
-!!      PRINT *, 'getting density at'
-!!      PRINT *, p
-!!      PRINT *, 'gradient is'
-!      p = p + (/1,1,0/)
-!    END DO
-!    PRINT *, 'printing debug output for hex he case'
-!    PRINT *, 'Printing on grid gradient from 07 43 63 to 43 07 08'
-!    truer = (/17.,33.,53./)
-!    p = (/17,33,53/)
-!    DO n1 = 1,200
-!      CALL pbc(p,chg%npts)
-!      !PRINT *, rho_val(chg,p(1),p(2),p(3))
-!      PRINT *, CDGrad(p,chg)
-!      truer = truer + (/0.08,-0.08,-0.175/)
-!      p(1) = NINT(truer(1))
-!      p(2) = NINT(truer(2))
-!      p(3) = NINT(truer(3))
-!    END DO
-!
-!    PRINT *, 'Printing on grid gradient from 07 43 63 to 43 07 08'
-!    truer = (/17.,33.,53./)
-!    p = (/17,33,53/)
-!    DO n1 = 1,200
-!      CALL pbc(p,chg%npts)
-!      !PRINT *, rho_val(chg,p(1),p(2),p(3))
-!      PRINT *, CDGrad(p,chg)
-!      truer = truer + (/0.08,-0.08,-0.175/)
-!      p(1) = NINT(truer(1))
-!      p(2) = NINT(truer(2))
-!      p(3) = NINT(truer(3))
-!    END DO
-
-
-!    PRINT *, 'Printing on grid gradient from 1 28 1 to 28 1 1'
-!    p = (/1,28,1/)
-!    DO n1 = 1,27
-!      CALL pbc(p,chg%npts)
-!      !PRINT *, rho_val(chg,p(1),p(2),p(3))
-!      PRINT *, CDGrad(p,chg)
-!      p = p + (/1,-1,0/)
-!    END DO
-
-!    PRINT *, 'These are interpolated values'
-!!    ! These will give you interpolated results
-!    truer = (/2.,16.,30./)
-!    DO n1 = 1, 280
-!      CALL pbc_r_lat(truer,chg%npts)
-!      nnind = FindNN(truer,nnLayers,chg,ions)
-!      !nnind = SimpleNN(truer,chg)
-!      PRINT *, R2RhoInterpol(nnind,truer,chg,nnLayers)
-!      truer = truer + (/0.2,0.1,0./)
-!      IF (n1==2) STOP
-!    END DO
-!    
-
-!    PRINT *, 'printing interpolated gradient from 17 33 53 to 33 17 18'
-!    truer = (/17.,33.,53./)
-!    DO n1 = 1, 200
-!      CALL pbc_r_lat(truer,chg%npts)
-!      !nnind = FindNN(truer,nnLayers,chg,ions)
-!      !PRINT *, trilinear_interpol_rho(chg,truer)
-!      nnind = SimpleNN(trueR,chg)
-!      DO i = 1, 8
-!        nnGrad(i,:) = CDGrad(nnInd(i,:),chg)
-!      END DO 
-!      distance = trueR - nnInd(1,:)
-!      PRINT *, trilinear_interpol_grad(nnGrad,distance)
-!      truer = truer + (/0.08,-0.08,-0.175/)
-!    END DO
-
-!    PRINT *, 'printing tem from 17 33 53 to 33 17 18'
-!    truer = (/17.,33.,53./)
-!    DO n1 = 1, 200
-!      CALL pbc_r_lat(truer,chg%npts)
-!      !nnind = FindNN(truer,nnLayers,chg,ions)
-!      !PRINT *, trilinear_interpol_rho(chg,truer)
-!      nnind = SimpleNN(trueR,chg)
-!      DO i = 1, 8
-!        nnGrad(i,:) = CDGrad(nnInd(i,:),chg)
-!        nnHes(i,:,:) = CDHessian(nnInd(i,:),chg)
-!      END DO 
-!      distance = trueR - nnInd(1,:)
-!      grad = trilinear_interpol_grad(nnGrad,distance)
-!      hessianMatrix = trilinear_interpol_hes(nnHes,distance)
-!      PRINT *, -MATMUL(INVERSE(hessianMatrix),grad)
-!      !PRINT *, trilinear_interpol_grad(nnGrad,distance)
-!      truer = truer + (/0.08,-0.08,-0.175/)
-!    END DO
-
-!    PRINT *, 'printing Hessian from 17 33 53 to 33 17 18'
-!    truer = (/17.,33.,53./)
-!    DO n1 = 1, 200
-!      CALL pbc_r_lat(truer,chg%npts)
-!      !nnind = FindNN(truer,nnLayers,chg,ions)
-!      !PRINT *, trilinear_interpol_rho(chg,truer)
-!      nnind = SimpleNN(trueR,chg)
-!      DO i = 1, 8
-!        nnHes(i,:,:) = CDHessian(nnInd(i,:),chg)
-!      END DO 
-!      distance = trueR - nnInd(1,:)
-!      hessianMatrix = trilinear_interpol_hes(nnHes,distance)
-!      PRINT *, hessianMatrix(1,:)
-!      PRINT *, hessianMatrix(2,:)
-!      PRINT *, hessianMatrix(3,:)
-!      truer = truer + (/0.08,-0.08,-0.175/)
-!    END DO
-
-!    PRINT *, 'printing interpolated charge from 17 33 53 to 33 17 18'
-!    truer = (/17.,33.,53./)
-!    DO n1 = 1, 200
-!      CALL pbc_r_lat(truer,chg%npts)
-!      !nnind = FindNN(truer,nnLayers,chg,ions)
-!      PRINT *, trilinear_interpol_rho(chg,truer)
-!      !nnind = SimpleNN(trueR,chg)
-!      !DO i = 1, 8
-!      !  nnGrad(i,:) = CDGrad(nnInd(i,:),chg)
-!      !END DO
-!      !distance = trueR - nnInd(1,:)
-!      !PRINT *, trilinear_interpol_grad(nnGrad,distance)
-!      truer = truer + (/0.08,-0.08,-0.175/)
-!    END DO
-
-
-!
-!    PRINT *, 'tem run'
-!
-!    truer = (/1.,7.,7./)
-!    DO n1 = 1, 660
-!      CALL pbc_r_lat(truer,chg%npts)
-!      nnind = simpleNN(truer,chg)
-!      DO n2 = 1, 8
-!        nngrad(n2,:) = CDGrad(nnind(n2,:),chg)
-!        nnhes(n2,:,:) = CDHessian(nnind(n2,:),chg)
-!      END DO
-!      distance = truer - nnind(1,:)
-!      grad = trilinear_interpol_grad(nngrad,distance) 
-!      hessianMatrix = trilinear_interpol_hes(nnhes,distance)
-!      PRINT *, - MATMUL(INVERSE(hessianMatrix),grad)
-!      truer = truer + (/0.1,0.1,0./)
-!    END DO
-
-!
-!    PRINT *, 'central difference gradient is'
-!    !p = (/10,4,10/)
-!    p = (/chg%npts(1)*0.2,chg%npts(2)*0.2,chg%npts(3)*0.5/)
-!    !p = (/chg%npts(1)*0.5,chg%npts(2)*0.2,chg%npts(3)*0.5/)
-!    DO n1 = 1, chg%npts(1)*0.6
-!      PRINT *, CDGrad(p,chg)
-!      !p = p + (/0,1,0/)
-!      p = p + (/1,1,0/)
-!    END DO
-!    
-!    PRINT *, 'central difference hessian is'
-!    !p = (/10,4,10/)
-!    p = (/chg%npts(1)*0.2,chg%npts(2)*0.2,chg%npts(3)*0.5/)
-!    !p = (/chg%npts(1)*0.5,chg%npts(2)*0.2,chg%npts(3)*0.5/)
-!    DO n1 = 0, chg%npts(1)*0.6
-!      hessianMatrix = CDHessian(p,chg)
-!      PRINT *, hessianMatrix(1,:)
-!      PRINT *, hessianMatrix(2,:)
-!      PRINT *, hessianMatrix(3,:)
-!      !p = p + (/0,1,0/)
-!      p = p + (/1,1,0/)
-!    END DO
-!    STOP
-    
     PRINT *, '******************************************************' 
 
     ALLOCATE (cpl(10000)) ! start with 10000 capacity
@@ -450,15 +202,8 @@
       p(1) = NINT(cpl(ucptnum)%trueind(1))
       p(2) = NINT(cpl(ucptnum)%trueind(2))
       p(3) = NINT(cpl(ucptnum)%trueind(3))
-!      PRINT *, 'ascension has point ', p
-!      CALL RecordCP(p,chg,matm,matwprime,wi,vi,vit,ggrid &
-!        ,outerproduct,cpl,ucptnum,eigvals,eigvecs, maxcount, uringcount, &
-!        ubondcount, ucagecount, opts)
       CALL RecordCPR(temprealr,chg,cpl,ucptnum,eigvals,eigvecs, maxcount, uringcount, &
         ubondcount, ucagecount,opts,grad,hessianMatrix)
-      ! without interpolation, atomic maxima may not be correctly characterized. 
-      ! The solution is to manually correct it
-!      PRINT *, 'ucptnum is', ucptnum
       IF (opts%noInterpolation_flag) THEN
         maxcount = ucptnum
         uringcount = 0
@@ -486,123 +231,6 @@
     PRINT *, 'after adjustments, CP counts are'
     PRINT *, maxcount, ubondcount, uringcount, ucagecount
 
-    !This part is on hold for the time being 
-    !No interpolation most likely wont work
-    !IF (opts%noInterpolation_flag) THEN
-    !  ! It has been shown that without interpolation and Newton's method, we
-    !  ! can't really find the CPs so these code should never be run. 
-    !  PRINT *, 'find critical points without interpolations'
-    !  PRINT *, '--------------------------------------------------'
-    !  PRINT *, 'WITHOUT INTERPOLATION AND NEWTONS METHOD'
-    !  PRINT *, 'CRITICAL POINTS CANNOT ALL BE FOUND WITHOUT ERRORS'
-    !  PRINT *, '--------------------------------------------------'
-    !  CALL SLEEP(10)
-    !  PRINT *, 'YOU HAVE BEEN WARNED. PROCCEED AT YOUR OWN COST'
-    !  CALL SLEEP(5)
-    !  counter = 0
-    !  ! first find out how many none vacuum points there are
-    !  DO n1 = 1, chg%npts(1) 
-    !    DO n2 = 1, chg%npts(2)
-    !      DO n3 = 1, chg%npts(3)
-    !        ! ignore points in vacuum
-    !        IF (bdr%volnum(n1,n2,n3) == bdr%bnum + 1) THEN
-    !          CYCLE
-    !        END IF
-    !        counter = counter + 1
-    !      END DO
-    !    END DO 
-    !  END DO  
-    !  PRINT *, 'found number of points to analyze: ', counter
-    !  ALLOCATE(gradlist(counter))
-    !  counter = 0
-    !  ! now get the gradient of the points
-    !  DO n1 = 1, chg%npts(1) 
-    !    DO n2 = 1, chg%npts(2)
-    !      DO n3 = 1, chg%npts(3)
-    !        ! ignore points in vacuum
-    !        IF (bdr%volnum(n1,n2,n3) == bdr%bnum + 1) THEN
-    !          CYCLE
-    !        END IF
-    !        counter = counter + 1
-!   !         PRINT *, lsg( &
-!   !               (/n1,n2,n3/),chg,matm,matwprime, &
-!   !               wi,vi,vit,ggrid,outerproduct)
-!   !         PRINT *, mag( lsg( &
-!   !               (/n1,n2,n3/),chg,matm,matwprime, &
-!   !               wi,vi,vit,ggrid,outerproduct) &
-!   !               )
-    !        IF (opts%leastsquare_flag) THEN
-    !          gradlist(counter)%rho = &
-    !            mag( lsg( &
-    !              (/n1,n2,n3/),chg,matm,matwprime, &
-    !              wi,vi,vit,ggrid,outerproduct) &
-    !              )
-    !        ELSE
-    !          gradlist(counter)%rho = &
-    !            mag(CDGrad((/n1,n2,n3/),chg))
-    !        END IF
-    !        gradlist(counter)%pos=(/n1,n2,n3/)
-    !      END DO
-    !    END DO 
-    !  END DO  
-    !  PRINT *, 'calculated all gradients'
-    !  CALL sort_weight(counter,gradlist)
-    !  PRINT *, 'sorted'
-    !  ! starting from the smallest gradient, characterize each point
-    !  DO i = 0, counter - 1
-    !    p = (/gradlist(counter - i)%pos(1), &
-    !          gradlist(counter - i)%pos(2), &
-    !          gradlist(counter - i)%pos(3)/)
-    !    ucptnum = ucptnum + 1
-    !    CALL RecordCP(p,chg,matm,matwprime,wi,vi,vit,ggrid &
-    !        ,outerproduct,cpl,ucptnum,eigvals,eigvecs, maxcount, &
-    !        uringcount,ubondcount,ucagecount, opts)
-    !    PRINT *, 'ucptnum is', ucptnum
-    !    PRINT *, gradlist(counter - i)%rho
-    !    PRINT *, cpl(ucptnum)%negcount
-    !    proxy = .FALSE.
-!   !     PRINT *, 'point ',p, 'has gradient'
-!   !     PRINT *, gradlist(counter - i)%rho
-    !    ! start with already known CPs
-    !    DO j = 1, ucptnum
-    !      pt = cpl(j)%ind
-    !      IF (GetPointDistance(p,pt,chg,nnlayers)<= 0.2) THEN
-    !        proxy = .TRUE.
-    !        EXIT
-    !      END IF
-    !    END DO
-    !    ! IF this point is close to one already insepcted, skip this point
-    !    DO j = 1, i-1
-    !      pt = (/gradlist(counter - j)%pos(1), &
-    !          gradlist(counter - j)%pos(2), &
-    !          gradlist(counter - j)%pos(3)/)
-    !      IF (GetPointDistance(p, pt, chg, nnlayers) <= 0.2 ) THEN
-    !        proxy = .TRUE.
-    !        EXIT
-    !      END IF
-    !    END DO
-    !    IF (.NOT. proxy) THEN
-    !      ! a new CP
-    !      ucptnum = ucptnum + 1
-    !      ! characterize and record the CP
-    !      CALL RecordCP(p,chg,matm,matwprime,wi,vi,vit,ggrid &
-    !        ,outerproduct,cpl,ucptnum,eigvals,eigvecs, maxcount, &
-    !        uringcount,ubondcount,ucagecount, opts)
-    !      PRINT *, 'ucptnum is', ucptnum
-    !      IF (phRuleChecker(maxcount, ubondcount, uringcount, ucagecount,&
-    !        opts, ions )) THEN
-    !        setcount = setcount + 1
-    !        PRINT *, 'set count is ', setcount
-    !        PRINT *, 'counts are, max, bond, ring, cage:'
-    !        PRINT *, maxcount, ubondcount, uringcount, ucagecount
-    !        CALL outputCP(cpl,opts,ucptnum,chg,setcount,ubondcount, &
-    !          uringcount, ucagecount, maxcount)
-    !      END IF
-    !    END IF
-    !  END DO 
-    !  
-    !  DEALLOCATE(gradlist)
-    !END IF
     IF (.NOT. opts%noInterpolation_flag) THEN
       !CALL minimasearch(chg,cptnum,cpl,bdr,matm,matwprime, &
       !                      wi,vi,vit,ggrid,outerproduct,opts,ucagecount,&
@@ -615,139 +243,73 @@
               debugnum = debugnum + 1
               CYCLE
             END IF
-            ! check to see if this point is on the boundary
-!            IF ( .NOT. is_vol_edge(bdr,chg,(/n1,n2,n3/))) THEN
-!              CYCLE
-!            END IF
+            ! We can only work with points that are on edge as defined by bader
+            ! but that has been shown to be not reliable, as critical points are
+            ! missed commonly. 
             p = (/n1,n2,n3/)
-            ! check to see if a critical point is already near by
-            ! this should only speed things up and have no effect on accuracy
-            preal = p
-            IF (.FALSE.) THEN
-            ! ! This determins if the initial step uses newton wrapping to determine
-            ! ! candidency or other
-            !   IF ( gradientfilter(p,chg,matm, &
-            !        matwprime,wi,vi,vit,ggrid,outerproduct) ) THEN
-            !     ! get the gradient and hessian to do initial characterization of
-            !     ! the critical point
-            !     IF (opts%leastSquare_flag) THEN
-            !       grad = lsg(p,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
-            !       hessianMatrix = &
-            !         lsh(p,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
-            !     ELSE
-            !       grad = CDGrad(p,chg)
-            !       hessianMatrix = CDHessian(p,chg)
-            !     END IF
-            !     CALL DSYEVJ3(hessianMatrix,eigvecs,eigvals)
-            !     negcount = 0
-            !     DO i = 1,3
-            !       IF (eigvals(i) < 0) THEN
-            !         negcount = negcount + 1
-            !       END IF
-            !     END DO
-            !     IF (negcount == 3) THEN
-            !       cagecount = cagecount + 1
-            !       PRINT *, 'Found a unique cage critical point'
-            !        WRITE(98,*) 'This is a cage critical point'
-            !        WRITE(98,*) ' '
-            !     END IF
-            !     IF (negcount == 2) THEN
-            !       bondcount = bondcount + 1
-            !       PRINT *, 'Found a unique bond critical point'
-            !        WRITE(98,*) 'This is a bond critical point'
-            !        WRITE(98,*) ' '
-            !     ELSEIF(negcount == 1) THEN
-            !       ringcount = ringcount + 1
-            !       PRINT *, 'Found a unique ring critical point'
-            !        WRITE(98,*) 'This is a ring critical point'
-            !        WRITE(98,*) ' '
-            !     ELSEIF(negcount == 0) THEN
-            !       maxcount = maxcount + 1
-            !       PRINT *, 'Found a unique nuclear critical point'
-            !        WRITE(98,*) 'This is a nuclear critical point'
-            !        WRITE(98,*) ' ' 
-            !       cptnum = cptnum + 1
-            !       PRINT *, cptnum
-            !     END IF
-            !   END IF
-            ELSE  
-            ! Below starts the defualt screening of candidency
-  !-  ----------------------------------------------------------------------------------!
-  !   now that this subroutine can find the correct amount of edge points, lets have
-  !   it find the hessian
-  !-  ----------------------------------------------------------------------------------!
-              IF (opts%leastsquare_flag .EQV. .TRUE.) THEN
-                grad = lsg(p,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
-                hessianMatrix = &
-                  lsh(p,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
-                tem = - MATMUL(INVERSE(hessianMatrix),grad)
-                ! tem is now in cartesian. convert it back to lattice
-                tem = MATMUL(chg%car2lat,tem)
-              ELSE 
-                ! use central difference
-                grad = CDGrad(p,chg)
-                hessianMatrix = CDHessian(p,chg)
-                tem = - MATMUL(INVERSE(hessianMatrix),grad)
-                ! this tem is in cartesian. Transform it to lattice 
-                tem = MATMUL(chg%car2lat,tem)
-
+            IF (opts%leastsquare_flag .EQV. .TRUE.) THEN
+              grad = lsg(p,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
+              hessianMatrix = &
+                lsh(p,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
+              tem = - MATMUL(INVERSE(hessianMatrix),grad)
+              ! tem is now in cartesian. convert it back to lattice
+              tem = MATMUL(chg%car2lat,tem)
+            ELSE 
+              ! use central difference
+              grad = CDGrad(p,chg)
+              hessianMatrix = CDHessian(p,chg)
+              tem = - MATMUL(INVERSE(hessianMatrix),grad)
+              ! this tem is in cartesian. Transform it to lattice 
+              tem = MATMUL(chg%car2lat,tem)
+            END IF
+            IF ( (ABS(tem(1)) <= 1.5 + opts%par_tem .AND. &
+                 ABS(tem(2)) <= 1.5 + opts%par_tem .AND. &
+                 ABS(tem(3)) <= 1.5 + opts%par_tem)) THEN
+                ! ABS(tem(3)) <= 0.5 + opts%par_tem) .OR. &
+                !(SUM(grad*grad) <= (0.1*opts%par_gradfloor)**2 )) THEN              
+              ! finding proximity could potentially be costly
+              IF (ProxyToCPCandidate(p,opts,cpcl,cptnum,chg,nnLayers)) THEN
+                CYCLE
               END IF
-              IF ( (ABS(tem(1)) <= 1.5 + opts%par_tem .AND. &
-                   ABS(tem(2)) <= 1.5 + opts%par_tem .AND. &
-                   ABS(tem(3)) <= 1.5 + opts%par_tem)) THEN
-                  ! ABS(tem(3)) <= 0.5 + opts%par_tem) .OR. &
-                  !(SUM(grad*grad) <= (0.1*opts%par_gradfloor)**2 )) THEN              
-                ! finding proximity could potentially be costly
-                IF (ProxyToCPCandidate(p,opts,cpcl,cptnum,chg,nnLayers)) THEN
-                  CYCLE
-                END IF
-                cptnum = cptnum + 1
-                IF ( p(1)>=38.AND. p(1)<=44 .AND. &
-                  p(2)>=40 .AND. p(2)<=46 .AND. & 
-                  p(3)>=66 .AND. p(3)<=72 ) THEN
-                  PRINT *, "debugging"
-                  PRINT *, "initialting newton raphson at "
-                  PRINT *, p
-                END IF
-                bkhessianMatrix = hessianMatrix
-                ! Check if the candidate list needs to be expanded.
-                IF (cptnum < SIZE(cpcl) - 1 ) THEN
-                  cpcl(cptnum)%du = hes%du
-                  cpcl(cptnum)%dv = hes%dv  
-                  cpcl(cptnum)%dw = hes%dw
-                  cpcl(cptnum)%ind(1) = n1
-                  cpcl(cptnum)%ind(2) = n2
-                  cpcl(cptnum)%ind(3) = n3
-                  cpcl(cptnum)%grad = grad
-                  cpcl(cptnum)%hasProxy = .FALSE.
-                  cpcl(cptnum)%r = tem
-                  cpcl(cptnum)%tempcart = MATMUL(chg%car2lat,tem + p)
-                ELSE 
-                  PRINT *, 'expanding cpcl size'
-                  ALLOCATE(cpclt(cptnum + 1))
-                  DO i = 1, cptnum - 1
-                    cpclt(i) = cpcl(i)
-                  END DO
-                  DEALLOCATE(cpcl)
-!                  PRINT *, 'copied'
-                  ALLOCATE(cpcl(cptnum*2))
-                  PRINT *, 'cpcl size now is', SIZE(cpcl)
-                  DO i = 1, cptnum - 1
-                    cpcl(i)=cpclt(i)
-                  END DO
-!                  PRINT *, 'copied back'
-                  DEALLOCATE(cpclt)
-                  cpcl(cptnum)%du = hes%du 
-                  cpcl(cptnum)%dv = hes%dv
-                  cpcl(cptnum)%dw = hes%dw
-                  cpcl(cptnum)%ind(1) = n1
-                  cpcl(cptnum)%ind(2) = n2
-                  cpcl(cptnum)%ind(3) = n3
-                  cpcl(cptnum)%grad = grad
-                  cpcl(cptnum)%hasProxy = .FALSE.
-                  cpcl(cptnum)%r = tem
-                  cpcl(cptnum)%tempcart = MATMUL( chg%car2lat,tem + p)
-                END IF
+              cptnum = cptnum + 1
+              bkhessianMatrix = hessianMatrix
+              ! Check if the candidate list needs to be expanded.
+              IF (cptnum < SIZE(cpcl) - 1 ) THEN
+                cpcl(cptnum)%du = hes%du
+                cpcl(cptnum)%dv = hes%dv  
+                cpcl(cptnum)%dw = hes%dw
+                cpcl(cptnum)%ind(1) = n1
+                cpcl(cptnum)%ind(2) = n2
+                cpcl(cptnum)%ind(3) = n3
+                cpcl(cptnum)%grad = grad
+                cpcl(cptnum)%hasProxy = .FALSE.
+                cpcl(cptnum)%r = tem
+                cpcl(cptnum)%tempcart = MATMUL(chg%car2lat,tem + p)
+              ELSE 
+                PRINT *, 'expanding cpcl size'
+                ALLOCATE(cpclt(cptnum + 1))
+                DO i = 1, cptnum - 1
+                  cpclt(i) = cpcl(i)
+                END DO
+                DEALLOCATE(cpcl)
+!                PRINT *, 'copied'
+                ALLOCATE(cpcl(cptnum*2))
+                PRINT *, 'cpcl size now is', SIZE(cpcl)
+                DO i = 1, cptnum - 1
+                  cpcl(i)=cpclt(i)
+                END DO
+!                PRINT *, 'copied back'
+                DEALLOCATE(cpclt)
+                cpcl(cptnum)%du = hes%du 
+                cpcl(cptnum)%dv = hes%dv
+                cpcl(cptnum)%dw = hes%dw
+                cpcl(cptnum)%ind(1) = n1
+                cpcl(cptnum)%ind(2) = n2
+                cpcl(cptnum)%ind(3) = n3
+                cpcl(cptnum)%grad = grad
+                cpcl(cptnum)%hasProxy = .FALSE.
+                cpcl(cptnum)%r = tem
+                cpcl(cptnum)%tempcart = MATMUL( chg%car2lat,tem + p)
               END IF
             END IF
           END DO
@@ -762,13 +324,8 @@
       ! get the new hessian which will be a matrix of constants, make moves until
       ! r is zero. get the coordinates of the new true critical point. If this
       ! point is within half lattice to another, do not record this new point.
-!      WRITE(98,*) '***************************************'
-!      WRITE(98,*) 'Below are points found through Newton Raphson'
-!      WRITE(98,*) '***************************************'
       IF (.TRUE.) THEN
         ALLOCATE(cpRoster(cptnum,3))
-      ! This turns critical point candidency validation on and off
-      ! ??? exo me?
         DO i = 1, cptnum
           cpcl(i)%isunique = .FALSE.
           temcap = (/1.,1.,1./)
@@ -884,18 +441,14 @@
               temscale = scaleinspector( nexttem, previoustem, temscale)
               CALL DetectCircling(stepCount,rList,temList,trueR,nextTem,averageR)
               IF (ALL(averageR /= -1.,1)) THEN
-                !PRINT *, 'averageR is'
-                !PRINT *, averageR
                 cpcl(i)%isUnique = .TRUE.
                 cpcl(i)%trueInd = averageR
                 trueR = averageR
-                !PRINT *, 'averaged location at'
-                !PRINT *, averageR
                 ! the following code is temporary. it disables averaging.
+                ! upon seeing averaging, this trajectory is marked unusable.
                 cpcl(i)%isUnique = .FALSE.
                 EXIT
               END IF
-              !nexttem = unstuck( nexttem, previoustem, temscale, temnormcap)
               previoustem = nexttem
               tempr(1) = NINT(truer(1))
               tempr(2) = NINT(truer(2))
@@ -905,7 +458,6 @@
                   tempr(2),tempr(3)) == bdr%bnum + 1) THEN
                 ! We are heading into the vacuum space, cosmonaughts! 
                 cpcl(i)%isunique = .FALSE.
-!                PRINT *, 'not unique because it wondered off to vacuum'
                 EXIT
               END IF
               IF ( ABS(nexttem(1)) .LE. 0.1*opts%par_newtonr .AND. &
@@ -913,70 +465,20 @@
                    ABS(nexttem(3)) .LE. 0.1*opts%par_newtonr ) THEN
                 cpcl(i)%trueind = truer 
                 cpcl(i)%isUnique = .TRUE.
-                IF (cpcl(i)%ind(1) == 38 .AND. &
-                    cpcl(i)%ind(2) == 42 .AND. &
-                    cpcl(i)%ind(3) == 71 ) THEN
-                  PRINT *, 'for 38 42 71 vector is indeed small'
-                END IF
                 !EXIT
               END IF
               truer = truer + nexttem
-              IF (cpcl(i)%ind(1) == 38 .AND. &
-                  cpcl(i)%ind(2) == 42 .AND. &
-                  cpcl(i)%ind(3) == 71 ) THEN
-                PRINT *, truer
-                PRINT *, nexttem
-                PRINT *, opts%par_newtonr
-                PRINT *, 'is unique?'
-                PRINT *, cpcl(i)%isUnique
-                PRINT *, 'is gradient small?'
-                PRINT *, ( ABS(nexttem(1)) .LE. 0.1*opts%par_newtonr .AND. &
-                           ABS(nexttem(2)) .LE. 0.1*opts%par_newtonr .AND. &
-                           ABS(nexttem(3)) .LE. 0.1*opts%par_newtonr )
-
-              END IF
             END DO
           END IF
           IF (cpcl(i)%isUnique ) THEN
 
             CALL MakeCPRoster(cpRoster,i,truer)
-            ! check distance to existing critical points.
-!            DO j = 1, i - 1 
-!              IF (GetPointDistanceR(truer, cpcl(j)%trueind, &
-!                  chg, nnlayers) <= 0.2) THEN
-!                PRINT *, 'not unique because a duplicate of'
-!                PRINT *, cpcl(j)%trueind
-!                cpcl(i)%isunique = .FALSE.
-!                EXIT
-!              END IF
-!            END DO
             cpcl(i)%trueind = truer
-!            DO j = 1, ucptnum
-!              IF (GetPointDistanceR(truer,cpl(j)%truer, &
-!                  chg, nnlayers) <= 0.2 ) THEN
-!                cpcl(i)%isunique = .FALSE.
-!                EXIT
-!              END IF
-!            END DO
-            IF (cpcl(i)%ind(1) == 38 .AND. &
-                cpcl(i)%ind(2) == 42 .AND. &
-                cpcl(i)%ind(3) == 71 ) THEN
-              PRINT *, 'Completed MakeCPRoster!'
-            END IF
           END IF
           IF (cpcl(i)%isunique ) THEN
             ucptnum = ucptnum + 1
             CALL RecordCPR(truer,chg,cpl,ucptnum,eigvals,eigvecs, maxcount, &
               uringcount,ubondcount,ucagecount, opts, grad, interpolHessian)
-!            PRINT *, 'ucptnum is', ucp  tnum
-            IF (cpcl(i)%ind(1) == 38 .AND. &
-                cpcl(i)%ind(2) == 42 .AND. &
-                cpcl(i)%ind(3) == 71 ) THEN
-              PRINT *, 'Completed RecordCPR!'
-              PRINT *, 'recorded as number ', ucptnum
-              PRINT *, 'recorded truer is '
-              PRINT *, truer
-            END IF
             CYCLE
           END IF
           truer = truer + nexttem ! this keeps track the total movement
@@ -1007,28 +509,6 @@
       ! output the cp to files
       CALL outputCP(cpl,opts,ucptnum,chg,setcount, ubondcount, &
         uringcount, ucagecount, maxcount)
-!      IF (opts%ismolecule) THEN
-!        IF (maxcount - bondcount + ringcount - cagecount == 1) THEN
-!          PRINT *, 'Satisfies The Poincare-Hopf rule for a molecule'
-!!          WRITE(98,*) 'Satisfies The Poincare-Hopf rule for a molecule'
-!        ELSE
-!          PRINT *, 'WARNING 3: Fails The poincare-Hopf rule for a molecule'
-!!          WRITE(98,*)  'WARNING 3: Fails The poincare-Hopf rule for a molecule'
-!        END IF
-!      ELSE IF (opts%iscrystal) THEN
-!        IF (maxcount - bondcount + ringcount - cagecount == 0) THEN
-!          PRINT *, 'Satisfies The Poincare-Hopf rule for a crystal'
-!!          WRITE(98,*) 'Satisfies The Poincare-Hopf rule for a crystal'
-!        ELSE
-!          PRINT *, 'WARNING 4: Fails The poincare-Hopf rule for a crystal'
-!!          WRITE(98,*)  'WARNING 4: Fails The poincare-Hopf rule for a crystal'
-!
-!        END IF
-!      END IF
-      ! ending noInterpolation if
-!      DO i = 1, cptnum
-!        PRINT *, cpRoster(i,:)
-!      END DO
       DEALLOCATE(cpRoster)
     END IF
     PRINT *, 'outputting debugging information to allcpPOSCAR'
@@ -1043,37 +523,7 @@
 
     END SUBROUTINE critpoint_find
 
-    ! get cartesian coordinates of a point
-    FUNCTION getcart(ind,lat2car)
-      !ind is indicies of the current point
-      !cart is the cartisian coordinates of the current point
-      INTEGER,DIMENSION(3),INTENT(IN) :: ind
-      REAL(q2),DIMENSION(3) :: getcart
-      REAL(q2),DIMENSION(3,3) :: lat2car
-      getcart(1) = ind(1) * lat2car(1,1) + & 
-        ind(2) * lat2car(1,2) + & 
-        ind(3) *  lat2car(1,3)
-      getcart(2) = ind(1) * lat2car(2,1) + &
-        ind(2) * lat2car(2,2) + &
-        ind(3) *  lat2car(2,3)
-      getcart(3) = ind(1) * lat2car(3,1) + &
-        ind(2) * lat2car(3,2) + &
-        ind(3) *  lat2car(3,3)
-
-      RETURN
-    END FUNCTION
     
-    ! get indices from cartesian coordinates.
-    FUNCTION  getinds(car2lat,intcarts) 
-      REAL(q2),DIMENSION(6,3) :: getinds, intcarts
-      REAL(q2),DIMENSION(3,3) :: car2lat,W
-      REAL(q2),DIMENSION(3) :: Z
-      INTEGER :: i,j,k
-      DO i = 1, 6 
-        getinds(i,:) = MATMUL(car2lat,intcarts(i,:))
-      END DO
-      RETURN
-    END FUNCTION
 
     ! this function determins when looking for nn, how many layers to search
     ! within. It looks for the smallest vector sum of lattice vectors, and the
@@ -1182,95 +632,6 @@
           END DO
         END DO
       END DO
-      !PRINT *, 'nnind are'
-      !DO i = 1,  ((nnlayers * 2 + 1)**3 - 1)
-      !  PRINT *, 'i = ', i
-      !  PRINT *, nnind(i,:)
-      !END DO
-      ! now sort the list with distance high to low
-!      CALL sort_weight((nnlayers*2+1)**3,nndist)
-!      ! Keep the closest 8 points
-!      DO i = 1,8
-!        FindNN(i,:) = nndist((nnlayers*2+1)**3 +1 - i)%pos
-!        CALL pbc(FindNN(i,:),chg%npts)
-!      END DO
-      ! Mission accomplished.
-      ! Trying to organize these nn into a box is job for another function.
-
-      !PRINT *, 'these are the places recorded'
-      !DO i = 1,8
-      !  PRINT *, findnn(i,:)
-      !END DO 
-      !PRINT *, 'these are all places looked at'
-      !DO i = 1, (nnlayers*2+1)**3
-      !  PRINT *, nndist(i)%pos
-      !END DO
-      !PRINT *, 'temcorners are'
-      !DO i = 1,8
-      !  tempcorners(i,:) = nndist( (nnlayers*2 + 1 )**3 -i)%pos
-      !  PRINT *, tempcorners(i,:)
-      !END DO
-      !
-      ! then these needs to be rearranged 
-      ! so that is follows this format:
-      !  1   2   3   4   5   6   7   8
-      ! 000 001 010 100 011 101 110 111
-      ! indices should have only 2 values
-      ! on each axis. min gives 0 on that 
-      ! axis and max gives 1. 
-      !maxs = (/0,0,0/)
-      !DO i = 1, 8
-      !  DO j = 1,3
-      !    IF (tfindnn(i,j)>= maxs(j) ) THEN
-      !      maxs(j) = tfindnn(i,j)
-      !    END IF
-      !  END DO
-      !END DO
-      !PRINT *, 'maxs is', maxs
-      !DO i = 1, 8
-      !  PRINT *, 'tfindnn here is'
-      !  PRINT * ,tfindnn(i,:)
-      !  IF (ALL(tfindnn(i,:) == maxs)) THEN
-      !    PRINT *, '8'
-      !    findnn(8,:) = tfindnn(i,:)
-      !    CYCLE
-      !  END IF
-      !  IF (ALL(tfindnn(i,:) == maxs - (/1,1,1/))) THEN
-      !    findnn(1,:) = tfindnn(i,:)
-      !    PRINT *, '1'
-      !    CYCLE
-      !  END IF
-      !  IF (ALL(tfindnn(i,:) == maxs - (/1,1,0/))) THEN
-      !    findnn(2,:) = tfindnn(i,:)
-      !    PRINT *, '2'
-      !    CYCLE
-      !  END IF
-      !  IF (ALL(tfindnn(i,:) == maxs - (/1,0,1/))) THEN
-      !    findnn(3,:) = tfindnn(i,:)
-      !    PRINT *, '3'
-      !    CYCLE
-      !  END IF
-      !  IF (ALL(tfindnn(i,:) == maxs - (/0,1,1/))) THEN
-      !    findnn(4,:) = tfindnn(i,:)
-      !    PRINT *, '4'
-      !    CYCLE
-      !  END IF
-      !  IF (ALL(tfindnn(i,:) == maxs - (/1,0,0/))) THEN
-      !    findnn(5,:) = tfindnn(i,:)
-      !    PRINT *, '5'
-      !    CYCLE
-      !  END IF
-      !  IF (ALL(tfindnn(i,:) == maxs - (/0,1,0/))) THEN
-      !    findnn(6,:) = tfindnn(i,:)
-      !    PRINT *, '6'
-      !    CYCLE
-      !  END IF
-      !  IF (ALL(tfindnn(i,:) == maxs - (/0,0,1/))) THEN
-      !    findnn(7,:) = tfindnn(i,:)
-      !    PRINT *, '7'
-      !    CYCLE
-      !  END IF
-      !END DO 
       DEALLOCATE(nnind)
       DEALLOCATE(nndist)
       RETURN
@@ -1481,23 +842,6 @@
     END FUNCTION
 
 
-    FUNCTION coorcheck(lattice)
-      LOGICAL,DIMENSION(3) :: coorcheck
-      REAL(q2) :: prod1,prod2,prod3
-      REAL(q2),DIMENSION(3,3) :: lattice
-      INTEGER :: i
-      ! elements 1, 2, 3 are for whether coordinates align with x, y, z axis.
-      coorcheck = (/.TRUE.,.TRUE.,.TRUE./)
-      IF (lattice(1,2) .NE. 0 .OR. lattice(1,3) .NE. 0) THEN
-        coorcheck(1)=.FALSE.
-      END IF 
-      IF (lattice(2,1) .NE. 0 .OR. lattice(2,3) .NE. 0) THEN
-        coorcheck(2)=.FALSE.
-      END IF
-      IF (lattice(3,2) .NE. 0 .OR. lattice(3,1) .NE. 0) THEN
-        coorcheck(3)=.FALSE.
-      END IF
-    END FUNCTION
     
     ! The following subroutine gets gradient using central difference
     FUNCTION CDGrad(p,chg)
@@ -2092,9 +1436,6 @@
         grad = MATMUL(chg%lat2car,grad)
         IF (SUM(grad*grad)<=(0.1*opts%par_gradfloor)**2) THEN
           ! we are at a critical point!
-!          PRINT *, 'descention gradient sufficiently small'
-!          PRINT *, 'descension rn is'
-!          PRINT *, rn
           EXIT
         END IF
         ! if grad points backwards, reduce stepsize
@@ -2161,12 +1502,7 @@
               nn(i,:) = (/n1,n2,n3/) + vi(:,i)
             END DO
             DO i = 1, 26
-!              IF (nn(i,1)== 1 .OR. nn(i,1) == bx .OR. & 
-!                  nn(i,2)== 1 .OR. nn(i,2) == by .OR. &
-!                  nn(i,3)== 1 .OR. nn(i,3) == bz ) THEN
               CALL pbc(nn(i,:),chg%npts)
-!              END IF
-!              PRINT *, i
               IF (rho_val(chg,n1,n2,n3) >= rho_val(chg,nn(i,1),nn(i,2),nn(i,3))) THEN
                 isminimum = .FALSE.
                 EXIT
@@ -2174,37 +1510,13 @@
             END DO
 !            PRINT *,'finished comparing values'
             IF ( isminimum .EQV. .TRUE.  ) THEN
-!              PRINT *, 'isminimum is true'
               cptnum = cptnum + 1
               ucagecount = ucagecount + 1
               minpos = (/n1,n2,n3/)
-!              WRITE(98,*) '_________________________________________'
-!              WRITE(98,*) 'Though minimasearch, critical point found at'
-!              WRITE(98,*) n1,n2,n3
-!              WRITE(98,*) 'Coordinates in cartesian are'
-!              WRITE(98,*) MATMUL((/n1,n2,n3/),chg%lat2car)
-!              WRITE(98,*) 'Direct coordinates are'
-!              WRITE(98,*)  n1/chg%npts(1),n2/chg%npts(2), &
-!                           n3/chg%npts(3)
-!              WRITE(98,*) 'Charge density here is'
-!              WRITE(98,*) rho_val(chg,n1,n2,n3)
               minr = descension(minpos,chg,matm,matwprime, &
                           wi,vi,vit,ggrid,outerproduct,opts,nnLayers,ions)
-!              WRITE(98,*) 'descends to'
-!              WRITE(98,*) minr
-!              WRITE(98,*) '_________________________________________'
-!              WRITE(98,*) ' ' 
-              
               cpl(cptnum)%ind = (/n1,n2,n3/)
-              
-
-
             END IF
-            !counter = counter + 1
-            !IF (counter .GE. 1000) THEN
-            !  PRINT *, "counter is 1000"
-            !  STOP
-            !END IF
           END DO
         END DO
       END DO
@@ -2261,9 +1573,6 @@
                 stepsize(2) >= 0.01 .OR. &
                 stepsize(3) >= 0.01)
         loopcount = loopcount + 1
-        PRINT *, 'loop ', loopcount
-        PRINT *, 'stepsize is'
-        PRINT *, stepsize
         ! the gradient is in cartesian. 
         gradnm1 = grad
         rnm1 = rn
@@ -2272,11 +1581,6 @@
             .AND. ABS(grad(2)) <= 0.001 &
             .AND. ABS(grad(3)) <= 0.001)  THEN
           ! we are at a critical point!
-          PRINT *, 'gradient sufficiently small'
-          PRINT *, 'grad is'
-          PRINT *, grad
-          PRINT *, 'rn is'
-          PRINT *, rn
           isaveraging = .FALSE.
           EXIT
         END IF
@@ -2284,18 +1588,12 @@
         tempr(1) = MIN(stepsize(1), ABS(grad(1))) *  tempr(1)
         tempr(2) = MIN(stepsize(2), ABS(grad(2))) *  tempr(2)
         tempr(3) = MIN(stepsize(3), ABS(grad(3))) *  tempr(3)
-        PRINT *, 'tempr is'
-        PRINT *, tempr
         rn = rn - tempr
-        PRINT *, 'rn is'
-        PRINT *, rn
         trn = rn
         CALL pbc_r_lat(rn,chg%npts)
         pbccorrectionr = pbccorrectionr + rn - trn
         IF (isaveraging) THEN
-          PRINT *, 'accumulating average'
           stepcount = stepcount + 1
-          PRINT *, 'step ', stepcount
           ! if rn is hopping back and forth at the boundry
           IF (trn(1) > rn(1) ) THEN
             crossings(1) = crossings(1) + 1
@@ -2494,14 +1792,6 @@
         CALL pbc(ps(:,i),chg%npts)
         grads(:,i) = lsg(ps(:,i),chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
       END DO
-!      DO i = 1, 13
-!        IF (grads(1,i)*grads(1,i+13) >= 0 .OR. &
-!            grads(2,i)*grads(2,i+13) >= 0 .OR. & 
-!            grads(3,i)*grads(3,i+13) >= 0 ) THEN
-!           gradientfilter = .FALSE.
-!           EXIT
-!        END IF
-!      END DO
       IF (grads(1,5)*grads(1,18) >= 0 &
           .OR. grads(2,11)*grads(2,24)>=0 &
           .OR. grads(3,13)*grads(3,26)>=0 ) THEN
@@ -2536,13 +1826,6 @@
           ProxyToCPCandidate = .TRUE.
         END IF
       END DO  
-      ! These are very costly
-      !DO i = 1, cptnum
-      !  IF ( GetPointDistance(p,cpl(i)%ind,chg,nnLayers) <= 0.2) THEN
-      !    ProxyToCPCandidate = .TRUE.
-      !    EXIT
-      !  END IF
-      !END DO
       RETURN
     END FUNCTION ProxyToCPCandidate
 
@@ -3342,11 +2625,6 @@
             IF (ALL(temList(i,:) == temList(j,:),1) ) THEN 
               IF (mag(temList(j,:))== 1.) CYCLE
               isRunningCircles = .TRUE.
-!              PRINT *, 'a tem found to be familiar!'
-!              PRINT *, 'step ', i, ' has tem'
-!              PRINT *, temList(i,:)
-!              PRINT *, 'step ', j, ' has tem'
-!              PRINT *, temList(j,:)
               EXIT outer
             END IF
           END DO
@@ -3396,27 +2674,7 @@
         ! point before
         weight = 1
         avgR = cpl(i)%truer
-        IF (cpl(i)%ind(1) == 38 .AND. &
-            cpl(i)%ind(2) == 42 .AND. &
-            cpl(i)%ind(3) == 71 ) THEN
-          PRINT *, 'In ReduceCP!'
-        END IF
-        IF (i==25) THEN
-          PRINT *, 'reducing number 25'
-          PRINT *, 'retrieved truer is '
-          PRINT *, cpl(i)%truer
-          PRINT *, 'associated ind is'
-          PRINT *, cpl(i)%ind
-        END IF
         IF (cpl(i)%hasProxy ) THEN 
-          IF (cpl(i)%ind(1) == 38 .AND. &
-              cpl(i)%ind(2) == 42 .AND. &
-              cpl(i)%ind(3) == 71 ) THEN
-            PRINT *, 'Found to have proxy!'
-          END IF
-          IF (i==25) THEN
-            PRINT *, 'Found to have proxy!'
-          END IF
           CYCLE
         END IF
         DO j = i, ucptnum
@@ -3425,18 +2683,6 @@
           IF ( mag(cpl(i)%truer - cpl(j)%truer) .LE. opts%par_distance ) THEN
             cpl(j)%hasProxy = .TRUE.
             
-            IF (cpl(i)%ind(1) == 38 .AND. &
-                cpl(i)%ind(2) == 42 .AND. &
-                cpl(i)%ind(3) == 71 ) THEN
-              PRINT *, 'Is proxy to !'
-              PRINT *, cpl(j)%ind
-            END IF
-            IF (i==25) THEN
-              PRINT *, 'Is proxy to ind!'
-              PRINT *, cpl(j)%ind
-              PRINT *, 'with truer'
-              PRINT *, cpl(j)%truer
-            END IF
             avgR = (avgR * weight + cpl(j)%truer )/(weight + 1)
             weight = weight + 1
             dupCount = dupCount + 1
