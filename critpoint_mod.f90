@@ -2939,6 +2939,7 @@
       cpl(ucptnum)%eigvecs = eigvecs
       cpl(ucptnum)%eigvals = eigvals
       cpl(ucptnum)%negcount = negcount
+      cpl(ucptnum)%hasProxy = .FALSE.
     END SUBROUTINE RecordCPRLight
 
     SUBROUTINE  outputCP(cpl,opts,ucptnum,chg,setcount,ubondcount, &
