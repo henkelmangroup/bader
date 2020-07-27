@@ -2,9 +2,11 @@
 
 FC = ifort
 
-FFLAGS = -O2
+FFLAGS = -O2 -pg
 
-LINK = -i-static
+#LINK = -i-static
+#LINK = -static
+LINK = -pg -static
 
 OBJS = kind_mod.o       \
        matrix_mod.o     \

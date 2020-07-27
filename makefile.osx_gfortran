@@ -2,9 +2,9 @@
 
 FC = gfortran
 
-FFLAGS = -O2
+FFLAGS = -O2 -pg -fcheck=bounds
 
-LINK = 
+LINK = -pg -static
 
 OBJS = kind_mod.o       \
        matrix_mod.o     \
