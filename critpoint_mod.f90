@@ -120,14 +120,14 @@
     CHARACTER(128) :: string
     ! below are variables for least sqaures gradient
     stat = 0 ! 0 means nothing
-    PRINT *, ''//achar(27)//'[31m Finding Critical points'//achar(27)//'[0m'
-    PRINT *, ''//achar(27)//'[91m Interrogation of the soul:'//achar(27)//'[0m'
-    PRINT *, ''//achar(27)//'[33m Did I turn on vacuum ?'//achar(27)//'[0m'
-    PRINT *, ''//achar(27)//'[92m Did I tell if this is a crystall or molecule?'//achar(27)//'[0m'
-    PRINT *, ''//achar(27)//'[36m Did I use the CHGCAR_sum ?'//achar(27)//'[0m'
-    PRINT *, ''//achar(27)//'[34m Did I use reasonable values for parameters ? '//achar(27)//'[0m'
-    PRINT *, ''//achar(27)//'[95m Critical point is like a box of chocolates. &
-              You never know what you are gonna get.'//achar(27)//'[0m'
+    !PRINT *, ''//achar(27)//'[31m Finding Critical points'//achar(27)//'[0m'
+    !PRINT *, ''//achar(27)//'[91m Interrogation of the soul:'//achar(27)//'[0m'
+    !PRINT *, ''//achar(27)//'[33m Did I turn on vacuum ?'//achar(27)//'[0m'
+    !PRINT *, ''//achar(27)//'[92m Did I tell if this is a crystall or molecule?'//achar(27)//'[0m'
+    !PRINT *, ''//achar(27)//'[36m Did I use the CHGCAR_sum ?'//achar(27)//'[0m'
+    !PRINT *, ''//achar(27)//'[34m Did I use reasonable values for parameters ? '//achar(27)//'[0m'
+    !PRINT *, ''//achar(27)//'[95m Critical point is like a box of chocolates. &
+    !          You never know what you are gonna get.'//achar(27)//'[0m'
     !WRITE(*,'(A)')  'FINDING CRITICAL POINTS'
     IF (opts%leastsquare_flag .EQV. .TRUE. ) THEN
       PRINT *, 'Using least square gradient'
