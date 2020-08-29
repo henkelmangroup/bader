@@ -33,6 +33,8 @@
       LOGICAL :: ismolecule
       LOGICAL :: iscrystal
       LOGICAL :: noInterpolation_flag
+      LOGICAL :: debugMode
+      LOGICAL :: dohes
     END TYPE options_obj
 
     PRIVATE
@@ -63,8 +65,10 @@
       opts%par_gradfloor = 0.000001
       opts%ismolecule = .FALSE.
       opts%iscrystal = .FALSE.
+      opts%dohes = .FALSE.
       opts%out_opt = opts%out_chgcar4
       opts%in_opt = opts%in_auto
+      opts%debugMode = .FALSE.
       ! print options
       opts%vac_flag = .FALSE.
 !      opts%vac_flag = .TRUE.
@@ -136,7 +140,7 @@
         ELSEIF (p(1:ip) == '-ls') THEN
           opts%leastsquare_flag = .TRUE.
         ! Find critical points without any interpolation
-        ELSEIF (p(1:ip) == '-ni') THEN
+        ELSEIF (p(1:ip) == '-ni') THEN 
           opts%noInterpolation_flag = .TRUE.
         ! Verbose
         ELSEIF (p(1:ip) == '-v') THEN
@@ -152,6 +156,13 @@
         ELSEIF (p(1:ip) == '-crystal') THEN
           PRINT *, 'This system is assigned as a crystal'
           opts%iscrystal = .TRUE.  
+        ELSEIF (p(1:ip) == '-dohes') THEN
+          ! Use diagonal terms in the hessian
+          opts%dohes = .TRUE.  
+        ELSEIF (p(1:ip) == '-debug') THEN
+          PRINT *, 'Entering debug mode.'
+          PRINT *, 'Reading debugConfig for instructions'
+          opts%debugMode = .TRUE.  
         ELSEIF (p(1:ip) == '-partem') THEN
           m = m + 1
           CALL GET_COMMAND_ARGUMENT(m,inc)

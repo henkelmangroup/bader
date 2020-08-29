@@ -1,4 +1,4 @@
-  MODULE critpoints_mod
+  MODULE critpoint_mod
     USE kind_mod
     USE matrix_mod
     USE bader_mod
@@ -16,11 +16,12 @@
     PUBLIC :: critpoint_find
 
     TYPE hessian
+
       ! du dv dw are derivatives of the three original lattice vectors read from
       ! CHGCAR
       REAL(q2), DIMENSION(3) ::  du, dv, dw
       REAL(q2) :: dudu, dvdv, dwdw, dudv, dudw, dvdw
-      ! eigval and eigvec are eigenvalues and eigvectors of the hessian matrix
+      ! eigval and eigvec are eigenvalues and eigvectors of hessian matrix
     END TYPE
 
     TYPE cpc ! stands for critical point candidate
@@ -35,9 +36,9 @@
       REAL(q2), DIMENSION(3) :: eigvals, r, cocart, colat, tempr
       INTEGER, DIMENSION(8,3) :: nnind ! indices of neighbors 
       ! indices from 0 to 8 are zyx 000 001 010 011 100 101 110 111
-!      REAL(q2),DIMENSION(8,3) :: nngrad ! gradients of nn mentioned above
+!      REAL(q2),DIMENSION(8,3) :: nngrad ! gradients of nn mentioned above.
 !      REAL(q2),DIMENSION(6,3) :: intnngrad ! gradients of interpolated neighbors
-      ! used to find interpolated hessians
+      ! used to find interpolated hessians.
       REAL(q2), DIMENSION(3,3) :: eigvecs
       INTEGER :: negcount
       LOGICAL :: hasProxy, isunique
@@ -50,16 +51,19 @@
 !      in order to restrict the calculation to edge points
 !-----------------------------------------------------------------------------------!
   SUBROUTINE critpoint_find(bdr,chg,opts,ions,stat)
+! These are for screening CP due to numerical error. 
 
+    
     TYPE(hessian) :: hes
     TYPE(bader_obj) :: bdr
     TYPE(charge_obj) :: chg
     TYPE(options_obj) :: opts
     TYPE(ions_obj) :: ions
     TYPE(weight_obj), ALLOCATABLE, DIMENSION(:) :: gradlist
-    TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpcl, cpl, cpclt ! critical point list and a temporary variable
+    TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpcl, cpl, cpclt ! critical point list and a temporary
     ! The above three are CP candidate list, CP list and CP list temp
-    ! for points, 1 and 2 are +1, -1
+! copy
+! for points, 1 and 2 are +1, -1
     INTEGER :: stat, setcount, counter
     INTEGER, DIMENSION(3) :: p, pt, ptt, ptx1, ptx2, pty1, pty2, ptz1, ptz2
     INTEGER, DIMENSION(3) :: tempind
@@ -71,7 +75,7 @@
     REAL(q2), DIMENSION(3) :: grad, prevgrad
     INTEGER, DIMENSION(3) :: tempr
     REAL(q2), DIMENSION(3) :: temprealr, tempreal3d
-    ! to be used in Newton's method for finding critical points
+    ! to be used in newton method in finding unique critical points.
     REAL(q2), DIMENSION(3,3) ::  hessianMatrix, bkhessianMatrix
     ! these are vectors orthogonal to eigenvectors
     REAL(q2), DIMENSION(3) :: tem, tem2a,tem2b,tem2c, eigvals,carts
@@ -83,18 +87,18 @@
     ! row 1 2 are + and 1 x, then + and - y, then + and - z
     REAL(q2), DIMENSION(6,3) :: intgrads ! gradients of interpolated points
     REAL(q2), DIMENSION(6) :: intrhos ! rhos of interpolated points 
-    REAL(q2), DIMENSION(6,3) :: intinds ! fraction indicies for interpolated points
+    REAL(q2), DIMENSION(6,3) :: intinds ! fraction indicies for interpolated
     REAL(q2) :: rhocur ! rho of current point
-    REAL(q2) :: stepsize, temnormcap
+    REAL(q2) :: stepsize, temnormcap, iS
     REAL(q2), DIMENSION(3) :: distance ! vector to 000 in trilinear
-    REAL(q2), DIMENSION(3) :: preal
-    INTEGER, DIMENSION(8,3) :: nn ! alternative trilinear approximation
+    REAL(q2), DIMENSION(3) :: preal, iP,fP
+    INTEGER, DIMENSION(8,3) :: nn ! alternative trilinear approx.
     REAL(q2), DIMENSION(8) :: vals
     ! points
-    LOGICAL, DIMENSION(3) :: cartcoor ! check if axis are alone cartesian
+    LOGICAL, DIMENSION(3) :: cartcoor ! check if axis are alone cartesian.
     LOGICAL :: invac ! this point is in vacuum
     LOGICAL :: proxy, isReduced, phmrCompliant
-    ! The following are for finding unique critical points
+    ! The followings are for finding unique critical points
     REAL(q2), DIMENSION(8,3) :: nngrad
     REAL(q2), DIMENSION(8,3,3) :: nnhes !hessian of 8 nn
     INTEGER, DIMENSION(:,:),ALLOCATABLE :: nnind
@@ -113,12 +117,42 @@
     REAL(q2), DIMENSION(3,13) :: matwprime
     REAL(q2), DIMENSION(3,3) :: matm, outerproduct
     REAL(q2),DIMENSION(10,3) :: rList,temList
-    CHARACTER(128) :: string
-    ! below are variables for least squares gradient
+    INTEGER :: xmin,xmax,ymin,ymax,zmin,zmax,ios
+    CHARACTER(128) :: string,debugFlags
+    LOGICAL :: HCF,LDM ! has config file, local debug mode
+    ! below are variables for least sqaures gradient
     stat = 0 ! 0 means nothing
+    !PRINT *, ''//achar(27)//'[31m Finding Critical points'//achar(27)//'[0m'
+    !PRINT *, ''//achar(27)//'[91m Interrogation of the soul:'//achar(27)//'[0m'
+    !PRINT *, ''//achar(27)//'[33m Did I turn on vacuum ?'//achar(27)//'[0m'
+    !PRINT *, ''//achar(27)//'[92m Did I tell if this is a crystall or molecule?'//achar(27)//'[0m'
+    !PRINT *, ''//achar(27)//'[36m Did I use the CHGCAR_sum ?'//achar(27)//'[0m'
+    !PRINT *, ''//achar(27)//'[34m Did I use reasonable values for parameters ? '//achar(27)//'[0m'
+    !PRINT *, ''//achar(27)//'[95m Critical point is like a box of chocolates. &
+    !          You never know what you are gonna get.'//achar(27)//'[0m'
     !WRITE(*,'(A)')  'FINDING CRITICAL POINTS'
     IF (opts%leastsquare_flag .EQV. .TRUE. ) THEN
       PRINT *, 'Using least square gradient'
+      PRINT *, "This function is broken right now."
+      STOP
+    END IF
+    HCF = .FALSE.
+    LDM = .FALSE.
+    IF (opts%debugMode .EQV. .TRUE. ) THEN
+      INQUIRE(FILE="debugConfig",EXIST=HCF)
+    END IF
+    IF (HCF) THEN
+      OPEN(60,FILE="debugConfig",STATUS='old',ACTION='read',BLANK='null',PAD='yes')
+      DO
+        READ(60, '(a)',IOSTAT=ios) debugFlags
+        IF (debugFlags == "critpoint_find") THEN
+          LDM = .TRUE.
+          PRINT *, "De Bugger: Debugging SUBROUTINE critpoint_find"
+        END IF
+        IF (ios/=0) EXIT
+        
+      END DO
+      CLOSE(60)
     END IF
     ! get expected nucleus indices
 !    WRITE (97,*) , 'expecting nuclei at:'
@@ -141,10 +175,21 @@
     cagecount = 0
     ucptnum = 0
     cptnum = 0
+   ! ! ********** Debug part*********
+   ! iP = (/0.,0.,6.216/)
+   ! fP = (/1.234,-0.712,6.216/)
+   ! iS = 0.01
+   ! xmin = 8
+   ! xmax = 11
+   ! ymin = 3
+   ! ymax = 6
+   ! zmin = 70
+   ! zmax = 73
+   ! CALL DebugLine(iP,fP,iS,chg)   
+   ! CALL DebugRGHLat(xmin,xmax,ymin,ymax,zmin,zmax,chg)
 
-    hessianMatrix(1,:)=(/1.,2.,3./)
-    hessianMatrix(2,:) = (/4.,5.,6./)
-    hessianMatrix(3,:) = (/7.,8.,9./)
+   ! STOP
+   ! ! ********* End Debuging *******
     OPEN(1,FILE='GRAD.dat',STATUS='REPLACE',ACTION='WRITE')
     WRITE(1,*) 'norm      ','| del a      | ','    del b     |','    del c'
     OPEN(2,FILE='HES.dat',STATUS='REPLACE',ACTION='WRITE')
@@ -172,6 +217,11 @@
     nnind = findnn(truer,nnlayers,chg,ions)
 
 
+
+
+
+
+
     PRINT *, '******************************************************' 
 
     ALLOCATE (cpl(10000)) ! start with 10000 capacity
@@ -179,6 +229,10 @@
       ! Maxima should always be found first with gradient ascension
     PRINT *, 'Finding maxima'
     DO n1 = 1, ions%nions
+      IF (LDM .EQV. .TRUE.) THEN
+        PRINT *, "De Bugger:"
+        PRINT *, "finding maxima around the ", n1, "th atom"
+      END IF
       tempr(1) = NINT(ions%r_dir(n1,1) * chg%npts(1)) 
       tempr(2) = NINT(ions%r_dir(n1,2) * chg%npts(2)) 
       tempr(3) = NINT(ions%r_dir(n1,3) * chg%npts(3)) 
@@ -202,10 +256,11 @@
         cpl(ucptnum)%negcount = 3
       END IF
     END DO
-    ! ascension results may not give the best hessian; the types are set manually
+    ! ascension results may not give the best hessian. so the types are set
+    ! manually.
     IF (maxcount /= ucptnum) THEN
       PRINT *, 'WARNING: It was detected that the number of maxima found &
-        does not equal to the number trials started. The detected critical points are &
+        does not equal to trials started. The found critical points are &
         being manually set as nuclear critical points'
       DO n1 = 1, ucptnum
         cpl(n1)%negcount = 3
@@ -230,36 +285,43 @@
               debugnum = debugnum + 1
               CYCLE
             END IF
-            ! We can only work with points that are on the edge as defined by bader but
-            ! that has been shown to be not reliable, as critical points are commonly missed
+            ! We can only work with points that are on edge as defined by bader
+            ! but that has been shown to be not reliable, as critical points are
+            ! missed commonly. 
             p = (/n1,n2,n3/)
             IF (opts%leastsquare_flag .EQV. .TRUE.) THEN
               grad = lsg(p,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
               hessianMatrix = &
                 lsh(p,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
+              IF (opts%dohes) THEN
+                CALL DiagonalOnlyHes(hessianMatrix)
+              END IF
               tem = - MATMUL(INVERSE(hessianMatrix),grad)
-              ! tem is now in cartesian, convert it back to lattice
+              ! tem is now in cartesian. convert it back to lattice
               tem = MATMUL(chg%car2lat,tem)
             ELSE 
               ! use central difference
               grad = CDGrad(p,chg)
               hessianMatrix = CDHessian(p,chg)
+              IF (opts%dohes) THEN
+                CALL DiagonalOnlyHes(hessianMatrix)
+              END IF
               tem = - MATMUL(INVERSE(hessianMatrix),grad)
-              ! this tem is in cartesian, transform it to lattice
+              ! this tem is in cartesian. Transform it to lattice 
               tem = MATMUL(chg%car2lat,tem)
             END IF
             IF ( (ABS(tem(1)) <= 1.5 + opts%par_tem .AND. &
                  ABS(tem(2)) <= 1.5 + opts%par_tem .AND. &
                  ABS(tem(3)) <= 1.5 + opts%par_tem)) THEN
                 ! ABS(tem(3)) <= 0.5 + opts%par_tem) .OR. &
-                !(SUM(grad*grad) <= (0.1*opts%par_gradfloor)**2 )) THEN
+                !(SUM(grad*grad) <= (0.1*opts%par_gradfloor)**2 )) THEN              
               ! finding proximity could potentially be costly
               IF (ProxyToCPCandidate(p,opts,cpcl,cptnum,chg,nnLayers)) THEN
                 CYCLE
               END IF
               cptnum = cptnum + 1
               bkhessianMatrix = hessianMatrix
-              ! check if the candidate list needs to be expanded
+              ! Check if the candidate list needs to be expanded.
               IF (cptnum < SIZE(cpcl) - 1 ) THEN
                 cpcl(cptnum)%du = hes%du
                 cpcl(cptnum)%dv = hes%dv  
@@ -271,7 +333,7 @@
                 cpcl(cptnum)%hasProxy = .FALSE.
                 cpcl(cptnum)%r = tem
                 cpcl(cptnum)%tempcart = MATMUL(chg%car2lat,tem + p)
-              ELSE
+              ELSE 
                 PRINT *, 'expanding cpcl size'
                 ALLOCATE(cpclt(cptnum + 1))
                 DO i = 1, cptnum - 1
@@ -302,13 +364,14 @@
         END DO
       END DO
       PRINT *, "Number of Newton Rhapson trajectory needed: ", cptnum 
-      !*******************************************************************
+!!**  *****************************************************************
       ! To find critical points (unique), start with a cell that contains a
-      ! critical point and its hessian and gradient. Use Newton's method to make a
-      ! move. Interpolate the force inside the voxel. Once moved, get the new 
-      ! gradient through trilinear interpolation, and get the new hessian. 
-      ! Make moves until r is zero. Get the coordinates of the new true critical point.
-      ! If this point is within half lattice to another, do not record this new point.
+      ! critical point and its hessian and force. Use Newton's method to make a
+      ! move. Interpolate the force inside the voxel. 
+      ! Once moved, get the new force through trilinear interpolation, and
+      ! get the new hessian which will be a matrix of constants, make moves until
+      ! r is zero. get the coordinates of the new true critical point. If this
+      ! point is within half lattice to another, do not record this new point.
       IF (.TRUE.) THEN
         ALLOCATE(cpRoster(cptnum,3))
         DO i = 1, cptnum
@@ -317,7 +380,7 @@
           temscale = (/1.,1.,1./)
           temnormcap = 1.
           IF (.FALSE.) THEN
-          ! This determines if validation is done with gradient descend
+          ! This determins if validation is done with gradient descend
           !    PRINT *, 'looking at critical point candidate # ', i
           !    PRINT *, 'indices are '
           !   p = cpcl(i)%ind
@@ -389,18 +452,26 @@
                 IF (opts%leastsquare_flag .EQV. .true.) THEN
                   nngrad(j,:) = lsg(nnind(j,:),chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
                   hessianmatrix = lsh(nnind(j,:),chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
+                  IF (opts%dohes) THEN
+                    CALL DiagonalOnlyHes(hessianMatrix)
+                  END IF
                   inversehessian = inverse(hessianmatrix)
                   nnhes(j,1,:) = hessianmatrix(1,:)
                   nnhes(j,2,:) = hessianmatrix(2,:)
                   nnhes(j,3,:) = hessianmatrix(3,:)
                 ELSE 
                   nngrad(j,:) = CDGrad(nnind(j,:),chg)
-                  nnhes(j,:,:) = CDHessian(nnind(j,:),chg)
+                  hessianMatrix = CDHessian(nnind(j,:),chg)
+                  IF (opts%dohes) THEN
+                    CALL DiagonalOnlyHes(hessianMatrix)
+                  END IF
+                  nnhes(j,:,:) = hessianMatrix
                 END IF
               END DO
-               ! row find the nearest neighbors at this new locaiton
-               ! first update critical point location
-               ! the next big step is to interpolate the force at predicted critical point
+               !row find the nearest neighbors at this new locaiton
+               !first update critical point location
+               !the next big step is to interpolate the force at predicted critical
+               !point.
               grad = trilinear_interpol_grad(nnGrad,distance) ! val r interpol
               interpolHessian = trilinear_interpol_hes(nnHes,distance)
               !grad = R2GradInterpol(nnind,truer,chg,nnLayers)
@@ -484,6 +555,11 @@
 
       CALL  PHRuleExam(maxCount,ubondCount,uringCount,ucageCount,opts,&
         ions,phmrCompliant)
+      IF (phmrCompliant) THEN
+        stat = 1
+      ELSE
+        stat = 0
+      END IF
       ! output the cp to files
       CALL outputCP(cpl,opts,ucptnum,chg,setcount, ubondcount, &
         uringcount, ucagecount, maxcount)
@@ -501,9 +577,11 @@
 
     END SUBROUTINE critpoint_find
 
+    
 
-    ! This function determines when looking for nn, how many layers to search
-    ! It looks for the smallest vector sum of lattice vectors, and the largest vector
+    ! this function determins when looking for nn, how many layers to search
+    ! within. It looks for the smallest vector sum of lattice vectors, and the
+    ! largest vector
     FUNCTION findnnlayers(ions)
       INTEGER :: findnnlayers
       TYPE(ions_obj) :: ions
@@ -537,8 +615,8 @@
       findnnlayers = CEILING(maxmag/minmag)
 
     END FUNCTION findnnlayers
-
-    ! This function gives the simple box for trilinear interpolation
+  
+    ! This function gives the simple box for trilinear interpolation.
     FUNCTION SimpleNN(p,chg)
       REAL(q2), DIMENSION(3) :: p
       TYPE(charge_obj) :: chg
@@ -613,7 +691,7 @@
       RETURN
     END FUNCTION FindNN
 
-    ! This function should take in a list of nearest neighbors predetermined
+    ! This function should take in a list of nearest neighbors predetermined.
     FUNCTION nn_grad(chg,r,rho,nn)
       TYPE(charge_obj) :: chg
       REAL(q2),DIMENSION(3),INTENT(IN) :: r
@@ -668,7 +746,7 @@
     RETURN
     END FUNCTION nn_grad
 
-    ! this funciton takes in 8 values and returns a
+    ! this funciton takes in 8 values, return a
     ! trilinear interpolated gradient of the values.
     ! the 8 value list value order is 
     ! 000 001 010 100 011 101 110 111
@@ -676,7 +754,7 @@
     ! Note 02042019: I believe the actuall order is the following
     ! 000 100 010 110 001 101 011 111
     !  1   2   3   4   5   6   7   8
-    ! r is the index of the predicted critical point
+    ! r is the indice of the predicted critical point
     ! The interpolation result is checked to be OK by mathematica
     FUNCTION trilinear_interpol_grad(vals,r)
       ! varls come nngrad
@@ -757,7 +835,7 @@
       f1 = r(1) - REAL(p1,q2)
       f2 = r(2) - REAL(p2,q2)
       f3 = r(3) - REAL(p3,q2)
-      ! f1 f2 f3 are checked to be correct
+      ! f1 f2 f3 are checked to be correct. 
       ! they should equal to tem for the first step
       g1 = 1._q2-f1
       g2 = 1._q2-f2
@@ -772,9 +850,9 @@
     RETURN
     END FUNCTION
 
+    ! This function outputs hessian in direct coordinates
     FUNCTION trilinear_interpol_hes(vals,r)
       ! varls come nnhes
-      ! could r be the problem?
       ! r needs to be a vector where each component
       ! number is between 0 and 1
       REAL(q2),DIMENSION(3),INTENT(IN) :: r
@@ -794,7 +872,7 @@
       f1 = r(1) - REAL(p1,q2)
       f2 = r(2) - REAL(p2,q2)
       f3 = r(3) - REAL(p3,q2)
-      ! f1 f2 f3 are checked to be correct
+      ! f1 f2 f3 are checked to be correct.
       ! they should equal to tem for the first step
       g1 = 1._q2-f1
       g2 = 1._q2-f2
@@ -818,7 +896,10 @@
     END FUNCTION
 
 
-    ! The following subroutine gets the gradient using central difference
+    
+    ! The following subroutine gets gradient using central difference
+    ! converts the gradient from lattice to cartesian by the end of it
+    ! Note that the gradient is contravariant
     FUNCTION CDGrad(p,chg)
       TYPE(charge_obj) :: chg
       INTEGER, DIMENSION(3) :: p
@@ -842,12 +923,13 @@
                   rho_val(chg,pym(1),pym(2),pym(3)))
       CDGrad(1) = 0.5*(rho_val(chg,pxp(1),pxp(2),pxp(3)) - &
                   rho_val(chg,pxm(1),pxm(2),pxm(3)))
-      CDGrad = MATMUL(chg%car2lat,CDGrad)
+      CDGrad = MATMUL(CDGrad,chg%car2lat)
       RETURN
       ! now the gradient should be in cartesian
     END FUNCTION
-
-    ! the following subroutine gets hessian and gradient in lattice units
+    
+    ! the following subroutine gets hes and force in lattice units and converts
+    ! to cartesian by the end
     FUNCTION CDHessian(p,chg)
       REAL(q2),DIMENSION(3,3) :: CDHessian
       TYPE(charge_obj) :: chg
@@ -956,20 +1038,20 @@
         )
       CDHessian(3,2) = CDHessian(2,3)
       ! Convert the hessian, which is now in lattice coordinates, to cartesian
-      ! CDHessian = MATMUL(MATMUL(chg%car2lat,CDHessian),TRANSPOSE(chg%car2lat))
+      !CDHessian = MATMUL(MATMUL(chg%car2lat,CDHessian),TRANSPOSE(chg%car2lat))
       CDHessian = MATMUL(TRANSPOSE(chg%car2lat),MATMUL(CDHessian,chg%car2lat))
       RETURN
     END FUNCTION
-
+    
 
     ! This function takes in current position and grid point position in
     ! lattice, finds the distance this point is to the nearest cell, take half
-    ! the distance as step size
+    ! the distance as step size. 
     FUNCTION findstepsize(r)
       REAL(q2) :: findstepsize    
       REAL(q2),DIMENSION(3) :: r
       REAL(q2) :: f1,f2,f3,c1,c2,c3
-
+      
       f1 = MIN(ABS(r(1)),ABS(0.5-ABS(r(1)))) 
       f2 = MIN(ABS(r(2)),ABS(0.5-ABS(r(2))))
       f3 = MIN(ABS(r(3)),ABS(0.5-ABS(r(3))))
@@ -977,13 +1059,15 @@
     RETURN
     END FUNCTION findstepsize
 
-    ! this function finds the hessian of a interpolated point using interpolated
-    ! nearest neighbor gradiants. Also, gradiants taken in here should be in lattice
+    ! this funciton finds hessian of a interpolated point using interpolated
+    ! nearest neighbor gradiants. Also gradiants taken in here should be in
+    ! lattice.
     FUNCTION inthessian(grad,stepsize)
       REAL(q2),DIMENSION(6,3) :: grad
       REAL(q2),DIMENSION(3,3) :: inthessian
       REAL(q2) :: stepsize
-      ! again, intnngrad is following this order: +x -x +y -y +z -z
+      ! again, intnngrad is following this order:
+      ! +x -x +y -y +z -z
       inthessian(1,1) = (grad(1,1)-grad(2,1))*0.5_q2/stepsize
       inthessian(2,2) = (grad(3,2)-grad(4,2))*0.5_q2/stepsize
       inthessian(3,3) = (grad(5,3)-grad(6,3))*0.5_q2/stepsize
@@ -998,18 +1082,18 @@
     END FUNCTION inthessian
 
    
-    ! below is the function for a least squares gradient
+    ! below is the function for least sqare gradient
     FUNCTION lsg(r0,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct) 
       TYPE(charge_obj) :: chg
       REAL(q2), DIMENSION(3) :: lsg
       !INTEGER, DIMENSION(3) :: p
-      ! input may either be integers or not; may need to change later on
+      ! input may either be integers or not. May need to change later on.
       INTEGER, DIMENSION(3) :: r0
       ! r0 is the position of the current grid point
       !INTEGER, DIMENSION(26,3) :: vi , nbp
       INTEGER,DIMENSION(3,26) :: vi, nbp
-      ! v is a column of coordinates
-      ! nbp is the indecies of neighbors, to be used for pbc
+      ! v is a column of coordinates. 
+      ! nbp is indecies of neighbors, to be used for pbc
       INTEGER, DIMENSION(26,3) :: vit
       ! vit is the transpose of vi
       ! vi are the vectors from point r0 to ri, where ri are all neighbors of r0
@@ -1077,7 +1161,8 @@
             matwprime)
       PRINT *, 'inverse ggrid mul inverse matm is'
       PRINT *, MATMUL(INVERSE(ggrid),INVERSE(matm))
-      ! The following code is for debugging, which calculates gradient in direct coordinates
+      ! The following code is for debugging, which calculates gradient in direct
+      ! coordinates.
       lsg = MATMUL(MATMUL(INVERSE(matm),matwprime),deltarho)
       PRINT *, 'gradient in direct is'
       PRINT *, lsg 
@@ -1089,14 +1174,15 @@
         , deltarho)
       PRINT *, 'calculated lsg is'
       PRINT *, lsg
-      ! lsg up till now seems to be larger than gradient in cartesian units by car2lat
-      lsg = MATMUL(chg%lat2car,lsg) ! now gradient should be in cartesian units
+      ! lsg up till now seems to be larger than force in cartesian units by car2lat
+      lsg = MATMUL(chg%lat2car,lsg) ! now force should be in cartesian units
       PRINT *, 'multiplied with lat2car again is'
       PRINT *, lsg
       RETURN
     END FUNCTION lsg
 
-    ! This function finds hessian by finding lsg of gradients found with lsg
+    ! This function finds hessian by 
+    ! finding lsg of gradients found with lsg
     FUNCTION lsh(r0,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
       TYPE(charge_obj) :: chg
       TYPE(hessian) :: hes
@@ -1113,7 +1199,7 @@
       INTEGER, DIMENSION(3) :: nbp
       REAL(q2), DIMENSION(26) :: wi
       REAL(q2), DIMENSION(3,13) :: matwprime
-
+ 
       ! differences in gradient components
       REAL(q2), DIMENSION(13) :: deltadx, deltady, deltadz
       REAL(q2), DIMENSION(3,3) :: matm
@@ -1135,24 +1221,24 @@
         MATMUL( &
           MATMUL( &
             MATMUL(INVERSE(ggrid),INVERSE(matm)), &
-            matwprime &
-          ), &
+            matwprime &  
+          ), &        
         deltadx &
         )
       lsh(2,:) = &
         MATMUL( &
           MATMUL( &
             MATMUL(INVERSE(ggrid),INVERSE(matm)), &
-            matwprime &
-          ), &
+            matwprime &  
+          ), &        
         deltady &
         )
       lsh(3,:) = &
         MATMUL( &
           MATMUL( &
             MATMUL(INVERSE(ggrid),INVERSE(matm)), &
-            matwprime &
-          ), &
+            matwprime &  
+          ), &        
         deltadz &
         )
 
@@ -1230,7 +1316,7 @@
 
     FUNCTION ascension(ind,chg,matm,matwprime,wi,vi,vit, & 
                        ggrid,outerproduct,opts,nnLayers,ions)
-      ! this function finds nucleus critical points
+      ! this function finds nucleus critical points. 
       INTEGER, DIMENSION(3) :: ind
       TYPE(charge_obj) :: chg
       TYPE(options_obj) :: opts
@@ -1263,12 +1349,12 @@
       ELSE
         grad = cdgrad(ind,chg)
       END IF
-      ! this gradient is in cartesian; convert it to lattice
+      ! this gradient is in cartesian. convert it to lattice
       grad = MATMUL(chg%lat2car,grad)
       DO WHILE (stepsize(1) >= 0.01 .AND. &
                 stepsize(2) >= 0.01 .AND. &
                 stepsize(3) >= 0.01 )
-        ! the gradient is in cartesian
+        ! the gradient is in cartesian. 
         gradnm1 = grad
         rnm1 = rn
         ! determine where to go, a unit vector
@@ -1289,14 +1375,15 @@
           END IF
         END DO
         distance = rn - nnind(1,:)
-         ! Row find the nearest neighbors at this new locaiton
-         ! First update critical point location
-         ! The next big step is to interpolate the force at predicted critical point
+         !Row find the nearest neighbors at this new locaiton
+         !First update critical point location
+         !The next big step is to interpolate the force at predicted critical
+         !point.
         grad = trilinear_interpol_grad(nngrad,distance) ! val r interpol
         !nnind = FindNN(rn,nnLayers,chg,ions)
         !grad = R2GradInterpol(nnind,rn,chg,nnLayers)
         ! this grad is in cartesian. convert it to lattice
-        grad = MATMUL(chg%lat2car,grad)
+        grad = MATMUL(grad,chg%lat2car)
         IF (ABS(grad(1)) < 0.001 &
             .AND. ABS(grad(2)) <= 0.001 &
             .AND. ABS(grad(3)) <= 0.001)  THEN
@@ -1329,7 +1416,7 @@
     
     FUNCTION descension(ind,chg,matm,matwprime,wi,vi,vit, & 
                        ggrid,outerproduct,opts,nnLayers,ions)
-      ! this function finds nucleus critical points
+      ! this function finds nucleus critical points. 
       INTEGER, DIMENSION(3) :: ind
       TYPE(charge_obj) :: chg
       TYPE(options_obj) :: opts
@@ -1364,7 +1451,7 @@
       END IF
 !      PRINT *, 'initial grad is'
 !      PRINT *, grad
-      ! this gradient is in cartesian; convert it to lattice
+      ! this gradient is in cartesian. convert it to lattice
       grad = MATMUL(chg%lat2car,grad)
       DO WHILE (stepsize(1) >= 0.1 .AND. &
                 stepsize(2) >= 0.1 .AND. &
@@ -1493,7 +1580,8 @@
       PRINT *, 'minima search completed'
     END SUBROUTINE
 
-    ! follow the gradient down to a minimum of the squared gradient of the charge density
+    ! follow the gradient down to a minimum of the squared gradient of the
+    ! charge density
     SUBROUTINE sqgradientdescend(r0,chg,matm,matwprime,wi,vi,vit, &
                        ggrid,outerproduct,opts,rn,invac,bdr,nnLayers,ions)
       ! this function should find all critical points
@@ -1603,7 +1691,7 @@
           ELSE IF (crossings(3) < 0) THEN
             avgrn(3) = avgrn(3) + rn(3) - chg%npts(3)
             PRINT *, 'compensating for rightward PBC'
-          ELSE
+          ELSE 
             PRINT *, 'new sum'
             avgrn = avgrn + rn
             PRINT *, avgrn
@@ -1618,7 +1706,7 @@
           rn = (/-1.,-1.,-1./)
           invac = .TRUE.
           PRINT *, 'legacy of the void'
-          EXIT
+          EXIT 
         END IF
         ! if traveled too far, stop the descend
         PRINT *, 'total distance travelled'
@@ -1640,7 +1728,7 @@
             !nngrad(j,:) = lsg(nnind(j,:),chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
             nngrad(j,:) =  lsgsqlsg(nnind(j,:),chg,matm,matwprime,wi &
                            ,vi,vit,ggrid,outerproduct)
-          ELSE
+          ELSE 
             nngrad(j,:) = CDGrad(nnind(j,:),chg)
           END IF
         END DO
@@ -1655,7 +1743,7 @@
 !            grad(3) * gradnm1(3) <= 0 ) THEN
 !            stepsize = stepsize * 0.5
 !            isaveraging = .TRUE.
-!        END IF
+!        END IF        
         IF (grad(1) * gradnm1(1) <= 0 ) THEN
           stepsize(1) = stepsize(1) * 0.5
         END IF
@@ -1665,7 +1753,7 @@
         IF (grad(3) * gradnm1(3) <= 0 ) THEN
           stepsize(3) = stepsize(3) * 0.5
         END IF
-      END DO
+      END DO 
       PRINT *, 'finished looping, rn is'
       PRINT *, rn
       PRINT *, 'final stepsize is'
@@ -1700,7 +1788,7 @@
       REAL(q2) :: average
       REAL(q2), DIMENSION(3) :: lsgsqlsg
       INTEGER :: i, j, k
-      ! first need the gradient of the local neighbors, like the parts of lsh
+      ! first need the gradient of the local neighbors, like the parts of lsh.
       DO i = 1, 26
         nbp = vi(:,i) + r0
         CALL pbc(nbp,chg%npts) 
@@ -1730,7 +1818,7 @@
             MATMUL(INVERSE(ggrid),INVERSE(matm)), &
             matwprime) & 
         , delta)
-      ! lsg up till now seems to be larger than gradient in cartesian units by car2lat
+      ! lsg up till now seems to be larger than force in cartesian units by car2lat
       lsgsqlsg = MATMUL(chg%lat2car,lsgsqlsg) ! now force should be in cartesian units
       END FUNCTION lsgsqlsg
 
@@ -1741,7 +1829,7 @@
       REAL(q2), DIMENSION(3,3) :: lsh
       INTEGER, DIMENSION(3) :: p
       REAL(q2), DIMENSION(3,26) :: lsg_val
-      INTEGER, DIMENSION(3,26) :: vi, ps ! index of 26 neighbors
+      INTEGER, DIMENSION(3,26) :: vi, ps ! indexes of 26 neighbors
       REAL(q2), DIMENSION(3,26) ::  grads ! gradient of 26 neighbors
       INTEGER, DIMENSION(26,3) :: vit
       REAL(q2), DIMENSION(3,3) :: ggrid
@@ -1775,7 +1863,9 @@
     ! set to be based on halfo the search radius, which is 1 + knob_tem
     ! THIS FUNCTION AS OF 20191221 WONT WORK WELL AROUND PBC
     ! As a loose first round checking, it is OK that a few points near the PBC
-    ! are permitted into the candidacy
+    ! are permitted into the candidacy. 
+    ! Just like the Democratic 2020 primary, not everyone has to be super
+    ! qualified to enter. 
     FUNCTION ProxyToCPCandidate(p,opts,cpl,cptnum,chg,nnLayers)
       LOGICAL :: ProxyToCPCandidate
       INTEGER :: i
@@ -1911,7 +2001,7 @@
       END IF
       RETURN
     END FUNCTION
-
+   
     ! this function inspects if it is beneficial to reduce temscale
     ! right now it does nothing because I'm not sure if limiting it helps in any
     ! way at all
@@ -1949,7 +2039,7 @@
       INTEGER, DIMENSION(8,3) :: nnind
       REAL(q2) :: average, ran
       INTEGER :: i, j, k
-
+      
       ! first step is to move a little bit
       DO i = 1 , 3
         CALL RANDOM_NUMBER(ran)
@@ -1975,20 +2065,20 @@
         PHRULECHECKER = .FALSE.
       ELSEIF (maxcount > ions%nions) THEN
         PRINT *, 'WARNING : MORE MAXIMA FOUND THAN NUMBER OF NUCLEI!'
-      ELSE
+      ELSE 
         IF (opts%iscrystal ) THEN
           IF (maxcount - ubondcount + uringcount - ucagecount == 0) THEN
             phrulechecker = .TRUE.
           END IF
-        ELSE
+        ELSE 
           IF (maxcount - ubondcount + uringcount - ucagecount == 1) THEN
             phrulechecker = .TRUE.
-          END IF
+          END IF 
         END IF
       END IF
       RETURN
     END FUNCTION PHRuleChecker
-
+    
     ! This subroutine checks if PH rule is satisfied given crystal/molecule
     ! inport or not
     SUBROUTINE PHRuleExam(maxCount,bondCount,ringCount,cageCount,opts,ions,&
@@ -2024,7 +2114,7 @@
           PRINT *, ''//achar(27)//'[31m ERROR: The result satisfies the  & 
             Poincare Hopf Rule for a & molecule, not a crystal.' &
             //achar(27)//'[0m'
-        ELSE
+        ELSE 
           PRINT *, ''//achar(27)//'[31m ERROR: FAILED Morse relationship' &
             //achar(27)//'[0m'
         END IF
@@ -2050,11 +2140,11 @@
           phmrCompliant = .TRUE.
           PRINT *, ''//achar(27)//'[32m Satisfies the Poincare Hopf Rule' &
             //achar(27)//'[0m'
-        ELSE
+        ELSE 
           PRINT *, ''//achar(27)//'[31m ERROR: FAILED Poincare Hopf Rule' &
             //achar(27)//'[0m'
         END IF
-      ELSE
+      ELSE 
         IF (phSum == 0) THEN
           phmrCompliant = .TRUE.
           PRINT *, ''//achar(27)//'[32m This system has not been designated & 
@@ -2088,7 +2178,7 @@
             and Morse Relationship' //achar(27)//'[0m'
         END IF
       END IF
-    END SUBROUTINE
+    END SUBROUTINE 
     ! count the number of negative eigenvalues to characterize a critical point
     SUBROUTINE RecordCP(p,chg,matm,matwprime,wi,vi,vit,ggrid &
       ,outerproduct,cpl,ucptnum,eigvals,eigvecs, maxcount, uringcount, &
@@ -2161,7 +2251,7 @@
       cpl(ucptnum)%negcount = negcount
       cpl(ucptnum)%hasProxy = .FALSE.
     END SUBROUTINE RecordCPR
-
+    
     SUBROUTINE RecordCPRLight(p,chg,cpl,ucptnum, maxcount, uringcount, &
       ubondcount, ucagecount)
       TYPE(charge_obj) :: chg
@@ -2375,7 +2465,7 @@
         END IF
         weight(i) = (1/distance )**2
         normalizer = normalizer + weight(i)
-      END DO
+      END DO   
       IF (ongrid) THEN
         R2GradInterpol = CDGrad(nnind(i,:),chg)
       ELSE
@@ -2388,7 +2478,7 @@
       DEALLOCATE(weight)
       RETURN
     END FUNCTION R2GradInterpol
-
+   
     FUNCTION R2HesInterpol(nnInd,r,chg,nnLayers)
       TYPE(charge_obj) :: chg
       REAL(q2),DIMENSION(3,3) :: R2HesInterpol
@@ -2460,7 +2550,7 @@
       DEALLOCATE(weight)
       RETURN
     END FUNCTION R2RhoInterpol
-
+  
     ! Counts the amount of negative modes in eigenvalues
     FUNCTION CountNegModes(eigvals)
       REAL(q2),DIMENSION(3) :: eigvals
@@ -2471,7 +2561,7 @@
       END DO
       RETURN
     END FUNCTION CountNegModes
-
+ 
     ! updates the count on all types of CPs
     SUBROUTINE UpDateCounts(negCount,maxCount,bondCount,ringCount,cageCount)
       INTEGER :: negCount,maxCount,bondCount,ringCount,cageCount
@@ -2481,7 +2571,7 @@
         bondCount = bondCount + 1
       ELSE IF (negCount == 1) THEN
         ringCount = ringCount + 1
-      ELSE
+      ELSE 
         cageCount = cageCount + 1
       END IF
     END SUBROUTINE UpDateCounts
@@ -2566,9 +2656,10 @@
     END SUBROUTINE VisAllCP
   
     ! This subroutine tracks steps in up to the past 10 steps. If the next step is
-    ! identical to one taken before, it gives the location when repeat is detected
+    ! identical to one taken before, it gives the location when repeat is
+    ! detected 
     ! it could also give averaged location of the past
-    ! 10 steps in ther future, given treatments to PBC
+    ! 10 steps in ther future, given treatments to PBC. 
     SUBROUTINE DetectCircling(stepCount,rList,temList,trueR,nextTem,averageR)
       REAL(q2),DIMENSION(10,3) :: rList,temList
       REAL(q2),DIMENSION(3) :: trueR,nextTem,averageR
@@ -2579,7 +2670,7 @@
       IF ( stepCount <= 10 ) THEN
         rList(stepCount,:) = trueR
         temList(stepCount,:) = nextTem
-      ELSE
+      ELSE 
         ! update lists
         DO i = 1, 9
           rList(i,:) = rList(i+1,:)
@@ -2613,7 +2704,8 @@
     END SUBROUTINE DetectCircling
 
     ! This subroutine looks for critical points in the list that is too close to
-    ! another, and averages the same types into one to remove duplicate critical points
+    ! another, and averages the same types into one to remove duplicate critical
+    ! points. 
     SUBROUTINE ReduceCP(cpl,opts,ucptnum,chg,uBondCount, &
         uRingCount,uCageCount,maxCount,isReduced)
       TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpl,rcpl
@@ -2631,19 +2723,22 @@
       rRingCount = 0
       rBondCount = 0
       rCageCount = 0
-      ! Give the reduced list same length as before, it's ok if a little goes to waste
+      ! Give the reduced list same length as before, it's ok if a little goes to
+      ! waste
       ALLOCATE(rcpl(ucptnum))
-      ! start from a critical point. loop through the entire list, look for another entry
+      ! start from a critical point. loop through the entire list, look for
+      ! another entry 
       nUCPTNum = 0
       DO i = 1, ucptnum
-        ! check if this point is already determined as a proxy to some other point before
+        ! check if this point is already determined as a proxy to some other
+        ! point before
         weight = 1
         avgR = cpl(i)%truer
         IF (cpl(i)%hasProxy ) THEN 
           CYCLE
         END IF
         DO j = i, ucptnum
-          ! Periodic boundary condition will come to haunt me, periodically
+          ! Periodic boundary condition will come to haunt me, periodically. 
           IF (j == i) CYCLE
           IF ( mag(cpl(i)%truer - cpl(j)%truer) .LE. opts%par_distance ) THEN
             cpl(j)%hasProxy = .TRUE.
@@ -2660,7 +2755,7 @@
         END DO
         nUCPTNum = nUCPTNum + 1
         ! record the reduced CP
-        CALL RecordCPRLight(avgR, chg, rcpl, nUCPTnum, rMaxCount, rRingCount, &
+        CALL RecordCPRLight(avgR,chg,rcpl,nUCPTnum, rMaxCount, rRingCount, &
           rBondCount, rCageCount)
       END DO
       CALL ReplaceCPL(cpl,rcpl)
@@ -2675,9 +2770,9 @@
       PRINT *, 'The number of duplicate CP found is', dupcount
       DEALLOCATE(rcpl)
     END SUBROUTINE ReduceCP
-
+   
     SUBROUTINE ReplaceCPL(replacee,replacer)
-      TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: replacee, replacer
+      TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: replacee,replacer
       INTEGER :: i
       DEALLOCATE (replacee)
       ALLOCATE (replacee(SIZE(replacer)))
@@ -2685,9 +2780,9 @@
         replacee(i) = replacer(i)
       END DO
     END SUBROUTINE ReplaceCPL
-
+ 
     SUBROUTINE ResizeCPL(cpl,newSize)
-      TYPE(cpc),ALLOCATABLE,DIMENSION(:) ::cpl, newcpl
+      TYPE(cpc),ALLOCATABLE,DIMENSION(:) ::cpl,newcpl
       INTEGER :: newSize, i, oldSize
       ALLOCATE (newcpl(newSize))
       oldSize = SIZE(cpl)
@@ -2701,8 +2796,9 @@
       END DO
       DEALLOCATE (newCPL)
     END SUBROUTINE ResizeCPL
-
-    ! takes in coordinates, gives out interpolated Hessian using central difference
+ 
+    ! takes in coordinates, gives out interpolated Hessian using central
+    ! difference
     FUNCTION CDHessianR(r,chg)
       TYPE(charge_obj) :: chg
       REAL(q2),DIMENSION(8,3,3) :: nnhes
@@ -2715,9 +2811,10 @@
       DO i = 1,8
         nnHes(i,:,:) = CDHessian(nnind(i,:),chg)
       END DO
-       ! row find the nearest neighbors at this new locaiton
-       ! first update critical point location
-       ! the next big step is to interpolate the force at predicted critical point
+       !row find the nearest neighbors at this new locaiton
+       !first update critical point location
+       !the next big step is to interpolate the force at predicted critical
+       !point.
       CDHessianR = trilinear_interpol_hes(nnHes,distance)
       RETURN
     END FUNCTION CDHessianR
@@ -2734,9 +2831,10 @@
       DO i = 1,8
         nnGrad(i,:) = CDGrad(nnind(i,:),chg)
       END DO
-       ! row find the nearest neighbors at this new locaiton
-       ! first update critical point location
-       ! the next big step is to interpolate the force at predicted critical point
+       !row find the nearest neighbors at this new locaiton
+       !first update critical point location
+       !the next big step is to interpolate the force at predicted critical
+       !point.
       CDGradR = trilinear_interpol_grad(nnGrad,distance)
       RETURN
     END FUNCTION CDGradR
@@ -2751,6 +2849,117 @@
       END DO
 
     END SUBROUTINE
+
+    ! This subroutine takes in two cartesian coordinates, draw a line in between
+    ! with given interval, output charge density, gradient, hessian, tem into
+    ! seperate debug files, and terminates program at the end of this function.
+    SUBROUTINE DebugLine(iP,fP,iS,chg)
+    ! iP is initial Point, fP is final Point, iS is interval Size
+    TYPE(charge_obj) :: chg
+    REAL(q2),DIMENSION(8,3,3) :: nnHes
+    REAL(q2),DIMENSION(8,3) :: nnGrad
+    REAL(q2),DIMENSION(3,3) :: hes
+    REAL(q2),DIMENSION(3) :: p, iP, fP, sZ ! sZ is the acutal step size
+    REAL(q2),DIMENSION(3) :: grad, distance
+    ! sZ should be slightly different from iS due to rounding 
+    REAL(q2) :: iS, rho
+    INTEGER,DIMENSION(8,3) :: nnind
+    INTEGER :: sN ! step number
+    INTEGER :: i, j
+    OPEN(50,FILE='debug_line_charge.dat',STATUS='REPLACE',ACTION='WRITE')
+    OPEN(51,FILE='debug_line_gradient_cart.dat',STATUS='REPLACE',ACTION='WRITE')
+    OPEN(52,FILE='debug_line_hessian_cart.dat',STATUS='REPLACE',ACTION='WRITE')
+    OPEN(53,FILE='debug_line_rhograd_cart.dat',STATUS='REPLACE',ACTION='WRITE')
+    sN = CEILING( mag( fP - iP ) / iS )
+    sZ = ( fP - iP ) / sN
+    DO i = 0, sN
+      p = iP + i * sZ ! This is in cartesian
+      PRINT *, 'Position in cartesian is'
+      PRINT *, p
+      p = MATMUL(chg%car2lat,p) ! Now it's in lattice
+      PRINT *, 'Position in lattie is'
+      PRINT *, p
+      CALL pbc_r_lat(p,chg%npts)
+      grad = rho_grad(chg,p,rho)
+      WRITE (53,*) grad
+      PRINT *, "cartesian grad from rho_grad is "
+      PRINT *, grad 
+      nnind = simpleNN(p,chg)
+      distance = p - nnind(1,:)
+      DO j = 1,8
+        nngrad(j,:) = CDGrad(nnind(j,:),chg)
+        nnhes(j,:,:) = CDHessian(nnind(j,:),chg)
+      END DO
+      grad = trilinear_interpol_grad(nnGrad,distance) ! val r interpol
+      PRINT *, 'cartesian grad from this mod is'
+      PRINT *, grad
+      hes = trilinear_interpol_hes(nnHes,distance)
+      WRITE (50,*) rho
+      PRINT *, 'rho is ', rho
+      WRITE (51,*) grad
+      grad = MATMUL(grad,chg%lat2car)
+      PRINT *, 'lattice grad from this mod is '
+      PRINT *, grad
+      WRITE (52,*) hes(1,:)
+      WRITE (52,*) hes(2,:)
+      WRITE (52,*) hes(3,:)
+      PRINT *, 'hes is'
+      PRINT *, hes(1,:)
+      PRINT *, hes(2,:)
+      PRINT *, hes(3,:)
+    END DO
+    CLOSE(50)
+    CLOSE(51)
+    CLOSE(52)
+    CLOSE(53)
+    END SUBROUTINE
+
+    ! This subroutines takes lattice ranges and output on lattice rho, gradient
+    ! and hessian.
+    SUBROUTINE DebugRGHLat(xmin,xmax,ymin,ymax,zmin,zmax,chg)
+      TYPE(charge_obj) :: chg
+      REAL(q2),DIMENSION(3,3) :: hes
+      REAL(q2),DIMENSION(3) :: rlat,rcart,grad
+      INTEGER,DIMENSION(3) :: lat
+      INTEGER :: xmin,xmax,ymin,ymax,zmin,zmax,i,j,k
+      DO i = xmin,xmax
+        DO j = ymin,ymax
+          DO k = zmin,zmax
+            lat=(/i,j,k/)
+            PRINT *, 'lattice point is '
+            PRINT *, lat
+            PRINT *, 'cartesian point is'
+            PRINT *, MATMUL(chg%lat2car,lat)
+            PRINT *, 'gradient in cartesian units is'
+            grad = CDGrad(lat,chg)
+            hes = CDHessian(lat,chg)
+            PRINT *, grad
+            PRINT *, 'gradient in cartesian is'
+            PRINT *, MATMUL(chg%lat2car,grad)
+            PRINT *, 'hessian in cartesian is'
+            PRINT *, hes(1,:)
+            PRINT *, hes(2,:)
+            PRINT *, hes(3,:)
+            PRINT *, 'hessian in lattice units is'
+            hes = MATMUL(TRANSPOSE(chg%lat2car),MATMUL(hes,chg%lat2car))
+            PRINT *, hes(1,:)
+            PRINT *, hes(2,:)
+            PRINT *, hes(3,:)
+          END DO
+        END DO
+      END DO
+    END SUBROUTINE
+  
+    SUBROUTINE DiagonalOnlyHes(hes)
+      REAL(q2), DIMENSION(3,3) :: hes
+      hes(1,2) = 0
+      hes(1,3) = 0
+      hes(2,3) = 0
+      hes(2,1) = 0
+      hes(3,2) = 0
+      hes(3,1) = 0
+    END SUBROUTINE
   END MODULE
 
 
+  

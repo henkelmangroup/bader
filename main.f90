@@ -55,8 +55,10 @@
      USE chgcar_mod
 !     USE chgcar_mod
      USE multipole_mod
-     USE critpoints_mod
+!     USE critpoints_mod
+     USE critpoint_mod
      USE weight_mod    
+     USE automatedCP_mod
      IMPLICIT NONE
 
      ! Variables
@@ -85,7 +87,8 @@
        CALL bader_mindist(bdr,ions,chgval)
        CALL bader_output(bdr,ions,chgval)
        IF (opts%find_critpoints_flag) THEN 
-         CALL critpoint_find(bdr,chgval,opts,ions,stat)
+         !CALL critpoint_find(bdr,chgval,opts,ions,stat)
+         CALL AutoCP(bdr,chgval,opts,ions,stat)
        END IF
        IF (opts%print_surfaces_atoms) THEN
          CALL bader_check_partitioning(bdr,chgval,scell_dir) ! Ensure that periodic boundary conditions do not collapse bader volumes
