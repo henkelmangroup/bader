@@ -120,6 +120,7 @@
     INTEGER :: xmin,xmax,ymin,ymax,zmin,zmax,ios
     CHARACTER(128) :: string,debugFlags
     LOGICAL :: HCF,LDM ! has config file, local debug mode
+    LOGICAL :: LDM_DetectCircling, LDM_ReduceCP
     ! below are variables for least sqaures gradient
     stat = 0 ! 0 means nothing
     !PRINT *, ''//achar(27)//'[31m Finding Critical points'//achar(27)//'[0m'
@@ -138,6 +139,8 @@
     END IF
     HCF = .FALSE.
     LDM = .FALSE.
+    LDM_DetectCircling = .FALSE.
+    LDM_ReduceCP = .FALSE.
     IF (opts%debugMode .EQV. .TRUE. ) THEN
       INQUIRE(FILE="debugConfig",EXIST=HCF)
     END IF
@@ -148,6 +151,14 @@
         IF (debugFlags == "critpoint_find") THEN
           LDM = .TRUE.
           PRINT *, "De Bugger: Debugging SUBROUTINE critpoint_find"
+        END IF
+        IF (debugFlags == "DetectCircling") THEN
+          LDM_DetectCircling = .TRUE.
+          PRINT *, "De Bugger: Debugging SUBROUTINE DetectCircling"
+        END IF
+        IF (debugFlags == "ReduceCP") THEN
+          LDM_ReduceCP = .TRUE.
+          PRINT *, "De Bugger: Debugging SUBROUTINE ReduceCP"
         END IF
         IF (ios/=0) EXIT
         
@@ -245,7 +256,7 @@
       p(2) = NINT(cpl(ucptnum)%trueind(2))
       p(3) = NINT(cpl(ucptnum)%trueind(3))
       CALL RecordCPR(temprealr,chg,cpl,ucptnum,eigvals,eigvecs, maxcount, uringcount, &
-        ubondcount, ucagecount,opts,grad,hessianMatrix)
+        ubondcount, ucagecount,opts,grad,hessianMatrix, p)
       IF (opts%noInterpolation_flag) THEN
         maxcount = ucptnum
         uringcount = 0
@@ -488,7 +499,8 @@
               ! see if movement capping is necessary
               nexttem = TemMods(nexttem,temscale,temnormcap)
               temscale = scaleinspector( nexttem, previoustem, temscale)
-              CALL DetectCircling(stepCount,rList,temList,trueR,nextTem,averageR)
+              CALL DetectCircling(stepCount,rList,temList,trueR,nextTem,averageR, &
+                LDM_DetectCircling,cpcl(i)%ind)
               IF (ALL(averageR /= -1.,1)) THEN
                 cpcl(i)%isUnique = .TRUE.
                 cpcl(i)%trueInd = averageR
@@ -527,7 +539,9 @@
           IF (cpcl(i)%isunique ) THEN
             ucptnum = ucptnum + 1
             CALL RecordCPR(truer,chg,cpl,ucptnum,eigvals,eigvecs, maxcount, &
-              uringcount,ubondcount,ucagecount, opts, grad, interpolHessian)
+              uringcount,ubondcount,ucagecount, opts, grad, interpolHessian, &
+              cpcl(i)%ind)
+
             CYCLE
           END IF
           truer = truer + nexttem ! this keeps track the total movement
@@ -543,8 +557,14 @@
 
       ! remove duplicate CPs
       isReduced = .FALSE.
-      CALL ReduceCP(cpl,opts,ucptnum,chg,uBondCount, &
-        uringcount,uCageCount,maxCount,isReduced)
+      DO WHILE ( .NOT. isReduced)
+        CALL ReduceCP(cpl,opts,ucptnum,chg,uBondCount, &
+          uringcount,uCageCount,maxCount,isReduced)
+      END DO
+      ! This following debug line need to be togged on or off manually
+      ! before compilling
+      ip = (/-0.554,1.953,1.985/)
+      CALL CPTracer(iP,chg,cpl,ucptnum)
       PRINT *, 'After a round of reduction'
       PRINT *, 'Numbver of atoms: ', ions%nions
       PRINT *, 'Number of critical point count: ', ucptnum
@@ -2224,7 +2244,7 @@
     END SUBROUTINE RecordCP
     ! the version of the above subroutine where p is real not integer
     SUBROUTINE RecordCPR(p,chg,cpl,ucptnum,eigvals,eigvecs, maxcount, uringcount, &
-      ubondcount, ucagecount,opts,grad,hessianMatrix)
+      ubondcount, ucagecount,opts,grad,hessianMatrix,ind)
       TYPE(charge_obj) :: chg
       TYPE(options_obj) :: opts
       TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpl
@@ -2238,6 +2258,7 @@
       REAL(q2), DIMENSION(3,13) :: matwprime
       REAL(q2), DIMENSION(3,3) :: matm
       REAL(q2), DIMENSION(3,3) :: outerproduct
+      INTEGER,DIMENSION(3) :: ind
       INTEGER :: i, j, k, ucptnum, negCount
       INTEGER :: maxcount, uringcount, ubondcount, ucagecount
       cpl(ucptnum)%hessianMatrix = hessianMatrix
@@ -2250,10 +2271,11 @@
       cpl(ucptnum)%eigvals = eigvals
       cpl(ucptnum)%negcount = negcount
       cpl(ucptnum)%hasProxy = .FALSE.
+      cpl(ucptnum)%ind = ind
     END SUBROUTINE RecordCPR
     
     SUBROUTINE RecordCPRLight(p,chg,cpl,ucptnum, maxcount, uringcount, &
-      ubondcount, ucagecount)
+      ubondcount, ucagecount,ind)
       TYPE(charge_obj) :: chg
       TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpl
       REAL(q2), DIMENSION(3) :: eigvals, grad
@@ -2266,6 +2288,7 @@
       REAL(q2), DIMENSION(3,13) :: matwprime
       REAL(q2), DIMENSION(3,3) :: matm
       REAL(q2), DIMENSION(3,3) :: outerproduct
+      INTEGER,DIMENSION(3) :: ind
       INTEGER :: i, j, k, ucptnum, negCount
       INTEGER :: maxcount, uringcount, ubondcount, ucagecount
       hessianMatrix = CDHessianR(p,chg)
@@ -2280,6 +2303,7 @@
       cpl(ucptnum)%eigvals = eigvals
       cpl(ucptnum)%negcount = negcount
       cpl(ucptnum)%hasProxy = .FALSE.
+      cpl(ucptnum)%ind = ind
     END SUBROUTINE RecordCPRLight
 
     SUBROUTINE  outputCP(cpl,opts,ucptnum,chg,setcount,ubondcount, &
@@ -2660,11 +2684,12 @@
     ! detected 
     ! it could also give averaged location of the past
     ! 10 steps in ther future, given treatments to PBC. 
-    SUBROUTINE DetectCircling(stepCount,rList,temList,trueR,nextTem,averageR)
+    SUBROUTINE DetectCircling(stepCount,rList,temList,trueR,nextTem,averageR,LDM,ind)
       REAL(q2),DIMENSION(10,3) :: rList,temList
       REAL(q2),DIMENSION(3) :: trueR,nextTem,averageR
+      INTEGER,DIMENSION(3) :: ind
       INTEGER :: stepCount,i,j
-      LOGICAL :: isRunningCircles
+      LOGICAL :: isRunningCircles,LDM
       ! establish lists if stepCount is low
       isRunningCircles = .FALSE.
       IF ( stepCount <= 10 ) THEN
@@ -2690,6 +2715,18 @@
           END DO
         END DO outer
         IF (isRunningCircles) THEN
+          IF (LDM) THEN
+            PRINT *, "De Bugger: Circling Detected"
+            PRINT *, 'This trajetory initiated at ', ind
+            PRINT *, "The past ten tems are"
+            DO j = 1, 10
+              PRINT *, temList(j,:)
+            END DO
+            PRINT *, "The past ten trueR are"
+            DO j = 1, 10
+              PRINT *, rList(j,:) 
+            END DO
+          END IF
           averageR = 0.
           averageR = trueR
 ! need to figure out how to deal with PBC first
@@ -2717,7 +2754,7 @@
       INTEGER :: i,j, nUCPTNum, weight, dupCount
       LOGICAL :: isReduced
       PRINT *, 'Checking for duplicate CP'
-      isReduced = .TRUE. 
+      isReduced = .TRUE.
       dupCount = 0
       rmaxCount = 0
       rRingCount = 0
@@ -2756,7 +2793,7 @@
         nUCPTNum = nUCPTNum + 1
         ! record the reduced CP
         CALL RecordCPRLight(avgR,chg,rcpl,nUCPTnum, rMaxCount, rRingCount, &
-          rBondCount, rCageCount)
+          rBondCount, rCageCount,cpl(i)%ind)
       END DO
       CALL ReplaceCPL(cpl,rcpl)
       DO i = 1, SIZE(cpl)
@@ -2959,6 +2996,25 @@
       hes(3,2) = 0
       hes(3,1) = 0
     END SUBROUTINE
+
+    ! This subroutine finds out which point leads to finding of a critical point
+    SUBROUTINE CPTracer(rt,chg,cpl,ucptnum)
+      TYPE(charge_obj) :: chg
+      TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpl
+      REAL(q2),DIMENSION(3) :: rt ! This is the target cart location.
+      REAL(q2),DIMENSION(3) :: rc ! This is current cart location.
+      INTEGER,DIMENSION(3) :: ind
+      INTEGER :: i, ucptnum
+      DO i = 1, ucptnum
+        rc = MATMUL(chg%lat2car,cpl(i)%truer)
+        IF (ABS(rc(1) - rt(1)) .le. 0.001 .AND. &
+            ABS(rc(2) - rt(2)) .le. 0.001 .AND. &
+            ABS(rc(3) - rt(3)) .le. 0.001 ) THEN
+          PRINT *, "De Bugger: The given CP is found by trajectory starting at"
+          PRINT *, cpl(i)%ind
+        END IF
+      END DO
+    END SUBROUTINE CPTracer
   END MODULE
 
 
