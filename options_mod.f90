@@ -35,6 +35,7 @@
       LOGICAL :: noInterpolation_flag
       LOGICAL :: debugMode
       LOGICAL :: dohes
+      LOGICAL :: enableGradientDescend
     END TYPE options_obj
 
     PRIVATE
@@ -60,7 +61,9 @@
 ! Default values
       opts%par_tem = 0
       opts%par_sr = 2
-      opts%par_distance = 0.00001
+      opts%par_distance = 1
+      ! par_distance is the criteria for determine if two points are identical
+      ! due to spacial proximity. This is in lattice units.
       opts%par_newtonr = 0.000001
       opts%par_gradfloor = 0.000001
       opts%ismolecule = .FALSE.
@@ -97,6 +100,7 @@
       opts%leastsquare_flag = .FALSE.
       opts%noInterpolation_flag = .FALSE.
       opts%print_surfaces_atoms = .FALSE.
+      opts%enableGradientDescend = .FALSE.
 !      n=IARGC()
       n=COMMAND_ARGUMENT_COUNT()
       IF (n == 0) THEN

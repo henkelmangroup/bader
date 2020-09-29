@@ -34,6 +34,7 @@
 !      REAL(q2),DIMENSION(3,3,3) :: du, dv, dw
       REAL(q2), DIMENSION(3) :: du, dv, dw ! 1 2 3 are backward, present, forward
       REAL(q2), DIMENSION(3) :: eigvals, r, cocart, colat, tempr
+      REAL(q2) :: rho
       INTEGER, DIMENSION(8,3) :: nnind ! indices of neighbors 
       ! indices from 0 to 8 are zyx 000 001 010 011 100 101 110 111
 !      REAL(q2),DIMENSION(8,3) :: nngrad ! gradients of nn mentioned above.
@@ -78,7 +79,7 @@
     ! to be used in newton method in finding unique critical points.
     REAL(q2), DIMENSION(3,3) ::  hessianMatrix, bkhessianMatrix
     ! these are vectors orthogonal to eigenvectors
-    REAL(q2), DIMENSION(3) :: tem, tem2a,tem2b,tem2c, eigvals,carts
+    REAL(q2), DIMENSION(3) :: tem, eigvals,carts
     REAL(q2) :: threshhold, tempreal, rndr
     REAL(q2), DIMENSION(3,3) :: eigvecs, inverseHessian
     ! linearized approximated derivatives for proxy critical screening
@@ -91,7 +92,7 @@
     REAL(q2) :: rhocur ! rho of current point
     REAL(q2) :: stepsize, temnormcap, iS
     REAL(q2), DIMENSION(3) :: distance ! vector to 000 in trilinear
-    REAL(q2), DIMENSION(3) :: preal, iP,fP
+    REAL(q2), DIMENSION(3) :: preal, iP,fP,pr
     INTEGER, DIMENSION(8,3) :: nn ! alternative trilinear approx.
     REAL(q2), DIMENSION(8) :: vals
     ! points
@@ -121,6 +122,8 @@
     CHARACTER(128) :: string,debugFlags
     LOGICAL :: HCF,LDM ! has config file, local debug mode
     LOGICAL :: LDM_DetectCircling, LDM_ReduceCP
+    LOGICAL :: LDM_DensityDescend,LDM_RecordCPRLight
+    LOGICAL :: LDM_NRTFGP,LDM_CalcTEMLat
     ! below are variables for least sqaures gradient
     stat = 0 ! 0 means nothing
     !PRINT *, ''//achar(27)//'[31m Finding Critical points'//achar(27)//'[0m'
@@ -141,29 +144,10 @@
     LDM = .FALSE.
     LDM_DetectCircling = .FALSE.
     LDM_ReduceCP = .FALSE.
-    IF (opts%debugMode .EQV. .TRUE. ) THEN
-      INQUIRE(FILE="debugConfig",EXIST=HCF)
-    END IF
-    IF (HCF) THEN
-      OPEN(60,FILE="debugConfig",STATUS='old',ACTION='read',BLANK='null',PAD='yes')
-      DO
-        READ(60, '(a)',IOSTAT=ios) debugFlags
-        IF (debugFlags == "critpoint_find") THEN
-          LDM = .TRUE.
-          PRINT *, "De Bugger: Debugging SUBROUTINE critpoint_find"
-        END IF
-        IF (debugFlags == "DetectCircling") THEN
-          LDM_DetectCircling = .TRUE.
-          PRINT *, "De Bugger: Debugging SUBROUTINE DetectCircling"
-        END IF
-        IF (debugFlags == "ReduceCP") THEN
-          LDM_ReduceCP = .TRUE.
-          PRINT *, "De Bugger: Debugging SUBROUTINE ReduceCP"
-        END IF
-        IF (ios/=0) EXIT
-        
-      END DO
-      CLOSE(60)
+    IF (opts%debugMode) THEN
+    CALL GetDebugFlags(opts,LDM,LDM_DetectCircling,&
+      LDM_ReduceCP,LDM_DensityDescend,LDM_RecordCPRLight,&
+      LDM_NRTFGP,LDM_CalcTEMLat)
     END IF
     ! get expected nucleus indices
 !    WRITE (97,*) , 'expecting nuclei at:'
@@ -312,14 +296,38 @@
               tem = MATMUL(chg%car2lat,tem)
             ELSE 
               ! use central difference
-              grad = CDGrad(p,chg)
-              hessianMatrix = CDHessian(p,chg)
-              IF (opts%dohes) THEN
-                CALL DiagonalOnlyHes(hessianMatrix)
+              trueR(1) = REAL(n1,q2)
+              trueR(2) = REAL(n2,q2)
+              trueR(3) = REAL(n3,q2)
+              IF (LDM) THEN
+                PRINT *,  "Finding NRT initiation point at "
+                PRINT *, p
+                PRINT *, "Calculating tem"
               END IF
-              tem = - MATMUL(INVERSE(hessianMatrix),grad)
-              ! this tem is in cartesian. Transform it to lattice 
-              tem = MATMUL(chg%car2lat,tem)
+              tem = CalcTEMGrid(p,chg,grad,hessianMatrix)
+              !tem = CalcTEMLat(trueR,chg,&
+              !  temScale,previousTEM,grad,LDM_CalcTEMLat)
+              IF (LDM) THEN
+                tempRealR = tem
+                grad = CDGrad(p,chg)
+                hessianMatrix = CDHessian(p,chg)
+                IF (opts%dohes) THEN
+                  CALL DiagonalOnlyHes(hessianMatrix)
+                END IF
+                tem = - MATMUL(INVERSE(hessianMatrix),grad)
+                ! this tem is in cartesian. Transform it to lattice 
+                tem = MATMUL(chg%car2lat,tem)
+                IF ( (tem(1) /= tempRealR(1)) .OR. &
+                     (tem(2) /= tempRealR(2)) .OR. &
+                     (tem(3) /= tempRealR(3))) THEN
+                 PRINT *, "ERROR!  DIfferent tem obtained!"
+                 PRINT *, "CalcTEMLat produced"
+                 PRINT *, tempRealR
+                 PRINT *, "Direct calculation produced"
+                 PRINT *, tem
+                 STOP
+                END IF
+              END IF
             END IF
             IF ( (ABS(tem(1)) <= 1.5 + opts%par_tem .AND. &
                  ABS(tem(2)) <= 1.5 + opts%par_tem .AND. &
@@ -581,7 +589,7 @@
         stat = 0
       END IF
       ! output the cp to files
-      CALL outputCP(cpl,opts,ucptnum,chg,setcount, ubondcount, &
+      CALL OutputCP(cpl,opts,ucptnum,chg,setcount, ubondcount, &
         uringcount, ucagecount, maxcount)
       DEALLOCATE(cpRoster)
     END IF
@@ -2280,14 +2288,15 @@
       TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpl
       REAL(q2), DIMENSION(3) :: eigvals, grad
       REAL(q2), DIMENSION(3,3) :: eigvecs, hessianMatrix
-      REAL(q2), DIMENSION(3) :: p
-      INTEGER, DIMENSION(3,26) :: vi
-      INTEGER, DIMENSION(26,3) :: vit
+      REAL(q2), DIMENSION(3) :: p, realDump
       REAL(q2), DIMENSION(3,3) :: ggrid
       REAL(q2), DIMENSION(26) :: wi
       REAL(q2), DIMENSION(3,13) :: matwprime
       REAL(q2), DIMENSION(3,3) :: matm
       REAL(q2), DIMENSION(3,3) :: outerproduct
+      REAL(q2) :: rho
+      INTEGER, DIMENSION(26,3) :: vit
+      INTEGER, DIMENSION(3,26) :: vi
       INTEGER,DIMENSION(3) :: ind
       INTEGER :: i, j, k, ucptnum, negCount
       INTEGER :: maxcount, uringcount, ubondcount, ucagecount
@@ -2304,15 +2313,18 @@
       cpl(ucptnum)%negcount = negcount
       cpl(ucptnum)%hasProxy = .FALSE.
       cpl(ucptnum)%ind = ind
+      realDump = rho_grad(chg,p,rho)
+      cpl(ucptnum)%rho = rho
     END SUBROUTINE RecordCPRLight
 
-    SUBROUTINE  outputCP(cpl,opts,ucptnum,chg,setcount,ubondcount, &
+    SUBROUTINE  OutputCP(cpl,opts,ucptnum,chg,setcount,ubondcount, &
       uringcount,ucagecount, maxcount)
       TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpl
       TYPE(options_obj) :: opts
       TYPE(charge_obj) :: chg
       INTEGER :: ucptnum, i, setcount
       INTEGER :: ubondcount, uringcount, ucagecount, maxcount
+      REAL(q2),DIMENSION(3) :: grad
       CHARACTER(10) :: fileName
       PRINT *, 'Writting critical point output files'
       WRITE(fileName,fmt='(a,i2.2,a)') TRIM('CPFU'), setcount,TRIM('.dat')
@@ -2350,6 +2362,8 @@
             cpl(i)%truer(2)/chg%npts(2), &
             cpl(i)%truer(3)/chg%npts(3)
         END IF
+        WRITE (98,*) "Charge density is"
+        WRITE (98,*) cpl(i)%rho 
         WRITE (98,*) 'Gradiant is'
         WRITE (98,*) cpl(i)%grad
         WRITE (98,*) 'Hessian is'
@@ -2380,7 +2394,7 @@
       END DO
     WRITE(98,*) ''
     CLOSE(98)
-    END SUBROUTINE outputCP
+    END SUBROUTINE OutputCP
 
 
     ! get the distance between two points, considering that these two points can
@@ -3015,6 +3029,113 @@
         END IF
       END DO
     END SUBROUTINE CPTracer
+
+
+    ! This function calculates TEM for a grid point
+    FUNCTION CalcTEMGrid(p,chg,grad,hessianMatrix)
+      TYPE(charge_obj) :: chg
+      INTEGER,DIMENSION(3) :: p
+      REAL(q2),DIMENSION(3,3) :: hessianMatrix
+      REAL(q2),DIMENSION(3) :: grad,CalcTEMGrid
+        grad = CDGrad(p,chg)
+        hessianMatrix = CDHessian(p,chg)
+        CalcTEMGrid = - MATMUL(INVERSE(hessianMatrix),grad)
+        CalcTEMGrid = MATMUL(chg%car2lat,CalcTEMGrid)
+        RETURN
+    END FUNCTION CalcTEMGrid
+ 
+    ! This function will not work if calculating TEM at a grid point.
+    FUNCTION CalcTEMLat(trueR,chg,temScale,previousTEM,grad,LDM)
+      TYPE(charge_obj) :: chg
+      INTEGER,DIMENSION(8,3) :: nnind
+      INTEGER :: j
+      REAL(q2),DIMENSION(8,3,3) :: nnHes
+      REAL(q2),DIMENSION(8,3) :: nnGrad
+      REAL(q2),DIMENSION(3,3) :: hessianMatrix
+      REAL(q2),DIMENSION(3) :: temScale,previousTEM,CalcTEMLat,grad&
+        ,distance,trueR
+      REAL(q2) :: temNormCap
+      LOGICAL :: LDM
+      nnInd = SimpleNN(trueR,chg)
+      IF (LDM) THEN
+        PRINT *, "Inside CalcTEMLat"
+        PRINT *, "At point "
+        PRINT *, trueR
+        PRINT *, "nnInd are"
+        DO j = 1,8
+          PRINT *, nnInd(j,:)
+        END DO
+      END IF
+      distance = truer - nnind(1,:)
+      DO j = 1,8
+        nngrad(j,:) = CDGrad(nnind(j,:),chg)
+        hessianMatrix = CDHessian(nnind(j,:),chg)
+        nnHes(j,:,:) = hessianMatrix
+      END DO
+      grad = trilinear_interpol_grad(nnGrad,distance) ! val r interpol
+      hessianMatrix = trilinear_interpol_hes(nnHes,distance)
+      CalcTEMLat = - MATMUL(inverse(hessianMatrix),grad)
+      CalcTEMLat  = MATMUL(chg%car2lat,CalcTEMLat)
+      CalcTEMLat  = TemMods(CalcTEMLat,temScale,temNormCap)
+      temScale = scaleinspector(CalcTEMLat, previousTEM, temScale)
+      RETURN
+    END FUNCTION CalcTEMLat
+    SUBROUTINE GetDebugFlags(opts,LDM,LDM_DetectCircling,&
+      LDM_ReduceCP,LDM_DensityDescend,LDM_RecordCPRLight,&
+      LDM_NRTFGP,LDM_CalcTEMLat)
+      TYPE(options_obj) :: opts
+      CHARACTER(128) :: debugFlags
+      INTEGER :: ios
+      LOGICAL :: HCF,LDM ! has config file, local debug mode
+      LOGICAL :: LDM_RecordCPRLight, LDM_NRTFGP
+      LOGICAL :: LDM_DetectCircling, LDM_ReduceCP, LDM_DensityDescend
+      LOGICAL :: LDM_CalcTEMLat
+      LDM = .FALSE.
+      LDM_DetectCircling = .FALSE.
+      LDM_ReduceCP = .FALSE.
+      LDM_DensityDescend = .FALSE.
+      LDM_RecordCPRLight = .FALSE.
+      INQUIRE(FILE="debugConfig",EXIST=HCF)
+      IF (HCF) THEN
+        OPEN(60,FILE="debugConfig",STATUS='old',ACTION='read',BLANK='null',PAD='yes')
+        DO
+          READ(60, '(a)',IOSTAT=ios) debugFlags
+          IF (debugFlags == "critpoint_find") THEN
+            LDM = .TRUE.
+            PRINT *, "De Bugger: Debugging SUBROUTINE critpoint_find"
+          END IF
+          IF (debugFlags == "DetectCircling") THEN
+            LDM_DetectCircling = .TRUE.
+            PRINT *, "De Bugger: Debugging SUBROUTINE DetectCircling"
+          END IF
+          IF (debugFlags == "ReduceCP") THEN
+            LDM_ReduceCP = .TRUE.
+            PRINT *, "De Bugger: Debugging SUBROUTINE ReduceCP"
+          END IF
+          IF (debugFlags == "DensityDescend") THEN
+            LDM_DensityDescend = .TRUE.
+            PRINT *, "De Bugger: Debugging SUBROUTINE DensityDescend"
+          END IF
+          IF (debugFlags == "RecordCPRLight") THEN
+            LDM_RecordCPRLight = .TRUE.
+            PRINT *, "De Bugger: Debugging SUBROUTINE RecordCPRLight"
+          END IF
+          IF (debugFlags == "NRTFGP") THEN
+            LDM_NRTFGP = .TRUE.
+            PRINT *, "De Bugger: Debugging SUBROUTINE NRTFGP"
+          END IF
+          IF (debugFlags == "CalcTEMLat") THEN
+            LDM_CalcTEMLat = .TRUE.
+            PRINT *, "De Bugger: Debugging SUBROUTINE CalcTEMLat"
+          END IF
+          IF (ios/=0) EXIT
+        END DO
+        CLOSE(60)
+      ELSE
+        PRINT *, "ERROR : in debug mode but debugConfig file was not found!"
+      END IF
+    END SUBROUTINE GetDebugFlags
+
   END MODULE
 
 
