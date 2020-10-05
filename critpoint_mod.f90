@@ -321,7 +321,7 @@
                      (tem(2) /= tempRealR(2)) .OR. &
                      (tem(3) /= tempRealR(3))) THEN
                  PRINT *, "ERROR!  DIfferent tem obtained!"
-                 PRINT *, "CalcTEMLat produced"
+                 PRINT *, "CalcTEMGrid produced"
                  PRINT *, tempRealR
                  PRINT *, "Direct calculation produced"
                  PRINT *, tem
@@ -399,66 +399,15 @@
           temscale = (/1.,1.,1./)
           temnormcap = 1.
           IF (.FALSE.) THEN
-          ! This determins if validation is done with gradient descend
-          !    PRINT *, 'looking at critical point candidate # ', i
-          !    PRINT *, 'indices are '
-          !   p = cpcl(i)%ind
-          !    PRINT *, p
-          !   cpcl(i)%trueind = 0.
-          !    PRINT *, 'starting sqgradientdescend'
-          !   CALL sqgradientdescend(p,chg,matm,matwprime,wi,vi,vit, &
-          !                      ggrid,outerproduct,opts,cpcl(i)%trueind,invac,bdr,nnLayers,ions)
-          !    PRINT *, 'ending sqgradientdescend'
-          !    PRINT *, 'after descend trueind is'
-          !    PRINT *, cpcl(i)%trueind
-          !   IF (cpcl(i)%trueind(1) == -1.) THEN
-          !     cpcl(i)%isunique = .FALSE.
-          !     PRINT *, 'set to be not unique'
-          !     CYCLE
-          !   END IF
-          !   truer = cpcl(i)%trueind
-          !   cpcl(i)%isunique = .TRUE.
-          !   nnind = simpleNN(truer,chg)
-          !   distance = truer - nnind(1,:)
-          !   DO j = 1,8
-          !     IF (opts%leastsquare_flag .EQV. .true.) THEN
-          !       nngrad(j,:) = lsg(nnind(j,:),chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
-          !       hessianmatrix = lsh(nnind(j,:),chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
-          !       inversehessian = inverse(hessianmatrix)
-          !       nnhes(j,1,:) = hessianmatrix(1,:)
-          !       nnhes(j,2,:) = hessianmatrix(2,:)
-          !       nnhes(j,3,:) = hessianmatrix(3,:)
-          !     ELSE 
-          !       nngrad(j,:) = CDGrad(p,chg)
-          !       hessianMatrix = CDHessian(p,chg)
-          !       nnhes(j,:,:) = hessianMatrix(:,:)
-          !     END IF
-          !   END DO
-          !   interpolgrad = trilinear_interpol_grad(nngrad,distance) ! val r interpol
-          !   interpolHessian = trilinear_interpol_hes(nnhes,distance)
-          !   !nnind = FindNN(truer,nnlayers,chg,ions)
-          !   !interpolGrad = R2GradInterpol(nnind,truer,chg,nnlayers)
-          !   !interpolHessian = R2HesInterpol(nnind,truer,chg,nnlayers)
+
           ELSE
           ! Begins newton raphson validation process
             stepcount = 1
             averagecount = 0
             averageR = (/-1.,-1.,-1./)
-            n1 = cpcl(i)%ind(1)
-            n2 = cpcl(i)%ind(2)
-            n3 = cpcl(i)%ind(3)
             cpcl(i)%nnind = simpleNN(cpcl(i)%r,chg)
-            ! get gradients " of all nearest neighbors
-            DO j = 1, 8
-              IF (opts%leastsquare_flag .EQV. .TRUE.) THEN
-                nngrad(j,:) = lsg(cpcl(i)%nnind(j,:),chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
-              ELSE 
-                nngrad(j,:) = CDGrad(cpcl(i)%nnind(j,:),chg)
-              END IF
-            END DO
             ! Now start newton method iterations
             truer =  cpcl(i)%ind + cpcl(i)%r
-            CALL pbc_r_lat(truer,chg%npts)
             previoustem = cpcl(i)%r
             DO stepcount = 1,1000
               IF (stepcount >= 1) THEN
@@ -467,32 +416,81 @@
               CALL pbc_r_lat(truer,chg%npts)
               nnind = simpleNN(truer,chg)
               distance = truer - nnind(1,:)
-              DO j = 1,8
-                IF (opts%leastsquare_flag .EQV. .true.) THEN
-                  nngrad(j,:) = lsg(nnind(j,:),chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
-                  hessianmatrix = lsh(nnind(j,:),chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
-                  IF (opts%dohes) THEN
-                    CALL DiagonalOnlyHes(hessianMatrix)
+              nexttem = CalcTEMLat(trueR,chg,temScale,previousTEM,grad,temNormCap,&
+                LDM)
+              tempRealR = nexttem
+              IF (LDM) THEN
+                DO j = 1,8
+                  IF (opts%leastsquare_flag .EQV. .true.) THEN
+                    nngrad(j,:) = lsg(nnind(j,:),chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
+                    hessianmatrix = lsh(nnind(j,:),chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
+                    IF (opts%dohes) THEN
+                      CALL DiagonalOnlyHes(hessianMatrix)
+                    END IF
+                    inversehessian = inverse(hessianmatrix)
+                    nnhes(j,1,:) = hessianmatrix(1,:)
+                    nnhes(j,2,:) = hessianmatrix(2,:)
+                    nnhes(j,3,:) = hessianmatrix(3,:)
+                  ELSE 
+                    nngrad(j,:) = CDGrad(nnind(j,:),chg)
+                    hessianMatrix = CDHessian(nnind(j,:),chg)
+                    !IF (opts%dohes) THEN
+                    !  CALL DiagonalOnlyHes(hessianMatrix)
+                    !END IF
+                    nnhes(j,:,:) = hessianMatrix
                   END IF
-                  inversehessian = inverse(hessianmatrix)
-                  nnhes(j,1,:) = hessianmatrix(1,:)
-                  nnhes(j,2,:) = hessianmatrix(2,:)
-                  nnhes(j,3,:) = hessianmatrix(3,:)
-                ELSE 
-                  nngrad(j,:) = CDGrad(nnind(j,:),chg)
-                  hessianMatrix = CDHessian(nnind(j,:),chg)
-                  IF (opts%dohes) THEN
-                    CALL DiagonalOnlyHes(hessianMatrix)
-                  END IF
-                  nnhes(j,:,:) = hessianMatrix
+                END DO
+                 !row find the nearest neighbors at this new locaiton
+                 !first update critical point location
+                 !the next big step is to interpolate the force at predicted critical
+                 !point.
+                grad = trilinear_interpol_grad(nnGrad,distance) ! val r interpol
+                interpolHessian = trilinear_interpol_hes(nnHes,distance)
+                nexttem = - MATMUL(inverse(interpolHessian),grad)
+                nexttem = MATMUL(chg%car2lat,nexttem)
+                ! see if movement capping is necessary
+                nexttem = TemMods(nexttem,temscale,temnormcap)
+                temscale = scaleinspector( nexttem, previoustem, temscale)
+                IF (nexttem(1) /= tempRealR(1) .OR. &
+                    nexttem(2) /= tempRealR(2) .OR. &
+                    nexttem(3) /= tempRealR(3)) THEN
+                  PRINT *, "In Newton Rhapson validation, two methods gave &
+                    different tem!"
+                  PRINT *, "CalcTEMLat produced postconversion "
+                  PRINT *, tempRealR
+                  PRINT *, "Direct calculations produced after car2lat"
+                  PRINT *,  MATMUL(chg%car2lat, & 
+                    -MATMUL(inverse(interpolHessian),grad))
+                  PRINT *, "Direct calculations produced postconversion"
+                  PRINT *, nexttem
+                  PRINT *, "Direct calculated grad is"
+                  PRINT *, grad
+                  PRINT *, "Direct calculated hessianMatrix is"
+                  PRINT *, interpolHessian(1,:)
+                  PRINT *, interpolHessian(2,:)
+                  PRINT *, interpolHessian(3,:)
+                  PRINT *, "Preconversion direct calculated tem is"
+                  PRINT *, - MATMUL(inverse(interpolHessian),grad)
+                  PRINT *, "Grad used here is"
+                  PRINT *, grad
+                  PRINT *, "Hessian used here is"
+                  PRINT *, interpolHessian
+                  PRINT *, "for TemMods, temscale, temnormcap are"
+                  PRINT *, temScale
+                  PRINT *, temNormCap
+                  !PRINT *, "All direct calculated components of nnHes are"
+                  !DO j=1,8
+                  !  PRINT *, j
+                  !  PRINT *, nnHes(j,1,:)
+                  !  PRINT *, nnHes(j,2,:)
+                  !  PRINT *, nnHes(j,3,:)
+                  !END DO
+                  PRINT *, "Distance is"
+                  PRINT *, distance
+                  PRINT *, "Exiting"
+                  STOP
                 END IF
-              END DO
-               !row find the nearest neighbors at this new locaiton
-               !first update critical point location
-               !the next big step is to interpolate the force at predicted critical
-               !point.
-              grad = trilinear_interpol_grad(nnGrad,distance) ! val r interpol
-              interpolHessian = trilinear_interpol_hes(nnHes,distance)
+              END IF
               !grad = R2GradInterpol(nnind,truer,chg,nnLayers)
               IF (ABS(grad(1)) <= 0.1*opts%par_gradfloor .AND. &
                   ABS(grad(2)) <= 0.1*opts%par_gradfloor .AND. &
@@ -502,11 +500,7 @@
                 cpcl(i)%isunique = .TRUE.
                 EXIT
               END IF
-              nexttem = - MATMUL(inverse(interpolHessian),grad)
-              nexttem = MATMUL(chg%car2lat,nexttem)
-              ! see if movement capping is necessary
-              nexttem = TemMods(nexttem,temscale,temnormcap)
-              temscale = scaleinspector( nexttem, previoustem, temscale)
+
               CALL DetectCircling(stepCount,rList,temList,trueR,nextTem,averageR, &
                 LDM_DetectCircling,cpcl(i)%ind)
               IF (ALL(averageR /= -1.,1)) THEN
@@ -3045,7 +3039,8 @@
     END FUNCTION CalcTEMGrid
  
     ! This function will not work if calculating TEM at a grid point.
-    FUNCTION CalcTEMLat(trueR,chg,temScale,previousTEM,grad,LDM)
+    FUNCTION CalcTEMLat(trueR,chg,temScale,previousTEM,grad, &
+      temNormCap,LDM)
       TYPE(charge_obj) :: chg
       INTEGER,DIMENSION(8,3) :: nnind
       INTEGER :: j
@@ -3074,12 +3069,52 @@
       END DO
       grad = trilinear_interpol_grad(nnGrad,distance) ! val r interpol
       hessianMatrix = trilinear_interpol_hes(nnHes,distance)
+      IF (LDM) THEN
+        PRINT *, "CalcTEMLat Calculated grad is"
+        PRINT *, grad
+        PRINT *, "CalcTEMLat HessianMatrix is"
+        PRINT *, hessianMatrix(1,:)
+        PRINT *, hessianMatrix(2,:)
+        PRINT *, hessianMatrix(3,:)
+        !PRINT *, "All components in nnHes are"
+        !DO j=1,8
+        !  PRINT *, j
+        !  PRINT *, nnHes(j,1,:)
+        !  PRINT *, nnHes(j,2,:)
+        !  PRINT *, nnHes(j,3,:)
+        !END DO
+        !PRINT *, "Distance is"
+        !PRINT *, distance
+      END IF
+      
+      
       CalcTEMLat = - MATMUL(inverse(hessianMatrix),grad)
+      IF (LDM) THEN
+        PRINT *, "CalcTEMLat Preconversion TEM is"
+        PRINT *, CalcTEMLat
+        PRINT *, - MATMUL(inverse(hessianMatrix),grad)
+        PRINT *, "Grad used here is"
+        PRINT *, grad
+        PRINT *, "Hessian used here is"
+        PRINT *, hessianMatrix
+        PRINT *, "for TemMods, temScale, temNormCap are"
+        PRINT *, temScale
+        PRINT *, temNormCap
+      END IF
       CalcTEMLat  = MATMUL(chg%car2lat,CalcTEMLat)
       CalcTEMLat  = TemMods(CalcTEMLat,temScale,temNormCap)
       temScale = scaleinspector(CalcTEMLat, previousTEM, temScale)
+      IF (LDM) THEN
+        PRINT *, "CalcTEMLat after car2lat is "
+        PRINT *, MATMUL(chg%car2lat,- MATMUL(inverse(hessianMatrix),grad))
+        PRINT *, "CalcTEMLat Postconversion TEM is"
+        PRINT *, CalcTEMLat
+        PRINT *, "Leaving CalcTEMLat"
+      END IF
       RETURN
     END FUNCTION CalcTEMLat
+
+
     SUBROUTINE GetDebugFlags(opts,LDM,LDM_DetectCircling,&
       LDM_ReduceCP,LDM_DensityDescend,LDM_RecordCPRLight,&
       LDM_NRTFGP,LDM_CalcTEMLat)
@@ -3135,7 +3170,48 @@
         PRINT *, "ERROR : in debug mode but debugConfig file was not found!"
       END IF
     END SUBROUTINE GetDebugFlags
-
+  
+    ! The following code is potentially useful for gradient descend
+          ! This determins if validation is done with gradient descend
+          !    PRINT *, 'looking at critical point candidate # ', i
+          !    PRINT *, 'indices are '
+          !   p = cpcl(i)%ind
+          !    PRINT *, p
+          !   cpcl(i)%trueind = 0.
+          !    PRINT *, 'starting sqgradientdescend'
+          !   CALL sqgradientdescend(p,chg,matm,matwprime,wi,vi,vit, &
+          !                      ggrid,outerproduct,opts,cpcl(i)%trueind,invac,bdr,nnLayers,ions)
+          !    PRINT *, 'ending sqgradientdescend'
+          !    PRINT *, 'after descend trueind is'
+          !    PRINT *, cpcl(i)%trueind
+          !   IF (cpcl(i)%trueind(1) == -1.) THEN
+          !     cpcl(i)%isunique = .FALSE.
+          !     PRINT *, 'set to be not unique'
+          !     CYCLE
+          !   END IF
+          !   truer = cpcl(i)%trueind
+          !   cpcl(i)%isunique = .TRUE.
+          !   nnind = simpleNN(truer,chg)
+          !   distance = truer - nnind(1,:)
+          !   DO j = 1,8
+          !     IF (opts%leastsquare_flag .EQV. .true.) THEN
+          !       nngrad(j,:) = lsg(nnind(j,:),chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
+          !       hessianmatrix = lsh(nnind(j,:),chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
+          !       inversehessian = inverse(hessianmatrix)
+          !       nnhes(j,1,:) = hessianmatrix(1,:)
+          !       nnhes(j,2,:) = hessianmatrix(2,:)
+          !       nnhes(j,3,:) = hessianmatrix(3,:)
+          !     ELSE 
+          !       nngrad(j,:) = CDGrad(p,chg)
+          !       hessianMatrix = CDHessian(p,chg)
+          !       nnhes(j,:,:) = hessianMatrix(:,:)
+          !     END IF
+          !   END DO
+          !   interpolgrad = trilinear_interpol_grad(nngrad,distance) ! val r interpol
+          !   interpolHessian = trilinear_interpol_hes(nnhes,distance)
+          !   !nnind = FindNN(truer,nnlayers,chg,ions)
+          !   !interpolGrad = R2GradInterpol(nnind,truer,chg,nnlayers)
+          !   !interpolHessian = R2HesInterpol(nnind,truer,chg,nnlayers)
   END MODULE
 
 
