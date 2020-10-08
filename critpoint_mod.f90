@@ -402,136 +402,149 @@
 
           ELSE
           ! Begins newton raphson validation process
-            stepcount = 1
-            averagecount = 0
-            averageR = (/-1.,-1.,-1./)
-            cpcl(i)%nnind = simpleNN(cpcl(i)%r,chg)
-            ! Now start newton method iterations
-            truer =  cpcl(i)%ind + cpcl(i)%r
-            previoustem = cpcl(i)%r
-            DO stepcount = 1,1000
-              IF (stepcount >= 1) THEN
-                prevgrad = grad
-              END IF
-              CALL pbc_r_lat(truer,chg%npts)
-              nnind = simpleNN(truer,chg)
-              distance = truer - nnind(1,:)
-              nexttem = CalcTEMLat(trueR,chg,temScale,previousTEM,grad,temNormCap,&
-                LDM)
-              tempRealR = nexttem
-              IF (LDM) THEN
-                DO j = 1,8
-                  IF (opts%leastsquare_flag .EQV. .true.) THEN
-                    nngrad(j,:) = lsg(nnind(j,:),chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
-                    hessianmatrix = lsh(nnind(j,:),chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
-                    IF (opts%dohes) THEN
-                      CALL DiagonalOnlyHes(hessianMatrix)
-                    END IF
-                    inversehessian = inverse(hessianmatrix)
-                    nnhes(j,1,:) = hessianmatrix(1,:)
-                    nnhes(j,2,:) = hessianmatrix(2,:)
-                    nnhes(j,3,:) = hessianmatrix(3,:)
-                  ELSE 
-                    nngrad(j,:) = CDGrad(nnind(j,:),chg)
-                    hessianMatrix = CDHessian(nnind(j,:),chg)
-                    !IF (opts%dohes) THEN
-                    !  CALL DiagonalOnlyHes(hessianMatrix)
-                    !END IF
-                    nnhes(j,:,:) = hessianMatrix
-                  END IF
-                END DO
-                 !row find the nearest neighbors at this new locaiton
-                 !first update critical point location
-                 !the next big step is to interpolate the force at predicted critical
-                 !point.
-                grad = trilinear_interpol_grad(nnGrad,distance) ! val r interpol
-                interpolHessian = trilinear_interpol_hes(nnHes,distance)
-                nexttem = - MATMUL(inverse(interpolHessian),grad)
-                nexttem = MATMUL(chg%car2lat,nexttem)
-                ! see if movement capping is necessary
-                nexttem = TemMods(nexttem,temscale,temnormcap)
-                temscale = scaleinspector( nexttem, previoustem, temscale)
-                IF (nexttem(1) /= tempRealR(1) .OR. &
-                    nexttem(2) /= tempRealR(2) .OR. &
-                    nexttem(3) /= tempRealR(3)) THEN
-                  PRINT *, "In Newton Rhapson validation, two methods gave &
-                    different tem!"
-                  PRINT *, "CalcTEMLat produced postconversion "
-                  PRINT *, tempRealR
-                  PRINT *, "Direct calculations produced after car2lat"
-                  PRINT *,  MATMUL(chg%car2lat, & 
-                    -MATMUL(inverse(interpolHessian),grad))
-                  PRINT *, "Direct calculations produced postconversion"
-                  PRINT *, nexttem
-                  PRINT *, "Direct calculated grad is"
-                  PRINT *, grad
-                  PRINT *, "Direct calculated hessianMatrix is"
-                  PRINT *, interpolHessian(1,:)
-                  PRINT *, interpolHessian(2,:)
-                  PRINT *, interpolHessian(3,:)
-                  PRINT *, "Preconversion direct calculated tem is"
-                  PRINT *, - MATMUL(inverse(interpolHessian),grad)
-                  PRINT *, "Grad used here is"
-                  PRINT *, grad
-                  PRINT *, "Hessian used here is"
-                  PRINT *, interpolHessian
-                  PRINT *, "for TemMods, temscale, temnormcap are"
-                  PRINT *, temScale
-                  PRINT *, temNormCap
-                  !PRINT *, "All direct calculated components of nnHes are"
-                  !DO j=1,8
-                  !  PRINT *, j
-                  !  PRINT *, nnHes(j,1,:)
-                  !  PRINT *, nnHes(j,2,:)
-                  !  PRINT *, nnHes(j,3,:)
-                  !END DO
-                  PRINT *, "Distance is"
-                  PRINT *, distance
-                  PRINT *, "Exiting"
-                  STOP
+            CALL NRTFGP(bdr,chg,opts,trueR,&
+              LDM_detectCircling,cpcl(i)%isUnique,cpcl(i)%r,cpcl(i)%ind,&
+              cpcl(i)%trueInd,1000,LDM_NRTFGP)
+            IF (LDM) THEN
+              PRINT *, "NRTFGP starting from point cpcl(i)%ind"
+              PRINT *, "trajectory converged to point"
+              PRINT *, truer
+              stepcount = 1
+              averagecount = 0
+              averageR = (/-1.,-1.,-1./)
+              cpcl(i)%nnind = simpleNN(cpcl(i)%r,chg)
+              ! Now start newton method iterations
+              truer =  cpcl(i)%ind + cpcl(i)%r
+              previoustem = cpcl(i)%r
+              DO stepCount = 1,1000
+                IF (stepcount >= 1) THEN
+                  prevgrad = grad
                 END IF
-              END IF
-              !grad = R2GradInterpol(nnind,truer,chg,nnLayers)
-              IF (ABS(grad(1)) <= 0.1*opts%par_gradfloor .AND. &
-                  ABS(grad(2)) <= 0.1*opts%par_gradfloor .AND. &
-                  ABS(grad(3)) <= 0.1*opts%par_gradfloor) THEN
+                CALL pbc_r_lat(truer,chg%npts)
+                nnind = simpleNN(truer,chg)
+                distance = truer - nnind(1,:)
+                nexttem = CalcTEMLat(trueR,chg,temScale,previousTEM,grad,temNormCap,&
+                  LDM)
+                tempRealR = nexttem
+                IF (LDM) THEN
+                  ! Below contains the unit test for CalcTEMLat
+                  DO j = 1,8
+                    IF (opts%leastsquare_flag .EQV. .true.) THEN
+                      nngrad(j,:) = lsg(nnind(j,:),chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
+                      hessianmatrix = lsh(nnind(j,:),chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
+                      IF (opts%dohes) THEN
+                        CALL DiagonalOnlyHes(hessianMatrix)
+                      END IF
+                      inversehessian = inverse(hessianmatrix)
+                      nnhes(j,1,:) = hessianmatrix(1,:)
+                      nnhes(j,2,:) = hessianmatrix(2,:)
+                      nnhes(j,3,:) = hessianmatrix(3,:)
+                    ELSE 
+                      nngrad(j,:) = CDGrad(nnind(j,:),chg)
+                      hessianMatrix = CDHessian(nnind(j,:),chg)
+                      !IF (opts%dohes) THEN
+                      !  CALL DiagonalOnlyHes(hessianMatrix)
+                      !END IF
+                      nnhes(j,:,:) = hessianMatrix
+                    END IF
+                  END DO
+                   !row find the nearest neighbors at this new locaiton
+                   !first update critical point location
+                   !the next big step is to interpolate the force at predicted critical
+                   !point.
+                  grad = trilinear_interpol_grad(nnGrad,distance) ! val r interpol
+                  interpolHessian = trilinear_interpol_hes(nnHes,distance)
+                  nexttem = - MATMUL(inverse(interpolHessian),grad)
+                  nexttem = MATMUL(chg%car2lat,nexttem)
+                  ! see if movement capping is necessary
+                  nexttem = TemMods(nexttem,temscale,temnormcap)
+                  temscale = scaleinspector( nexttem, previoustem, temscale)
+                  IF (nexttem(1) /= tempRealR(1) .OR. &
+                      nexttem(2) /= tempRealR(2) .OR. &
+                      nexttem(3) /= tempRealR(3)) THEN
+                    PRINT *, "In Newton Rhapson validation, two methods gave &
+                      different tem!"
+                    PRINT *, "CalcTEMLat produced postconversion "
+                    PRINT *, tempRealR
+                    PRINT *, "Direct calculations produced after car2lat"
+                    PRINT *,  MATMUL(chg%car2lat, & 
+                      -MATMUL(inverse(interpolHessian),grad))
+                    PRINT *, "Direct calculations produced postconversion"
+                    PRINT *, nexttem
+                    PRINT *, "Direct calculated grad is"
+                    PRINT *, grad
+                    PRINT *, "Direct calculated hessianMatrix is"
+                    PRINT *, interpolHessian(1,:)
+                    PRINT *, interpolHessian(2,:)
+                    PRINT *, interpolHessian(3,:)
+                    PRINT *, "Preconversion direct calculated tem is"
+                    PRINT *, - MATMUL(inverse(interpolHessian),grad)
+                    PRINT *, "Grad used here is"
+                    PRINT *, grad
+                    PRINT *, "Hessian used here is"
+                    PRINT *, interpolHessian
+                    PRINT *, "for TemMods, temscale, temnormcap are"
+                    PRINT *, temScale
+                    PRINT *, temNormCap
+                    !PRINT *, "All direct calculated components of nnHes are"
+                    !DO j=1,8
+                    !  PRINT *, j
+                    !  PRINT *, nnHes(j,1,:)
+                    !  PRINT *, nnHes(j,2,:)
+                    !  PRINT *, nnHes(j,3,:)
+                    !END DO
+                    PRINT *, "Distance is"
+                    PRINT *, distance
+                    PRINT *, "Exiting"
+                    STOP
+                  END IF
+                END IF
+                !grad = R2GradInterpol(nnind,truer,chg,nnLayers)
+                IF (ABS(grad(1)) <= 0.1*opts%par_gradfloor .AND. &
+                    ABS(grad(2)) <= 0.1*opts%par_gradfloor .AND. &
+                    ABS(grad(3)) <= 0.1*opts%par_gradfloor) THEN
 
-                cpcl(i)%trueind = truer 
-                cpcl(i)%isunique = .TRUE.
-                EXIT
-              END IF
+                  cpcl(i)%trueind = truer 
+                  cpcl(i)%isunique = .TRUE.
+                  EXIT
+                END IF
 
-              CALL DetectCircling(stepCount,rList,temList,trueR,nextTem,averageR, &
-                LDM_DetectCircling,cpcl(i)%ind)
-              IF (ALL(averageR /= -1.,1)) THEN
-                cpcl(i)%isUnique = .TRUE.
-                cpcl(i)%trueInd = averageR
-                trueR = averageR
-                ! the following code is temporary. it disables averaging.
-                ! upon seeing averaging, this trajectory is marked unusable.
-                cpcl(i)%isUnique = .FALSE.
-                EXIT
-              END IF
-              previoustem = nexttem
-              tempr(1) = NINT(truer(1))
-              tempr(2) = NINT(truer(2))
-              tempr(3) = NINT(truer(3))
-              CALL pbc(tempr,chg%npts)
-              IF (bdr%volnum(tempr(1), &
-                  tempr(2),tempr(3)) == bdr%bnum + 1) THEN
-                ! We are heading into the vacuum space, cosmonaughts! 
-                cpcl(i)%isunique = .FALSE.
-                EXIT
-              END IF
-              IF ( ABS(nexttem(1)) .LE. 0.1*opts%par_newtonr .AND. &
-                   ABS(nexttem(2)) .LE. 0.1*opts%par_newtonr .AND. &
-                   ABS(nexttem(3)) .LE. 0.1*opts%par_newtonr ) THEN
-                cpcl(i)%trueind = truer 
-                cpcl(i)%isUnique = .TRUE.
-                !EXIT
-              END IF
-              truer = truer + nexttem
-            END DO
+                CALL DetectCircling(stepCount,rList,temList,trueR,nextTem,averageR, &
+                  LDM_DetectCircling,cpcl(i)%ind)
+                IF (ALL(averageR /= -1.,1)) THEN
+                  cpcl(i)%isUnique = .TRUE.
+                  cpcl(i)%trueInd = averageR
+                  trueR = averageR
+                  ! the following code is temporary. it disables averaging.
+                  ! upon seeing averaging, this trajectory is marked unusable.
+                  cpcl(i)%isUnique = .FALSE.
+                  EXIT
+                END IF
+                previoustem = nexttem
+                tempr(1) = NINT(truer(1))
+                tempr(2) = NINT(truer(2))
+                tempr(3) = NINT(truer(3))
+                CALL pbc(tempr,chg%npts)
+                IF (bdr%volnum(tempr(1), &
+                    tempr(2),tempr(3)) == bdr%bnum + 1) THEN
+                  ! We are heading into the vacuum space, cosmonaughts! 
+                  cpcl(i)%isunique = .FALSE.
+                  EXIT
+                END IF
+                IF ( ABS(nexttem(1)) .LE. 0.1*opts%par_newtonr .AND. &
+                     ABS(nexttem(2)) .LE. 0.1*opts%par_newtonr .AND. &
+                     ABS(nexttem(3)) .LE. 0.1*opts%par_newtonr ) THEN
+                  cpcl(i)%trueind = truer 
+                  cpcl(i)%isUnique = .TRUE.
+                  !EXIT
+                END IF
+                truer = truer + nexttem
+              END DO
+              PRINT *, "Direct calculation trajectory converged at point"
+              PRINT *, truer
+              PRINT *, "after ", stepCount, " steps "
+              STOP
+            END IF
           END IF
           IF (cpcl(i)%isUnique ) THEN
 
@@ -3170,7 +3183,110 @@
         PRINT *, "ERROR : in debug mode but debugConfig file was not found!"
       END IF
     END SUBROUTINE GetDebugFlags
-  
+ 
+    SUBROUTINE NRTFGP(bdr,chg,opts,trueR,&
+      LDM_detectCircling,isUnique,r,ind,trueInd,stepMax,LDM)
+      TYPE(bader_obj) :: bdr
+      TYPE(charge_obj) :: chg
+      TYPE(options_obj) :: opts
+      INTEGER,DIMENSION(8,3) :: nnInd
+      INTEGER,DIMENSION(3) :: gp,tempR,ind
+      INTEGER :: stepCount,AverageCount,&
+        i,j,k,stepMax
+      REAL(q2),DIMENSION(8,3,3) :: nnHes
+      REAL(q2),DIMENSION(10,3) :: temList,rList
+      REAL(q2),DIMENSION(8,3) :: nnGrad
+      REAL(q2),DIMENSION(3,3) :: hessianMatrix,interpolHessian&
+        ,inverseHessian
+      REAL(q2),DIMENSION(3) :: grad,tem,averageR,trueR,nexttem,previoustem,&
+        prevGrad,distance,temScale,temCap,r,indR,trueInd
+      REAL(q2) :: temNormCap
+      LOGICAL :: isUnique
+      LOGICAL :: LDM,LDM_detectCircling
+      IF (LDM) THEN
+        PRINT *, "Entered NRTFGP"
+        PRINT *, "Starting trajectory at "
+        PRINT *, ind
+      END IF
+      isUnique = .FALSE.
+      temcap = (/1.,1.,1./)
+      temScale = (/1.,1.,1./)
+      temNormCap = 1.
+      stepCount = 1
+      averageCount = 0
+      averageR = (/-1.,-1.,-1./)
+      indR(1) = REAL(ind(1),q2)
+      indR(2) = REAL(ind(2),q2)
+      indR(3) = REAL(ind(3),q2)
+      nnInd = SimpleNN(indR,chg)
+      ! get gradients " of all nearest neighbors
+      DO j = 1, 8
+        nngrad(j,:) = CDGrad(nnInd,chg)
+      END DO
+      ! Now start newton method iterations
+      ! First step
+      trueR =  ind + r
+      CALL pbc_r_lat(trueR,chg%npts)
+      previoustem = r
+      ! All the rest of the steps
+      IF (LDM) &
+        PRINT *, "Trajectory initialization complete"
+      DO stepcount = 1,stepMax
+        IF (stepcount >= 1) THEN
+          prevgrad = grad
+        END IF
+        CALL pbc_r_lat(truer,chg%npts)
+        nnind = simpleNN(truer,chg)
+        distance = truer - nnind(1,:)
+        nexttem = CalcTEMLat(trueR,chg,temScale,previousTEM,grad,temNormCap,&
+          LDM)
+        !grad = R2GradInterpol(nnind,truer,chg,nnLayers)
+        IF (ABS(grad(1)) <= 0.1*opts%par_gradfloor .AND. &
+            ABS(grad(2)) <= 0.1*opts%par_gradfloor .AND. &
+            ABS(grad(3)) <= 0.1*opts%par_gradfloor) THEN
+          trueind = truer 
+          isunique = .TRUE.
+          EXIT
+        END IF
+        CALL DetectCircling(stepCount,rList,temList,trueR,nextTem,averageR, &
+          LDM_DetectCircling,ind)
+        IF (ALL(averageR /= -1.,1)) THEN
+          !cpcl(i)%isUnique = .TRUE.
+          trueInd = averageR
+          trueR = averageR
+          ! the following code is temporary. it disables averaging.
+          ! upon seeing averaging, this trajectory is marked unusable.
+          isUnique = .FALSE.
+          EXIT
+        END IF
+        previoustem = nexttem
+        tempr(1) = NINT(truer(1))
+        tempr(2) = NINT(truer(2))
+        tempr(3) = NINT(truer(3))
+        CALL pbc(tempr,chg%npts)
+        IF (bdr%volnum(tempr(1), &
+            tempr(2),tempr(3)) == bdr%bnum + 1) THEN
+          ! We are heading into the vacuum space, cosmonaughts! 
+          isunique = .FALSE.
+          EXIT
+        END IF
+        IF ( ABS(nexttem(1)) .LE. 0.1*opts%par_newtonr .AND. &
+             ABS(nexttem(2)) .LE. 0.1*opts%par_newtonr .AND. &
+             ABS(nexttem(3)) .LE. 0.1*opts%par_newtonr ) THEN
+          trueind = truer 
+          isUnique = .TRUE.
+          !EXIT
+        END IF
+        truer = truer + nexttem
+      END DO
+      truer = truer + nexttem ! this keeps track the total movement
+      CALL pbc_r_lat(truer,chg%npts)
+      IF (LDM) THEN
+        PRINT *, "Exiting NRTFGP after step count : "
+      END IF 
+    END SUBROUTINE NRTFGP 
+
+
     ! The following code is potentially useful for gradient descend
           ! This determins if validation is done with gradient descend
           !    PRINT *, 'looking at critical point candidate # ', i
