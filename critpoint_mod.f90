@@ -325,7 +325,6 @@
                  PRINT *, tempRealR
                  PRINT *, "Direct calculation produced"
                  PRINT *, tem
-                 STOP
                 END IF
               END IF
             END IF
@@ -406,9 +405,11 @@
               LDM_detectCircling,cpcl(i)%isUnique,cpcl(i)%r,cpcl(i)%ind,&
               cpcl(i)%trueInd,1000,LDM_NRTFGP)
             IF (LDM) THEN
-              PRINT *, "NRTFGP starting from point cpcl(i)%ind"
-              PRINT *, "trajectory converged to point"
-              PRINT *, truer
+              tempReal3D = trueR
+              PRINT *, "Direct calculation starting from point "
+              PRINT *, cpcl(i)%ind
+              PRINT *, "recorded r is "
+              PRINT *, cpcl(i)%r
               stepcount = 1
               averagecount = 0
               averageR = (/-1.,-1.,-1./)
@@ -417,6 +418,7 @@
               truer =  cpcl(i)%ind + cpcl(i)%r
               previoustem = cpcl(i)%r
               DO stepCount = 1,1000
+                IF (LDM) PRINT *, "Direct calculation step ", stepCount
                 IF (stepcount >= 1) THEN
                   prevgrad = grad
                 END IF
@@ -428,6 +430,7 @@
                 tempRealR = nexttem
                 IF (LDM) THEN
                   ! Below contains the unit test for CalcTEMLat
+                  PRINT *, "Starting debug output for CalcTEMLat"
                   DO j = 1,8
                     IF (opts%leastsquare_flag .EQV. .true.) THEN
                       nngrad(j,:) = lsg(nnind(j,:),chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
@@ -496,7 +499,7 @@
                     PRINT *, "Distance is"
                     PRINT *, distance
                     PRINT *, "Exiting"
-                    STOP
+                    PRINT *, "End debug output for CalcTEMLat"
                   END IF
                 END IF
                 !grad = R2GradInterpol(nnind,truer,chg,nnLayers)
@@ -506,6 +509,10 @@
 
                   cpcl(i)%trueind = truer 
                   cpcl(i)%isunique = .TRUE.
+                  PRINT *, "Trajectory converged after direct calculation & 
+                    small gradient"
+                  PRINT *, "gradient is "
+                  PRINT *, grad
                   EXIT
                 END IF
 
@@ -517,6 +524,7 @@
                   trueR = averageR
                   ! the following code is temporary. it disables averaging.
                   ! upon seeing averaging, this trajectory is marked unusable.
+                  IF (LDM) PRINT *, "Direct calculation stepped into vacuum"
                   cpcl(i)%isUnique = .FALSE.
                   EXIT
                 END IF
@@ -536,6 +544,10 @@
                      ABS(nexttem(3)) .LE. 0.1*opts%par_newtonr ) THEN
                   cpcl(i)%trueind = truer 
                   cpcl(i)%isUnique = .TRUE.
+                  PRINT *, "Trajectory converged after direct calculation &
+                    small tem"
+                  PRINT *, "tem is"
+                  PRINT *, tem
                   !EXIT
                 END IF
                 truer = truer + nexttem
@@ -543,7 +555,7 @@
               PRINT *, "Direct calculation trajectory converged at point"
               PRINT *, truer
               PRINT *, "after ", stepCount, " steps "
-              STOP
+
             END IF
           END IF
           IF (cpcl(i)%isUnique ) THEN
@@ -560,6 +572,15 @@
             CYCLE
           END IF
           truer = truer + nexttem ! this keeps track the total movement
+          IF ( LDM .AND. &
+              truer(1)/=tempReal3D(1) .OR. &
+              truer(2)/=tempReal3D(2) .OR. &
+              truer(3)/=tempReal3D(3) ) THEN
+            PRINT *, "ERROR :"
+            PRINT *, "NRTFGP and direct calculation converged to different &
+              points!"
+            STOP
+          END IF
           CALL pbc_r_lat(truer,chg%npts)
         ! moving on to the next critical pint candidate
         END DO
@@ -3205,8 +3226,11 @@
       LOGICAL :: LDM,LDM_detectCircling
       IF (LDM) THEN
         PRINT *, "Entered NRTFGP"
-        PRINT *, "Starting trajectory at "
+        PRINT *, "stepMax is"
+        PRINT *, "NRTFGP starting trajectory at "
         PRINT *, ind
+        PRINT *, "recorded r is "
+        PRINT *, r
       END IF
       isUnique = .FALSE.
       temcap = (/1.,1.,1./)
@@ -3232,6 +3256,7 @@
       IF (LDM) &
         PRINT *, "Trajectory initialization complete"
       DO stepcount = 1,stepMax
+        IF (LDM) PRINT *, "This is step ",stepCount
         IF (stepcount >= 1) THEN
           prevgrad = grad
         END IF
@@ -3246,12 +3271,18 @@
             ABS(grad(3)) <= 0.1*opts%par_gradfloor) THEN
           trueind = truer 
           isunique = .TRUE.
+          IF (LDM) THEN
+            PRINT *, "The trajectory converged due to small gradient"
+            PRINT *, "gradient is"
+            PRINT *, grad
+          END IF 
           EXIT
         END IF
         CALL DetectCircling(stepCount,rList,temList,trueR,nextTem,averageR, &
           LDM_DetectCircling,ind)
         IF (ALL(averageR /= -1.,1)) THEN
           !cpcl(i)%isUnique = .TRUE.
+          IF(LDM) PRINT *, "Detected Circling"
           trueInd = averageR
           trueR = averageR
           ! the following code is temporary. it disables averaging.
@@ -3267,6 +3298,7 @@
         IF (bdr%volnum(tempr(1), &
             tempr(2),tempr(3)) == bdr%bnum + 1) THEN
           ! We are heading into the vacuum space, cosmonaughts! 
+          PRINT *, "Stepped into vacuum"
           isunique = .FALSE.
           EXIT
         END IF
@@ -3275,6 +3307,9 @@
              ABS(nexttem(3)) .LE. 0.1*opts%par_newtonr ) THEN
           trueind = truer 
           isUnique = .TRUE.
+          PRINT *, "The trajectory converged due to small tem"
+          PRINT *, "tem is"
+          PRINT *, nexttem
           !EXIT
         END IF
         truer = truer + nexttem
@@ -3282,7 +3317,9 @@
       truer = truer + nexttem ! this keeps track the total movement
       CALL pbc_r_lat(truer,chg%npts)
       IF (LDM) THEN
-        PRINT *, "Exiting NRTFGP after step count : "
+        PRINT *, "Exiting NRTFGP after step count : ",stepCount
+        PRINT *, "NRTFGP trajectory converged at point "
+        PRINT *, truer
       END IF 
     END SUBROUTINE NRTFGP 
 

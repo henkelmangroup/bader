@@ -40,13 +40,13 @@
       CheckExhaustion = .FALSE.
       IF (opts%par_sr<=2 .AND. opts%par_newtonr <= 0.000000001 .AND. &
           opts%par_gradfloor <= 0.000000001)THEN
-        IF (opts%enableGradientDescend .eqv. .TRUE.) THEN
+        IF (opts%enableDensityDescend .eqv. .TRUE.) THEN
           CheckExhaustion = .TRUE.
           PRINT *, "The strictest setting has been used."
         ELSE
           PRINT *, "Enabling DensityDescend for minima finding"
           PRINT *, "Setting other parameters back to default values"
-          opts%enableGradientDescend = .TRUE.
+          opts%enableDensityDescend = .TRUE.
           ! In case parameters has been unnecessarily strict, reset everything
           opts%par_newtonr = 0.0001
           opts%par_gradfloor = 0.0001

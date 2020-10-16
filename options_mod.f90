@@ -35,7 +35,7 @@
       LOGICAL :: noInterpolation_flag
       LOGICAL :: debugMode
       LOGICAL :: dohes
-      LOGICAL :: enableGradientDescend
+      LOGICAL :: enableDensityDescend
     END TYPE options_obj
 
     PRIVATE
@@ -100,7 +100,7 @@
       opts%leastsquare_flag = .FALSE.
       opts%noInterpolation_flag = .FALSE.
       opts%print_surfaces_atoms = .FALSE.
-      opts%enableGradientDescend = .FALSE.
+      opts%enableDensityDescend = .FALSE.
 !      n=IARGC()
       n=COMMAND_ARGUMENT_COUNT()
       IF (n == 0) THEN
