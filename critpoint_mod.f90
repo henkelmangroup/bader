@@ -403,7 +403,7 @@
           ! Begins newton raphson validation process
             CALL NRTFGP(bdr,chg,opts,trueR,&
               LDM_detectCircling,cpcl(i)%isUnique,cpcl(i)%r,cpcl(i)%ind,&
-              cpcl(i)%trueInd,1000,LDM_NRTFGP)
+              1000,LDM_NRTFGP)
             IF (LDM) THEN
               tempReal3D = trueR
               PRINT *, "Direct calculation starting from point "
@@ -595,7 +595,7 @@
       isReduced = .FALSE.
       DO WHILE ( .NOT. isReduced)
         CALL ReduceCP(cpl,opts,ucptnum,chg,uBondCount, &
-          uringcount,uCageCount,maxCount,isReduced)
+          uringcount,uCageCount,maxCount,isReduced,LDM_RecordCPRLight)
       END DO
       ! This following debug line need to be togged on or off manually
       ! before compilling
@@ -2311,7 +2311,7 @@
     END SUBROUTINE RecordCPR
     
     SUBROUTINE RecordCPRLight(p,chg,cpl,ucptnum, maxcount, uringcount, &
-      ubondcount, ucagecount,ind)
+      ubondcount, ucagecount,ind,LDM)
       TYPE(charge_obj) :: chg
       TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpl
       REAL(q2), DIMENSION(3) :: eigvals, grad
@@ -2328,6 +2328,7 @@
       INTEGER,DIMENSION(3) :: ind
       INTEGER :: i, j, k, ucptnum, negCount
       INTEGER :: maxcount, uringcount, ubondcount, ucagecount
+      LOGICAL :: LDM
       hessianMatrix = CDHessianR(p,chg)
       grad = CDGradR(p,chg)
       cpl(ucptnum)%hessianMatrix = hessianMatrix
@@ -2786,7 +2787,7 @@
     ! another, and averages the same types into one to remove duplicate critical
     ! points. 
     SUBROUTINE ReduceCP(cpl,opts,ucptnum,chg,uBondCount, &
-        uRingCount,uCageCount,maxCount,isReduced)
+        uRingCount,uCageCount,maxCount,isReduced,LDM_RecordCPRLight)
       TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpl,rcpl
       TYPE(charge_obj) :: chg
       TYPE(options_obj) :: opts
@@ -2794,7 +2795,7 @@
       INTEGER :: uCPTNum, uBondCount,uRingCount,uCageCount,maxCount
       INTEGER :: rCPTNum, rBondCount,rRingCount,rCageCount,rmaxCount
       INTEGER :: i,j, nUCPTNum, weight, dupCount
-      LOGICAL :: isReduced
+      LOGICAL :: isReduced,LDM_RecordCPRLight
       PRINT *, 'Checking for duplicate CP'
       isReduced = .TRUE.
       dupCount = 0
@@ -2835,7 +2836,7 @@
         nUCPTNum = nUCPTNum + 1
         ! record the reduced CP
         CALL RecordCPRLight(avgR,chg,rcpl,nUCPTnum, rMaxCount, rRingCount, &
-          rBondCount, rCageCount,cpl(i)%ind)
+          rBondCount, rCageCount,cpl(i)%ind,LDM_RecordCPRLight)
       END DO
       CALL ReplaceCPL(cpl,rcpl)
       DO i = 1, SIZE(cpl)
@@ -3205,8 +3206,11 @@
       END IF
     END SUBROUTINE GetDebugFlags
  
+    ! Finishes a Newton Rhapson trajectory from point ind
+    ! trueR is the output converged point
+    ! isUnique shows if the trajectory converged
     SUBROUTINE NRTFGP(bdr,chg,opts,trueR,&
-      LDM_detectCircling,isUnique,r,ind,trueInd,stepMax,LDM)
+      LDM_detectCircling,isUnique,r,ind,stepMax,LDM)
       TYPE(bader_obj) :: bdr
       TYPE(charge_obj) :: chg
       TYPE(options_obj) :: opts
@@ -3220,7 +3224,7 @@
       REAL(q2),DIMENSION(3,3) :: hessianMatrix,interpolHessian&
         ,inverseHessian
       REAL(q2),DIMENSION(3) :: grad,tem,averageR,trueR,nexttem,previoustem,&
-        prevGrad,distance,temScale,temCap,r,indR,trueInd
+        prevGrad,distance,temScale,temCap,r,indR
       REAL(q2) :: temNormCap
       LOGICAL :: isUnique
       LOGICAL :: LDM,LDM_detectCircling
@@ -3269,7 +3273,6 @@
         IF (ABS(grad(1)) <= 0.1*opts%par_gradfloor .AND. &
             ABS(grad(2)) <= 0.1*opts%par_gradfloor .AND. &
             ABS(grad(3)) <= 0.1*opts%par_gradfloor) THEN
-          trueind = truer 
           isunique = .TRUE.
           IF (LDM) THEN
             PRINT *, "The trajectory converged due to small gradient"
@@ -3283,7 +3286,6 @@
         IF (ALL(averageR /= -1.,1)) THEN
           !cpcl(i)%isUnique = .TRUE.
           IF(LDM) PRINT *, "Detected Circling"
-          trueInd = averageR
           trueR = averageR
           ! the following code is temporary. it disables averaging.
           ! upon seeing averaging, this trajectory is marked unusable.
@@ -3305,7 +3307,6 @@
         IF ( ABS(nexttem(1)) .LE. 0.1*opts%par_newtonr .AND. &
              ABS(nexttem(2)) .LE. 0.1*opts%par_newtonr .AND. &
              ABS(nexttem(3)) .LE. 0.1*opts%par_newtonr ) THEN
-          trueind = truer 
           isUnique = .TRUE.
           PRINT *, "The trajectory converged due to small tem"
           PRINT *, "tem is"
@@ -3323,6 +3324,76 @@
       END IF 
     END SUBROUTINE NRTFGP 
 
+    SUBROUTINE DensityDescend(chg,bdr,opts,p,cpl,UCPTnum, maxCount, uRingCount, &
+        uBondCount, uCageCount,LDM,LDM_RecordCPRLight,LDM_CalcTEMLat, &
+        LDM_DetectCircling,LDM_NRTFGP)
+      TYPE(bader_obj) :: bdr
+      TYPE(charge_obj) :: chg
+      TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpl
+      TYPE(options_obj) :: opts
+      INTEGER,DIMENSION(3) :: p,pn,trueInd
+      INTEGER :: n1,n2,n3,assignedNegCount
+      INTEGER :: UCPTnum,maxCount,uRingCount,uBondCount,uCageCount
+      REAL(q2),DIMENSION(3) :: pr,trueR,r
+      LOGICAL :: isUnique
+      LOGICAL :: minimized, LDM, LDM_RecordCPRLight
+      LOGICAL :: LDM_DetectCircling, LDM_CalcTEMLat,LDM_NRTFGP
+      minimized = .FALSE.
+      assignedNegCount = 0
+      IF ( LDM ) THEN
+        PRINT *, "DensityDescend starting at "
+        PRINT *, p
+      END IF
+      DO WHILE (.NOT. minimized) 
+        minimized = .TRUE.
+        outer: DO n1 = -1 , 1
+          DO n2 = -1 , 1
+            DO n3 = -1 , 1
+              pn = p + (/n1,n2,n3/)
+              IF ( rho_val(chg,pn(1),pn(2),pn(3)) < rho_val(chg,p(1),p(2),p(3)) ) THEN
+                minimized = .FALSE.
+                p = pn
+                CALL pbc(p,chg%npts)
+                EXIT outer
+              END IF
+            END DO
+          END DO
+        END DO outer
+      END DO
+      pr(1) = REAL(p(1),q2)
+      pr(2) = REAL(p(2),q2)
+      pr(3) = REAL(p(3),q2)
+      IF (LDM) THEN
+        PRINT *, "Starting a Newton Raphson trajectory from point "
+        PRINT *, p
+      END IF
+      ! Need to obtain initial grad at the grid point and tem
+      r = 0.
+      CALL NRTFGP(bdr,chg,opts,trueR,&
+        LDM_DetectCircling,isUnique,r,p,&
+        1000,LDM_NRTFGP)
+      IF ( LDM ) THEN
+        PRINT *, "Starting RecordCPRLight"
+        PRINT *, "Before adding new point, exisitng CP number, max, bond,ring & 
+                 cage counts are"
+        PRINT *, ucptnum, maxCount, uBondCount, uRingCount, uCageCount
+      END IF
+      UCPTnum = UCPTnum + 1
+      CALL RecordCPRLight(trueR,chg,cpl,UCPTnum, maxCount, uRingCount, &
+        uBondCount, uCageCount,trueInd, LDM_RecordCPRLight)
+      IF ( LDM ) THEN
+        PRINT *, "Finished RecordCPRLight"
+        PRINT *, "DensityDescend ended at"
+        PRINT *, p
+        PRINT *, "NRTFGP in DensityDescend ended at"
+        PRINT *, trueR
+        CALL PrintNeighborCharges(p,chg)
+        PRINT *, "This is UCPTNum ",UCPTNum
+        PRINT *, "After adding new point, exisitng CP number, max, bond,ring & 
+                 cage counts are"
+        PRINT *, ucptnum, maxCount, uBondCount, uRingCount, uCageCount
+      END IF
+    END SUBROUTINE DensityDescend
 
     ! The following code is potentially useful for gradient descend
           ! This determins if validation is done with gradient descend
