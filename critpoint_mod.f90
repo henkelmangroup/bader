@@ -102,6 +102,7 @@
     ! The followings are for finding unique critical points
     REAL(q2), DIMENSION(8,3) :: nngrad
     REAL(q2), DIMENSION(8,3,3) :: nnhes !hessian of 8 nn
+    INTEGER, DIMENSION(:,:),ALLOCATABLE :: descendPoints, ringPoints
     INTEGER, DIMENSION(:,:),ALLOCATABLE :: nnind
     REAL(q2), DIMENSION(6,3) :: intnngrad
     REAL(q2), DIMENSION(3,3) :: interpolHessian
@@ -142,12 +143,13 @@
     END IF
     HCF = .FALSE.
     LDM = .FALSE.
-    LDM_DetectCircling = .FALSE.
-    LDM_ReduceCP = .FALSE.
     IF (opts%debugMode) THEN
-    CALL GetDebugFlags(opts,LDM,LDM_DetectCircling,&
-      LDM_ReduceCP,LDM_DensityDescend,LDM_RecordCPRLight,&
-      LDM_NRTFGP,LDM_CalcTEMLat)
+      PRINT *, "Performing core functions check"
+      CALL CoreFunctionsCheck(chg)
+      PRINT *, "Reading debug flags from debugConfig"
+      CALL GetDebugFlags(opts,LDM,LDM_DetectCircling,&
+        LDM_ReduceCP,LDM_DensityDescend,LDM_RecordCPRLight,&
+        LDM_NRTFGP,LDM_CalcTEMLat)
     END IF
     ! get expected nucleus indices
 !    WRITE (97,*) , 'expecting nuclei at:'
@@ -398,13 +400,18 @@
           temscale = (/1.,1.,1./)
           temnormcap = 1.
           IF (.FALSE.) THEN
-
+            CYCLE
           ELSE
           ! Begins newton raphson validation process
             CALL NRTFGP(bdr,chg,opts,trueR,&
               LDM_detectCircling,cpcl(i)%isUnique,cpcl(i)%r,cpcl(i)%ind,&
               1000,LDM_NRTFGP)
+            PRINT *, "trueR is"
+            PRINT *, trueR
+            PRINT *, "lc 1"
             IF (LDM) THEN
+              PRINT *, "NRTFGP converged at point "
+              PRINT *, trueR
               tempReal3D = trueR
               PRINT *, "Direct calculation starting from point "
               PRINT *, cpcl(i)%ind
@@ -558,10 +565,13 @@
 
             END IF
           END IF
+          PRINT *, "lc 2"
           IF (cpcl(i)%isUnique ) THEN
 
             CALL MakeCPRoster(cpRoster,i,truer)
             cpcl(i)%trueind = truer
+          ELSE 
+            CYCLE
           END IF
           IF (cpcl(i)%isunique ) THEN
             ucptnum = ucptnum + 1
@@ -571,18 +581,21 @@
 
             CYCLE
           END IF
-          truer = truer + nexttem ! this keeps track the total movement
-          IF ( LDM .AND. &
+          PRINT *, "lc 3"
+          IF ( LDM .AND. (&
               truer(1)/=tempReal3D(1) .OR. &
               truer(2)/=tempReal3D(2) .OR. &
-              truer(3)/=tempReal3D(3) ) THEN
+              truer(3)/=tempReal3D(3)) ) THEN
             PRINT *, "ERROR :"
             PRINT *, "NRTFGP and direct calculation converged to different &
               points!"
             STOP
           END IF
-          CALL pbc_r_lat(truer,chg%npts)
+          PRINT *, "lc 3.1"
+          PRINT *, trueR
+          CALL pbc_r_lat(trueR,chg%npts)
         ! moving on to the next critical pint candidate
+          PRINT *, 'lc 4'
         END DO
       END IF
       PRINT *, 'Number of critical point count: ', ucptnum
@@ -592,6 +605,56 @@
       PRINT *, 'Number of cage critical point count: ', ucagecount
 
       ! remove duplicate CPs
+      IF (opts%enableDensityDescend) THEN
+        ! First find the midpoint of all rings, and their mirror images across
+        ! the closest pbc (to be implemented). 
+        ALLOCATE(descendPoints(uringcount*(uringcount - 1 ),3))
+        ALLOCATE(ringPoints(uringCount,3))
+        CALL ResizeCPL(cpl,SIZE(cpl) + uringcount*(uRingCount - 1))
+        j = 1
+        DO i = 1, ucptnum
+          IF (cpl(i)%negCount == 1 ) THEN
+            ringPoints(j,:) = cpl(i)%truer 
+            PRINT *, "Found ring point #",j
+            PRINT *, cpl(i)%truer
+            j = j + 1
+          END IF
+        END DO
+        k = 1
+        DO i = 1, uRingCount
+          DO j = i+1, uRingCount
+            PRINT *, "descendpoint #",k
+            descendPoints(k,1) = INT((ringPoints(i,1) + ringPoints(j,1))/2)
+            PRINT *, "coordinate 1:", descendPoints(k,1)
+            descendPoints(k,2) = INT((ringPoints(i,2) + ringPoints(j,2))/2)
+            PRINT *, "coordinate 2:", descendPoints(k,2)
+            descendPoints(k,3) = INT((ringPoints(i,3) + ringPoints(j,3))/2)
+            PRINT *, "coordinate 3:", descendPoints(k,3)
+            k = k + 1
+          END DO
+        END DO
+        IF (LDM) THEN
+          PRINT *, "Initiating density descend at the following points: "
+          PRINT *, "Total point count is ", SIZE(descendPoints)
+          PRINT *, "uRingCount*(uRingCount-1)=",uRingCOUNT*(uRingCount-1)
+          DO i = 1, SIZE(descendPoints)/ 6 
+            PRINT *, "descendPoint #",i
+            PRINT *, descendPoints(i,:)
+          END DO
+        END IF
+        DO i = 1, ( uRingCount * ( uRingCount - 1) ) / 2
+          CALL DensityDescend(chg,bdr,opts,descendPoints(i,:),cpl,ucptnum, maxCount, & 
+            uRingCount, uBondCount,uCageCount,LDM_DensityDescend, &
+            LDM_RecordCPRLight,LDM_DetectCircling,LDM_NRTFGP)
+        END DO
+        !CALL minimasearch(chg,cptnum,cpl,bdr,matm,matwprime, &
+        !       wi,vi,vit,ggrid,outerproduct,opts,ucagecount,&
+        !       nnLayers,ions)
+        DEALLOCATE(descendPoints)
+        DEALLOCATE(ringPoints)
+        isReduced = .FALSE.
+      END IF
+
       isReduced = .FALSE.
       DO WHILE ( .NOT. isReduced)
         CALL ReduceCP(cpl,opts,ucptnum,chg,uBondCount, &
@@ -3300,7 +3363,7 @@
         IF (bdr%volnum(tempr(1), &
             tempr(2),tempr(3)) == bdr%bnum + 1) THEN
           ! We are heading into the vacuum space, cosmonaughts! 
-          PRINT *, "Stepped into vacuum"
+          IF (LDM) PRINT *, "Stepped into vacuum"
           isunique = .FALSE.
           EXIT
         END IF
@@ -3311,7 +3374,7 @@
           PRINT *, "The trajectory converged due to small tem"
           PRINT *, "tem is"
           PRINT *, nexttem
-          !EXIT
+          EXIT
         END IF
         truer = truer + nexttem
       END DO
@@ -3325,7 +3388,7 @@
     END SUBROUTINE NRTFGP 
 
     SUBROUTINE DensityDescend(chg,bdr,opts,p,cpl,UCPTnum, maxCount, uRingCount, &
-        uBondCount, uCageCount,LDM,LDM_RecordCPRLight,LDM_CalcTEMLat, &
+        uBondCount, uCageCount,LDM,LDM_RecordCPRLight, &
         LDM_DetectCircling,LDM_NRTFGP)
       TYPE(bader_obj) :: bdr
       TYPE(charge_obj) :: chg
@@ -3334,10 +3397,11 @@
       INTEGER,DIMENSION(3) :: p,pn,trueInd
       INTEGER :: n1,n2,n3,assignedNegCount
       INTEGER :: UCPTnum,maxCount,uRingCount,uBondCount,uCageCount
-      REAL(q2),DIMENSION(3) :: pr,trueR,r
+      REAL(q2),DIMENSION(3,3) :: hessianMatrix 
+      REAL(q2),DIMENSION(3) :: pr,trueR,r,grad
       LOGICAL :: isUnique
       LOGICAL :: minimized, LDM, LDM_RecordCPRLight
-      LOGICAL :: LDM_DetectCircling, LDM_CalcTEMLat,LDM_NRTFGP
+      LOGICAL :: LDM_DetectCircling,LDM_NRTFGP
       minimized = .FALSE.
       assignedNegCount = 0
       IF ( LDM ) THEN
@@ -3368,11 +3432,13 @@
         PRINT *, p
       END IF
       ! Need to obtain initial grad at the grid point and tem
-      r = 0.
+      r = CalcTEMGrid(p,chg,grad,hessianMatrix)
       CALL NRTFGP(bdr,chg,opts,trueR,&
         LDM_DetectCircling,isUnique,r,p,&
         1000,LDM_NRTFGP)
       IF ( LDM ) THEN
+        PRINT *, "NRTFGP in DensityDescend ended at"
+        PRINT *, trueR
         PRINT *, "Starting RecordCPRLight"
         PRINT *, "Before adding new point, exisitng CP number, max, bond,ring & 
                  cage counts are"
@@ -3385,8 +3451,7 @@
         PRINT *, "Finished RecordCPRLight"
         PRINT *, "DensityDescend ended at"
         PRINT *, p
-        PRINT *, "NRTFGP in DensityDescend ended at"
-        PRINT *, trueR
+
         CALL PrintNeighborCharges(p,chg)
         PRINT *, "This is UCPTNum ",UCPTNum
         PRINT *, "After adding new point, exisitng CP number, max, bond,ring & 
@@ -3395,6 +3460,71 @@
       END IF
     END SUBROUTINE DensityDescend
 
+    SUBROUTINE PrintNeighborCharges(p,chg)
+    TYPE(charge_obj) :: chg
+    INTEGER,DIMENSION(3) :: p
+    INTEGER :: i,j,k
+    PRINT *, "Printing charges of all neighbors at "
+    PRINT *, p, rho_val(chg,p(1),p(2),p(3))
+    DO i = 1, 3
+      DO j = 1,3
+        DO k = 1,3
+          IF ( i == 0 .AND. j == 0 .AND. k == 0) THEN
+            CYCLE
+          END IF
+          PRINT *, rho_val(chg,p(1)+i,p(1)+j,p(1)+k)
+        END DO
+      END DO
+    END DO
+    END SUBROUTINE PrintNeighborCharges
+
+    ! Below is a check on all core functions
+    ! Functions being checked: eigenvalues and eigenvectors
+    SUBROUTINE CoreFunctionsCheck(chg)
+      TYPE(charge_obj) :: chg
+      REAL(q2),DIMENSION(3,3) :: hessianMatrix,eigvecs
+      REAL(q2),DIMENSION(3) :: eigvals
+      !This following test is not working well
+      !hessianMatrix(1,1) = 0.3987508399038720
+      !hessianMatrix(1,2) = 0.4997246160218287 
+      !hessianMatrix(1,3) = 0.7752726241455388
+      !hessianMatrix(2,1) = 0.5993296708147727
+      !hessianMatrix(2,2) = 0.6510026529797813
+      !hessianMatrix(2,3) = 0.7907512182895509
+      !hessianMatrix(3,1) = 0.2018206933392253
+      !hessianMatrix(3,2) = 0.7068772764652435
+      !hessianMatrix(3,3) = 0.05810136673621315
+      !---------------------------------------
+      hessianMatrix(1,1) = 4570.188002120697
+      hessianMatrix(1,2) = 852.1787784831047
+      hessianMatrix(1,3) = 835.9831203358196
+      hessianMatrix(2,1) = 454.7878103558637
+      hessianMatrix(2,2) = 7811.922523438933
+      hessianMatrix(2,3) = 846.7252769646717
+      hessianMatrix(3,1) = 664.5333763717898
+      hessianMatrix(3,2) = 411.3979480851485
+      hessianMatrix(3,3) = 4260.374867575962
+      CALL DSYEVJ3(hessianMatrix,eigvecs,eigvals)
+      IF (eigvecs(1,1) /= -0.5694273336689270 .OR. &
+          eigvecs(1,2) /= -0.7140883142791939 .OR. & 
+          eigvecs(1,3) /= -0.4072227781946826 .OR. &
+          eigvecs(2,1) /= -0.6717960446248690 .OR. &
+          eigvecs(2,2) /= -0.1747987305973604 .OR. &
+          eigvecs(2,3) /= 0.7198162808716766 .OR. & 
+          eigvecs(3,1) /= -0.7198162808716766 .OR. &
+          eigvecs(3,2) /= 0.05039746667582087 .OR. &
+          eigvecs(3,3) /= 0.5695024751675655) THEN
+        PRINT *, "Eigenvalues produced are not consistent with Mathematica!"
+        PRINT *, "eigvec 1"
+        PRINT  *, eigvecs(1,:)
+        PRINT *, "eigvec 2"
+        PRINT  *, eigvecs(2,:)
+        PRINT *, "eigvec 3"
+        PRINT  *, eigvecs(3,:)
+        PRINT *, "eigvals are"
+        PRINT *, eigvals
+      END IF
+    END SUBROUTINE CoreFunctionsCheck
     ! The following code is potentially useful for gradient descend
           ! This determins if validation is done with gradient descend
           !    PRINT *, 'looking at critical point candidate # ', i
