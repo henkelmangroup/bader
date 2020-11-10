@@ -124,7 +124,7 @@
     LOGICAL :: HCF,LDM ! has config file, local debug mode
     LOGICAL :: LDM_DetectCircling, LDM_ReduceCP
     LOGICAL :: LDM_DensityDescend,LDM_RecordCPRLight
-    LOGICAL :: LDM_NRTFGP,LDM_CalcTEMLat
+    LOGICAL :: LDM_NRTFGP,LDM_CalcTEMLat,LDM_RecordCPR
     ! below are variables for least sqaures gradient
     stat = 0 ! 0 means nothing
     !PRINT *, ''//achar(27)//'[31m Finding Critical points'//achar(27)//'[0m'
@@ -149,7 +149,15 @@
       PRINT *, "Reading debug flags from debugConfig"
       CALL GetDebugFlags(opts,LDM,LDM_DetectCircling,&
         LDM_ReduceCP,LDM_DensityDescend,LDM_RecordCPRLight,&
-        LDM_NRTFGP,LDM_CalcTEMLat)
+        LDM_NRTFGP,LDM_CalcTEMLat,LDM_RecordCPR)
+    ELSE
+      LDM_DetectCircling = .FALSE.
+      LDM_ReduceCP = .FALSE.
+      LDM_DensityDescend = .FALSE.
+      LDM_RecordCPRLight = .FALSE.
+      LDM_NRTFGP = .FALSE.
+      LDM_CalcTEMLat = .FALSE.
+      LDM_RecordCPR = .FALSE.
     END IF
     ! get expected nucleus indices
 !    WRITE (97,*) , 'expecting nuclei at:'
@@ -242,7 +250,12 @@
       p(2) = NINT(cpl(ucptnum)%trueind(2))
       p(3) = NINT(cpl(ucptnum)%trueind(3))
       CALL RecordCPR(temprealr,chg,cpl,ucptnum,eigvals,eigvecs, maxcount, uringcount, &
-        ubondcount, ucagecount,opts,grad,hessianMatrix, p)
+        ubondcount, ucagecount,opts,grad,hessianMatrix, p,LDM_RecordCPR)
+      IF (LDM) THEN
+        PRINT *, "recording CP to cpl, this is number ", ucptnum
+        PRINT *, "location is "
+        PRINT *, temprealr
+      END IF
       IF (opts%noInterpolation_flag) THEN
         maxcount = ucptnum
         uringcount = 0
@@ -406,9 +419,11 @@
             CALL NRTFGP(bdr,chg,opts,trueR,&
               LDM_detectCircling,cpcl(i)%isUnique,cpcl(i)%r,cpcl(i)%ind,&
               1000,LDM_NRTFGP)
-            PRINT *, "trueR is"
-            PRINT *, trueR
-            PRINT *, "lc 1"
+            IF (LDM) THEN
+              PRINT *, "trueR is"
+              PRINT *, trueR
+              PRINT *, "lc 1"
+            END IF
             IF (LDM) THEN
               PRINT *, "NRTFGP converged at point "
               PRINT *, trueR
@@ -565,7 +580,7 @@
 
             END IF
           END IF
-          PRINT *, "lc 2"
+          IF (LDM) PRINT *, "lc 2"
           IF (cpcl(i)%isUnique ) THEN
 
             CALL MakeCPRoster(cpRoster,i,truer)
@@ -577,8 +592,16 @@
             ucptnum = ucptnum + 1
             CALL RecordCPR(truer,chg,cpl,ucptnum,eigvals,eigvecs, maxcount, &
               uringcount,ubondcount,ucagecount, opts, grad, interpolHessian, &
-              cpcl(i)%ind)
-
+              cpcl(i)%ind,LDM_RecordCPR)
+              IF (LDM) THEN
+                PRINT *, "recording CP number ", ucptnum
+                PRINT *, "location is "
+                PRINT *,  truer
+                PRINT *, "eigvals is "
+                PRINT *, eigvals
+                PRINT *, "negCount is"
+                PRINT *, cpl(ucptnum)%negCount
+              END IF
             CYCLE
           END IF
           PRINT *, "lc 3"
@@ -658,7 +681,8 @@
       isReduced = .FALSE.
       DO WHILE ( .NOT. isReduced)
         CALL ReduceCP(cpl,opts,ucptnum,chg,uBondCount, &
-          uringcount,uCageCount,maxCount,isReduced,LDM_RecordCPRLight)
+          uringcount,uCageCount,maxCount,isReduced,LDM_RecordCPRLight, &
+          LDM_ReduceCP)
       END DO
       ! This following debug line need to be togged on or off manually
       ! before compilling
@@ -2301,7 +2325,7 @@
     ! count the number of negative eigenvalues to characterize a critical point
     SUBROUTINE RecordCP(p,chg,matm,matwprime,wi,vi,vit,ggrid &
       ,outerproduct,cpl,ucptnum,eigvals,eigvecs, maxcount, uringcount, &
-      ubondcount, ucagecount,opts)
+      ubondcount, ucagecount,opts,LDM)
       TYPE(charge_obj) :: chg
       TYPE(options_obj) :: opts
       TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpl
@@ -2317,6 +2341,7 @@
       REAL(q2), DIMENSION(3,3) :: outerproduct
       INTEGER :: i, j, k, ucptnum, negcount
       INTEGER :: maxcount, uringcount, ubondcount, ucagecount
+      LOGICAL :: LDM
       IF (opts%leastSquare_flag) THEN
         grad = lsg( &
           p,chg,matm,matwprime, &
@@ -2341,9 +2366,11 @@
       cpl(ucptnum)%eigvals = eigvals
       cpl(ucptnum)%negCount = negCount
     END SUBROUTINE RecordCP
+
+
     ! the version of the above subroutine where p is real not integer
     SUBROUTINE RecordCPR(p,chg,cpl,ucptnum,eigvals,eigvecs, maxcount, uringcount, &
-      ubondcount, ucagecount,opts,grad,hessianMatrix,ind)
+      ubondcount, ucagecount,opts,grad,hessianMatrix,ind,LDM)
       TYPE(charge_obj) :: chg
       TYPE(options_obj) :: opts
       TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpl
@@ -2360,9 +2387,14 @@
       INTEGER,DIMENSION(3) :: ind
       INTEGER :: i, j, k, ucptnum, negCount
       INTEGER :: maxcount, uringcount, ubondcount, ucagecount
+      LOGICAL :: LDM
       cpl(ucptnum)%hessianMatrix = hessianMatrix
       CALL DSYEVJ3(hessianMatrix,eigvecs,eigvals)
       negCount = CountNegModes(eigvals)
+      IF (LDM) THEN
+        PRINT *, "CountNegModes counted negCount as "
+        PRINT *, negCount
+      END IF
       CALL UpDateCounts(negCount,maxCount,uBondCount,uRingCount,uCageCount)
       cpl(ucptnum)%truer = p
       cpl(ucptnum)%grad = grad
@@ -2371,6 +2403,15 @@
       cpl(ucptnum)%negcount = negcount
       cpl(ucptnum)%hasProxy = .FALSE.
       cpl(ucptnum)%ind = ind
+      IF (LDM) THEN
+        PRINT *, "RecordCPR recorded CP number ", ucptnum
+        PRINT *, "location is "
+        PRINT *, p
+        PRINT *, "eigvals is "
+        PRINT *, eigvals
+        PRINT *, "negcount is "
+        PRINT *, cpl(ucptnum)%negCount
+      END IF
     END SUBROUTINE RecordCPR
     
     SUBROUTINE RecordCPRLight(p,chg,cpl,ucptnum, maxcount, uringcount, &
@@ -2402,11 +2443,20 @@
       cpl(ucptnum)%grad = grad
       cpl(ucptnum)%eigvecs = eigvecs
       cpl(ucptnum)%eigvals = eigvals
-      cpl(ucptnum)%negcount = negcount
+      cpl(ucptnum)%negCount = negCount
       cpl(ucptnum)%hasProxy = .FALSE.
       cpl(ucptnum)%ind = ind
       realDump = rho_grad(chg,p,rho)
       cpl(ucptnum)%rho = rho
+      IF (LDM) THEN
+        PRINT *, "RecordCPRLight recorded CP number ",ucptnum
+        PRINT *, "truer is"
+        PRINT *, p
+        PRINT *, "eigvals is"
+        PRINT *, eigvals
+        PRINT *, "negCount is"
+        PRINT *, "negCount"
+      END IF
     END SUBROUTINE RecordCPRLight
 
     SUBROUTINE  OutputCP(cpl,opts,ucptnum,chg,setcount,ubondcount, &
@@ -2850,7 +2900,7 @@
     ! another, and averages the same types into one to remove duplicate critical
     ! points. 
     SUBROUTINE ReduceCP(cpl,opts,ucptnum,chg,uBondCount, &
-        uRingCount,uCageCount,maxCount,isReduced,LDM_RecordCPRLight)
+        uRingCount,uCageCount,maxCount,isReduced,LDM_RecordCPRLight,LDM)
       TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpl,rcpl
       TYPE(charge_obj) :: chg
       TYPE(options_obj) :: opts
@@ -2858,7 +2908,7 @@
       INTEGER :: uCPTNum, uBondCount,uRingCount,uCageCount,maxCount
       INTEGER :: rCPTNum, rBondCount,rRingCount,rCageCount,rmaxCount
       INTEGER :: i,j, nUCPTNum, weight, dupCount
-      LOGICAL :: isReduced,LDM_RecordCPRLight
+      LOGICAL :: isReduced,LDM_RecordCPRLight,LDM
       PRINT *, 'Checking for duplicate CP'
       isReduced = .TRUE.
       dupCount = 0
@@ -2891,7 +2941,21 @@
             dupCount = dupCount + 1
             ! The two CP should be the same type!
             IF (cpl(i)%negCount /= cpl(j)%negCount) THEN
-              PRINT *,'ERROR: TWO TYPES OF CP ARE TOO CLOSE TO EACH OTHER'
+              IF (cpl(i)%negCount == 3) CYCLE !Skip validating maxima.
+              PRINT *,'ERROR: TWO TYPES OF CP ARE TOO CLOSE TO EACH OTHER. &
+                TURN ON DEBUGMODE and enter ReduceCP in debugConfig FOR MORE INFORAMTION'
+              IF (LDM) THEN 
+                PRINT *, "Critical point number ", i
+                PRINT *, "Location is "
+                PRINT *, cpl(i)%trueR
+                PRINT *, "Number of negative eigenvalue is "
+                PRINT *, cpl(i)%negCount
+                PRINT *, "Critical point number ", j
+                PRINT *, "Location is "
+                PRINT *, cpl(j)%trueR
+                PRINT *, "Number of negative eigenvalue is "
+                PRINT *, cpl(j)%negCount
+              END IF
             END IF 
             isReduced = .FALSE.
           END IF
@@ -3215,14 +3279,14 @@
 
     SUBROUTINE GetDebugFlags(opts,LDM,LDM_DetectCircling,&
       LDM_ReduceCP,LDM_DensityDescend,LDM_RecordCPRLight,&
-      LDM_NRTFGP,LDM_CalcTEMLat)
+      LDM_NRTFGP,LDM_CalcTEMLat,LDM_RecordCPR)
       TYPE(options_obj) :: opts
       CHARACTER(128) :: debugFlags
       INTEGER :: ios
       LOGICAL :: HCF,LDM ! has config file, local debug mode
       LOGICAL :: LDM_RecordCPRLight, LDM_NRTFGP
       LOGICAL :: LDM_DetectCircling, LDM_ReduceCP, LDM_DensityDescend
-      LOGICAL :: LDM_CalcTEMLat
+      LOGICAL :: LDM_CalcTEMLat,LDM_RecordCPR
       LDM = .FALSE.
       LDM_DetectCircling = .FALSE.
       LDM_ReduceCP = .FALSE.
@@ -3260,6 +3324,10 @@
           IF (debugFlags == "CalcTEMLat") THEN
             LDM_CalcTEMLat = .TRUE.
             PRINT *, "De Bugger: Debugging SUBROUTINE CalcTEMLat"
+          END IF
+          IF (debugFlags == "RecordCPR") THEN
+            LDM_RecordCPR = .TRUE.
+            PRINT *, "De Bugger: Debugging SUBROUTINE RecordCPR"
           END IF
           IF (ios/=0) EXIT
         END DO
@@ -3371,9 +3439,11 @@
              ABS(nexttem(2)) .LE. 0.1*opts%par_newtonr .AND. &
              ABS(nexttem(3)) .LE. 0.1*opts%par_newtonr ) THEN
           isUnique = .TRUE.
-          PRINT *, "The trajectory converged due to small tem"
-          PRINT *, "tem is"
-          PRINT *, nexttem
+          IF (LDM) THEN
+            PRINT *, "The trajectory converged due to small tem"
+            PRINT *, "tem is"
+            PRINT *, nexttem
+          END IF
           EXIT
         END IF
         truer = truer + nexttem
