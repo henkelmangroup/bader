@@ -21,8 +21,10 @@ OBJS = kind_mod.o       \
        multipole_mod.o  \
        weight_mod.o     \
        dsyevj3_mod.o    \
+       jacobi_mod.o     \
        critpoint_mod.o  \
        automatedcp_mod.o
+
 
 %.o %.mod : %.f90
 	$(FC) $(FFLAGS) -c $*.f90

@@ -10,6 +10,7 @@
     USE ions_mod
     USE weight_mod
     USE dsyevj3_mod
+    USE jacobi_mod
     IMPLICIT NONE
 
     PRIVATE 
@@ -146,6 +147,7 @@
     IF (opts%debugMode) THEN
       PRINT *, "Performing core functions check"
       CALL CoreFunctionsCheck(chg)
+      STOP
       PRINT *, "Reading debug flags from debugConfig"
       CALL GetDebugFlags(opts,LDM,LDM_DetectCircling,&
         LDM_ReduceCP,LDM_DensityDescend,LDM_RecordCPRLight,&
@@ -2341,6 +2343,7 @@
       REAL(q2), DIMENSION(3,3) :: outerproduct
       INTEGER :: i, j, k, ucptnum, negcount
       INTEGER :: maxcount, uringcount, ubondcount, ucagecount
+      INTEGER :: it_num, rot_num
       LOGICAL :: LDM
       IF (opts%leastSquare_flag) THEN
         grad = lsg( &
@@ -2353,8 +2356,10 @@
         grad = CDGrad(p,chg)
         hessianMatrix = CDHessian(p,chg)
       END IF
-      CALL DSYEVJ3(hessianMatrix,eigvecs,eigvals)
+      !CALL DSYEVJ3(hessianMatrix,eigvecs,eigvals)
       negCount = CountNegModes(eigvals)
+      CALL jacobi_eigenvalue(3,hessianMatrix,9999,eigvecs,eigvals,&
+        it_num, rot_num )
       CALL UpDateCounts(negCount,maxCount,uBondCount,uRingCount,uCageCount)
       cpl(ucptnum)%ind = p
       cpl(ucptnum)%truer(1) = REAL(p(1),q2)
@@ -2387,9 +2392,12 @@
       INTEGER,DIMENSION(3) :: ind
       INTEGER :: i, j, k, ucptnum, negCount
       INTEGER :: maxcount, uringcount, ubondcount, ucagecount
+      INTEGER :: it_num, rot_num
       LOGICAL :: LDM
       cpl(ucptnum)%hessianMatrix = hessianMatrix
-      CALL DSYEVJ3(hessianMatrix,eigvecs,eigvals)
+      !CALL DSYEVJ3(hessianMatrix,eigvecs,eigvals)
+      CALL jacobi_eigenvalue(3,hessianMatrix,9999,eigvecs,eigvals,&
+        it_num, rot_num )
       negCount = CountNegModes(eigvals)
       IF (LDM) THEN
         PRINT *, "CountNegModes counted negCount as "
@@ -2432,11 +2440,14 @@
       INTEGER,DIMENSION(3) :: ind
       INTEGER :: i, j, k, ucptnum, negCount
       INTEGER :: maxcount, uringcount, ubondcount, ucagecount
+      INTEGER :: it_num, rot_num
       LOGICAL :: LDM
       hessianMatrix = CDHessianR(p,chg)
       grad = CDGradR(p,chg)
       cpl(ucptnum)%hessianMatrix = hessianMatrix
-      CALL DSYEVJ3(hessianMatrix,eigvecs,eigvals)
+      !CALL DSYEVJ3(hessianMatrix,eigvecs,eigvals)
+      CALL jacobi_eigenvalue(3,hessianMatrix,9999,eigvecs,eigvals,&
+        it_num, rot_num )
       negCount = CountNegModes(eigvals)
       CALL UpDateCounts(negCount,maxCount,uBondCount,uRingCount,uCageCount)
       cpl(ucptnum)%truer = p
@@ -3554,6 +3565,7 @@
       TYPE(charge_obj) :: chg
       REAL(q2),DIMENSION(3,3) :: hessianMatrix,eigvecs
       REAL(q2),DIMENSION(3) :: eigvals
+      INTEGER :: it_num, rot_num 
       !This following test is not working well
       !hessianMatrix(1,1) = 0.3987508399038720
       !hessianMatrix(1,2) = 0.4997246160218287 
@@ -3568,13 +3580,53 @@
       hessianMatrix(1,1) = 4570.188002120697
       hessianMatrix(1,2) = 852.1787784831047
       hessianMatrix(1,3) = 835.9831203358196
-      hessianMatrix(2,1) = 454.7878103558637
+      hessianMatrix(2,1) = 852.1787784831047
       hessianMatrix(2,2) = 7811.922523438933
       hessianMatrix(2,3) = 846.7252769646717
-      hessianMatrix(3,1) = 664.5333763717898
-      hessianMatrix(3,2) = 411.3979480851485
+      hessianMatrix(3,1) = 835.9831203358196
+      hessianMatrix(3,2) = 846.7252769646717
       hessianMatrix(3,3) = 4260.374867575962
       CALL DSYEVJ3(hessianMatrix,eigvecs,eigvals)
+      PRINT *, "DSYEVJ3 Produces"
+      PRINT *, "eigvec 1"
+      PRINT  *, eigvecs(1,:)
+      PRINT *, "eigvec 2"
+      PRINT  *, eigvecs(2,:)
+      PRINT *, "eigvec 3"
+      PRINT  *, eigvecs(3,:)
+      PRINT *, "eigvals are"
+      PRINT *, eigvals
+      hessianMatrix(1,1) = 4570.188002120697
+      hessianMatrix(1,2) = 852.1787784831047
+      hessianMatrix(1,3) = 835.9831203358196
+      hessianMatrix(2,1) = 852.1787784831047
+      hessianMatrix(2,2) = 7811.922523438933
+      hessianMatrix(2,3) = 846.7252769646717
+      hessianMatrix(3,1) = 835.9831203358196
+      hessianMatrix(3,2) = 846.7252769646717
+      hessianMatrix(3,3) = 4260.374867575962
+      CALL jacobi_eigenvalue(3,hessianMatrix,9999,eigvecs,eigvals,&
+        it_num, rot_num )
+      PRINT *, "jacobi Produces"
+      PRINT *, "eigvec 1"
+      PRINT  *, eigvecs(1,:)
+      PRINT *, "eigvec 2"
+      PRINT  *, eigvecs(2,:)
+      PRINT *, "eigvec 3"
+      PRINT  *, eigvecs(3,:)
+      PRINT *, "eigvals are"
+      PRINT *, eigvals
+      PRINT *, "EigvalCharPoly produces"
+      hessianMatrix(1,1) = 4570.188002120697
+      hessianMatrix(1,2) = 852.1787784831047
+      hessianMatrix(1,3) = 835.9831203358196
+      hessianMatrix(2,1) = 852.1787784831047
+      hessianMatrix(2,2) = 7811.922523438933
+      hessianMatrix(2,3) = 846.7252769646717
+      hessianMatrix(3,1) = 835.9831203358196
+      hessianMatrix(3,2) = 846.7252769646717
+      hessianMatrix(3,3) = 4260.374867575962
+      CALL EigvalCharPoly(hessianMatrix,eigvals,eigvecs)
       IF (eigvecs(1,1) /= -0.5694273336689270 .OR. &
           eigvecs(1,2) /= -0.7140883142791939 .OR. & 
           eigvecs(1,3) /= -0.4072227781946826 .OR. &
@@ -3595,6 +3647,72 @@
         PRINT *, eigvals
       END IF
     END SUBROUTINE CoreFunctionsCheck
+
+    FUNCTION trace(mat3x3)
+      REAL(q2) :: trace
+      REAL(q2),DIMENSION(3,3) :: mat3x3
+      trace = mat3x3(1,1) + mat3x3(2,2) + mat3x3(3,3)
+    END FUNCTION 
+
+    ! Find the eigenvalues by finding roots to the characteristic polynomial
+    SUBROUTINE EigvalCharPoly(hessianMatrix,eigvals,eigvecs)
+      ! characteristic polynomial of a 3x3 matrix is 
+      ! https://mathworld.wolfram.com/CharacteristicPolynomial.html
+      ! P3(x) = 1/6 * (trace(A)**3 + 2 trace(A**3) - 3 trace (A) trace(A**2) -
+      !         1/2 * (trace(A)**2 - trace(A**2))x + trace(A)x**2 - x**3
+      REAL(q2),DIMENSION(3,3) :: hessianMatrix, eigvecs, hessianMatrix2
+      REAL(q2),DIMENSION(3) :: eigvals
+      REAL(q2) :: a,b,c,d !coefficients for the characteristic polynomial
+      REAL(q2) :: b23c ! -b**2 - 3*c
+      COMPLEX :: cabbage ! or junk or crap etc.
+      COMPLEX :: cabbage1, cabbage2,cabbage3
+      COMPLEX :: top1,bot1,top2,bot2
+      COMPLEX :: eigval1,eigval2,eigval3
+      a = -1
+      b = trace(hessianMatrix)
+      hessianMatrix2 = MATMUL(hessianMatrix,hessianMatrix)
+      c = -(0.5 * (trace(hessianMatrix)**2 - &
+        trace(hessianMatrix2)))
+      d = (1./6.) * (trace(hessianMatrix)**3 + &
+          2. * trace(MATMUL(MATMUL(hessianMatrix,hessianMatrix),hessianMatrix))&
+          - 3. * trace(hessianMatrix) * trace(MATMUL(hessianMatrix,hessianMatrix)) )
+      ! since a is -1, a is already subsituted in for roots
+      b23c = -b**2. - 3.*c
+      !PRINT *, "b23c is ", b23c
+      cabbage1 = -2.*(b**3) - (9.*b*c) - (27.*d)
+      cabbage2 = -b**2. * c**2. - 4.*c**3. +4.*b**3 * d + &
+        18.*b*c*d + 27.*d**2
+      !PRINT *, "cabbage1 is ", cabbage1
+      !PRINT *, "cabbage2 is ", cabbage2
+      cabbage3 = 3. * SQRT(3.) * SQRT(cabbage2)
+      !PRINT *, "cabbage3 is ", cabbage3
+      cabbage = (cabbage1 + cabbage3)**(1./3.)
+      !PRINT *, "cabbage is ", cabbage
+      top1 = 2.**(1./3.)*b23c
+      bot1 = 3*cabbage
+      top2 = cabbage
+      bot2 = 3.*2.**(1./3.)
+      eigval1 = b/3. + top1/bot1 - top2/bot2
+      !PRINT *, "eigval1 is ", eigval1
+      top1 = (1 + CMPLX(0,SQRT(3.)))*(b23c)
+      bot1 = 3.*2.**(2./3.) * cabbage
+      top2 = (1-CMPLX(0,SQRT(3.)))*cabbage
+      bot2 = 6.*2.**(1./3.)
+      eigval2 = b/3. - top1/bot1 + top2/bot2
+      !PRINT *, "eigval2 is ", eigval2
+      top1 = (1 - CMPLX(0,SQRT(3.)))*b23c
+      bot1 = 3.*2.**(2./3.)*cabbage
+      top2 = (1 + CMPLX(0,SQRT(3.)))*cabbage
+      bot2 = 6.*2.**(1./3.)
+      eigval3 = b/3. - top1/bot1 + top2/bot2
+      !PRINT *, "eigval3 is ", eigval3
+      eigvals(1) = REAL(eigval1)
+      eigvals(2) = REAL(eigval2)
+      eigvals(3) = REAL(eigval3)
+      !PRINT *, "eigvals are"
+      !PRINT *, eigvals
+    END SUBROUTINE
+
     ! The following code is potentially useful for gradient descend
           ! This determins if validation is done with gradient descend
           !    PRINT *, 'looking at critical point candidate # ', i
