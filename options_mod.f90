@@ -35,7 +35,7 @@
       LOGICAL :: noInterpolation_flag
       LOGICAL :: debugMode
       LOGICAL :: dohes
-      LOGICAL :: enableDensityDescend
+      LOGICAL :: enableDensityDescend,enableCHGCARSmoothening
     END TYPE options_obj
 
     PRIVATE
@@ -101,6 +101,7 @@
       opts%noInterpolation_flag = .FALSE.
       opts%print_surfaces_atoms = .FALSE.
       opts%enableDensityDescend = .FALSE.
+      opts%enableCHGCARSmoothening = .FALSE.
 !      n=IARGC()
       n=COMMAND_ARGUMENT_COUNT()
       IF (n == 0) THEN

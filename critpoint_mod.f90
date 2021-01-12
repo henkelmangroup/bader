@@ -3,6 +3,7 @@
     USE matrix_mod
     USE bader_mod
 !    USE linsolve_mod
+    USE chgcar_mod
     USE charge_mod 
     USE options_mod
     USE ions_mod
@@ -121,7 +122,8 @@
     REAL(q2), DIMENSION(3,3) :: matm, outerproduct
     REAL(q2),DIMENSION(10,3) :: rList,temList
     INTEGER :: xmin,xmax,ymin,ymax,zmin,zmax,ios
-    CHARACTER(128) :: string,debugFlags
+    INTEGER :: avgMode
+    CHARACTER(128) :: string,debugFlags,smoothenedCHGCAR
     LOGICAL :: HCF,LDM ! has config file, local debug mode
     LOGICAL :: LDM_DetectCircling, LDM_ReduceCP
     LOGICAL :: LDM_DensityDescend,LDM_RecordCPRLight
@@ -137,6 +139,21 @@
     !PRINT *, ''//achar(27)//'[95m Critical point is like a box of chocolates. &
     !          You never know what you are gonna get.'//achar(27)//'[0m'
     !WRITE(*,'(A)')  'FINDING CRITICAL POINTS'
+    IF (opts%enableCHGCARSmoothening) THEN
+      ! First produce a smoothened CHGCAR
+      CALL SmoothenCHGCAR(chg,avgMode,ions)
+      ! This will override chg object
+      smoothenedCHGCAR = "smoothenedCHGCAR_sum"
+      ! Deallocating objects allocated in read_charge_chgcar
+      DEALLOCATE (ions%num_ion)
+      DEALLOCATE (ions%r_dir)
+      DEALLOCATE (ions%r_car)
+      DEALLOCATE (chg%rho)
+      DEALLOCATE (ions%r_lat)
+  
+      CALL read_charge_chgcar(ions,chg,smoothenedCHGCAR,opts)
+    END IF
+    !STOP
     IF (opts%leastsquare_flag .EQV. .TRUE. ) THEN
       PRINT *, 'Using least square gradient'
       PRINT *, "This function is broken right now."
@@ -145,9 +162,8 @@
     HCF = .FALSE.
     LDM = .FALSE.
     IF (opts%debugMode) THEN
-      PRINT *, "Performing core functions check"
-      CALL CoreFunctionsCheck(chg)
-      STOP
+      !PRINT *, "Performing core functions check"
+      !CALL CoreFunctionsCheck(chg)
       PRINT *, "Reading debug flags from debugConfig"
       CALL GetDebugFlags(opts,LDM,LDM_DetectCircling,&
         LDM_ReduceCP,LDM_DensityDescend,LDM_RecordCPRLight,&
@@ -630,6 +646,17 @@
       PRINT *, 'Number of cage critical point count: ', ucagecount
 
       ! remove duplicate CPs
+
+
+      isReduced = .FALSE.
+      DO WHILE ( .NOT. isReduced)
+        CALL ReduceCP(cpl,opts,ucptnum,chg,uBondCount, &
+          uringcount,uCageCount,maxCount,isReduced,LDM_RecordCPRLight, &
+          LDM_ReduceCP)
+      END DO
+      
+      ! After CP numbers are reduced, do density descend and reduce another
+      ! round afterwards
       IF (opts%enableDensityDescend) THEN
         ! First find the midpoint of all rings, and their mirror images across
         ! the closest pbc (to be implemented). 
@@ -640,27 +667,21 @@
         DO i = 1, ucptnum
           IF (cpl(i)%negCount == 1 ) THEN
             ringPoints(j,:) = cpl(i)%truer 
-            PRINT *, "Found ring point #",j
-            PRINT *, cpl(i)%truer
             j = j + 1
           END IF
         END DO
         k = 1
         DO i = 1, uRingCount
           DO j = i+1, uRingCount
-            PRINT *, "descendpoint #",k
             descendPoints(k,1) = INT((ringPoints(i,1) + ringPoints(j,1))/2)
-            PRINT *, "coordinate 1:", descendPoints(k,1)
             descendPoints(k,2) = INT((ringPoints(i,2) + ringPoints(j,2))/2)
-            PRINT *, "coordinate 2:", descendPoints(k,2)
             descendPoints(k,3) = INT((ringPoints(i,3) + ringPoints(j,3))/2)
-            PRINT *, "coordinate 3:", descendPoints(k,3)
             k = k + 1
           END DO
         END DO
-        IF (LDM) THEN
+        IF (LDM_DensityDescend) THEN
           PRINT *, "Initiating density descend at the following points: "
-          PRINT *, "Total point count is ", SIZE(descendPoints)
+          PRINT *, "Total point count is ", SIZE(descendPoints)/3
           PRINT *, "uRingCount*(uRingCount-1)=",uRingCOUNT*(uRingCount-1)
           DO i = 1, SIZE(descendPoints)/ 6 
             PRINT *, "descendPoint #",i
@@ -678,18 +699,16 @@
         DEALLOCATE(descendPoints)
         DEALLOCATE(ringPoints)
         isReduced = .FALSE.
+        DO WHILE ( .NOT. isReduced)
+          CALL ReduceCP(cpl,opts,ucptnum,chg,uBondCount, &
+            uringcount,uCageCount,maxCount,isReduced,LDM_RecordCPRLight, &
+            LDM_ReduceCP)
+        END DO
       END IF
-
-      isReduced = .FALSE.
-      DO WHILE ( .NOT. isReduced)
-        CALL ReduceCP(cpl,opts,ucptnum,chg,uBondCount, &
-          uringcount,uCageCount,maxCount,isReduced,LDM_RecordCPRLight, &
-          LDM_ReduceCP)
-      END DO
       ! This following debug line need to be togged on or off manually
       ! before compilling
-      ip = (/-0.554,1.953,1.985/)
-      CALL CPTracer(iP,chg,cpl,ucptnum)
+      !ip = (/-0.554,1.953,1.985/)
+      !CALL CPTracer(iP,chg,cpl,ucptnum)
       PRINT *, 'After a round of reduction'
       PRINT *, 'Numbver of atoms: ', ions%nions
       PRINT *, 'Number of critical point count: ', ucptnum
@@ -2466,7 +2485,9 @@
         PRINT *, "eigvals is"
         PRINT *, eigvals
         PRINT *, "negCount is"
-        PRINT *, "negCount"
+        PRINT *, negCount
+        PRINT *, "Hessian matrix is "
+        PRINT *, hessianMatrix
       END IF
     END SUBROUTINE RecordCPRLight
 
@@ -3478,6 +3499,7 @@
       INTEGER,DIMENSION(3) :: p,pn,trueInd
       INTEGER :: n1,n2,n3,assignedNegCount
       INTEGER :: UCPTnum,maxCount,uRingCount,uBondCount,uCageCount
+      INTEGER :: uCCbefore,uCCafter !cage count before and after
       REAL(q2),DIMENSION(3,3) :: hessianMatrix 
       REAL(q2),DIMENSION(3) :: pr,trueR,r,grad
       LOGICAL :: isUnique
@@ -3488,6 +3510,7 @@
       IF ( LDM ) THEN
         PRINT *, "DensityDescend starting at "
         PRINT *, p
+        PRINT *, "Initial density is", rho_val(chg,p(1),p(2),p(3))
       END IF
       DO WHILE (.NOT. minimized) 
         minimized = .TRUE.
@@ -3498,6 +3521,11 @@
               IF ( rho_val(chg,pn(1),pn(2),pn(3)) < rho_val(chg,p(1),p(2),p(3)) ) THEN
                 minimized = .FALSE.
                 p = pn
+                IF (LDM) THEN
+                  PRINT *, "Descended to point"
+                  PRINT *, p
+                  PRINT *, "New density is ", rho_val(chg,p(1),p(2),p(3))
+                END IF
                 CALL pbc(p,chg%npts)
                 EXIT outer
               END IF
@@ -3509,6 +3537,20 @@
       pr(2) = REAL(p(2),q2)
       pr(3) = REAL(p(3),q2)
       IF (LDM) THEN
+        PRINT *, "Density Descend ended at ", p
+        PRINT *, "Density of all neighbors are"
+          DO n1= -1,1
+            DO n2 = -1,1
+              DO n3 = -1,1
+                IF (n1==0 .AND. n2==0 .AND. n3==0) CYCLE
+                PRINT *, rho_val(chg,p(1)+n1,p(2)+n2,p(3)+n3)
+              END DO
+            END DO
+          END DO
+        PRINT *, "On the grid point, the gradient is"
+        PRINT *, CDGrad(p,chg)
+        PRINT *, "On the grid point, the hessian is"
+        PRINT *, CDHessian(p,chg)
         PRINT *, "Starting a Newton Raphson trajectory from point "
         PRINT *, p
       END IF
@@ -3526,13 +3568,22 @@
         PRINT *, ucptnum, maxCount, uBondCount, uRingCount, uCageCount
       END IF
       UCPTnum = UCPTnum + 1
+      uCCbefore = uCageCount
       CALL RecordCPRLight(trueR,chg,cpl,UCPTnum, maxCount, uRingCount, &
         uBondCount, uCageCount,trueInd, LDM_RecordCPRLight)
+      uCCafter = uCageCount 
+      IF (uCCbefore == uCCafter .AND. LDM) THEN
+        PRINT *, "ERROR :: Density descend found a cage point that did not &
+          produce three positive eigenvalues!"
+        PRINT *, "The found cage point is at ", trueR
+        PRINT *, "Turn on debug mode and add DensityDescend to debugConfig for &
+          more information"
+      END IF
+      ! To catch cages that does not produce three positive eigenvalues:
       IF ( LDM ) THEN
         PRINT *, "Finished RecordCPRLight"
         PRINT *, "DensityDescend ended at"
         PRINT *, p
-
         CALL PrintNeighborCharges(p,chg)
         PRINT *, "This is UCPTNum ",UCPTNum
         PRINT *, "After adding new point, exisitng CP number, max, bond,ring & 
@@ -3713,6 +3764,124 @@
       !PRINT *, eigvals
     END SUBROUTINE
 
+    ! This subroutine aims at reducing the bips and bumps in a CHGCAR by
+    ! averaging it.
+    SUBROUTINE SmoothenCHGCAR(chg,avgMode,ions)
+      TYPE(charge_obj) :: chg
+      TYPE(ions_obj) :: ions
+      REAL(q2),DIMENSION(3) :: rcar
+      REAL(q2) :: sumChg, r, rmin, weight
+      INTEGER,DIMENSION(3) :: p,pp,rlat
+      INTEGER :: n1,n2,n3,i,j,k
+      INTEGER :: avgMode, ios
+      INTEGER :: counter
+      CHARACTER(128) :: line
+
+      ! These code will be in debug mode in the future
+      ! first write the headder of CHGCAR from CHGCAR  
+      OPEN(55,FILE='aflow.CHGCAR_sum',STATUS='old',ACTION='read',BLANK='null',PAD='yes')
+      OPEN(56,FILE='smoothenedCHGCAR_sum',STATUS='REPLACE',ACTION='WRITE')
+      counter = 0
+      DO
+        IF (counter == 9 + ions%nions) EXIT
+        READ(55, '(A)',IOSTAT=ios) line
+        WRITE(56,'(A)') line
+        ! CHGCAR has 7 + #atoms + 2 lines before getting into charge densities
+        IF (ios/=0) EXIT
+        counter = counter + 1
+      END DO
+      CLOSE(55)
+      ! mode:
+      ! 1: simple average of 26 neighbors
+      ! 2: weighted average. weight is 1/r where r is distance in cartesian.
+      !    the cell itself has weight equal to 4/r of the smallest r.
+      ! 3: simple average of all neighbors -2 to +2 on all axis
+      ! 99: debug mode. simply write out chgcar again
+      avgMode = 3
+      !newchg = chg
+      counter = 0
+      DO n1 = 1, chg%npts(1)
+        DO n2 = 1, chg%npts(2)
+          DO n3 = 1, chg%npts(3)
+            p(1) = n1
+            p(2) = n2
+            p(3) = n3
+            IF (avgMode == 2) THEN
+              sumChg = 0
+              weight = 0
+            ELSE
+              sumChg = rho_val(chg,n1,n2,n3)
+            END IF
+            rmin = 99999.
+            IF (avgMode == 1 .OR. avgMode == 2) THEN
+              DO i = -1,1
+                DO j = -1,1
+                  DO k = -1,1
+                    IF (i == 0 .AND. j == 0 .AND. k == 0) CYCLE
+                    pp(1) = n1 + i
+                    pp(2) = n2 + j
+                    pp(3) = n3 + k
+                    CALL pbc(pp,chg%npts)
+                    IF (avgMode == 1) THEN
+                      sumChg = sumChg + rho_val(chg,pp(1),pp(2),pp(3))
+                    ELSE IF (avgMode == 2) THEN
+                      rlat(1) = i
+                      rlat(2) = j
+                      rlat(3) = k
+                      rcar = MATMUL(rlat,ions%lattice)
+                      r = SQRT(rcar(1)**2 + rcar(2)**2 + rcar(3)**2)
+                      IF (rmin < r ) rmin = r
+                      sumChg = sumChg + 1/r * rho_val(chg,pp(1),pp(2),pp(3))
+                      weight = weight + 1/r
+                    END IF
+                  END DO
+                END DO
+              END DO
+            ELSE IF (avgMode == 3) THEN
+              DO i = -2,2
+                DO j = -2,2
+                  DO k = -2,2
+                    IF (i == 0 .AND. j == 0 .AND. k == 0) CYCLE
+                    pp(1) = n1 + i
+                    pp(2) = n2 + j
+                    pp(3) = n3 + k
+                    CALL pbc(pp,chg%npts)
+                    sumChg = sumChg + rho_val(chg,pp(1),pp(2),pp(3))
+                  END DO
+                END DO
+              END DO
+            ELSE IF (avgMode == 99)  THEN
+              ! Does nothing
+            END IF
+            IF (avgMode == 1) THEN
+              sumChg = sumChg/27.
+            ELSE IF (avgMode == 2) THEN
+              sumChg = sumChg + 4/rmin 
+              weight = weight + 4/rmin
+              sumChg = sumChg / weight
+            ELSE IF (avgMode == 3) THEN
+              sumChg = sumChg/126.
+            END IF
+            IF (counter == 4) THEN
+              WRITE(56,'(A)',advance='no') '  '
+              WRITE(56,'(ES17.11E2)') sumChg 
+              counter = 0
+            ELSE
+              WRITE(56,'(A)',advance='no') '  '
+              WRITE(56,'(ES17.11E2)',advance='no') sumChg
+              counter = counter + 1
+            END IF
+           
+          END DO
+        END DO
+      END DO
+      CLOSE(56)
+    END SUBROUTINE SmoothenCHGCAR
+
+    ! This subroutine writes a debug CHGCAR
+    SUBROUTINE CHGCARWritter() 
+
+    END SUBROUTINE CHGCARWritter
     ! The following code is potentially useful for gradient descend
           ! This determins if validation is done with gradient descend
           !    PRINT *, 'looking at critical point candidate # ', i
