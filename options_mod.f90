@@ -168,6 +168,8 @@
           PRINT *, 'Entering debug mode.'
           PRINT *, 'Reading debugConfig for instructions'
           opts%debugMode = .TRUE.  
+        ELSEIF (p(1:ip) == '-smoothenCHGCAR') THEN
+          opts%enableCHGCARSmoothening = .TRUE.  
         ELSEIF (p(1:ip) == '-partem') THEN
           m = m + 1
           CALL GET_COMMAND_ARGUMENT(m,inc)
@@ -703,25 +705,25 @@
       WRITE(*,*) '        Calculate eigenvalues and eigenvectors at those points'
       WRITE(*,*) '        Store results in file named CPF##.dat'
       WRITE(*,*) ''    
-      WRITE(*,*) '   -parnewtonr'
-      WRITE(*,*) '        Criteria for stopping Newton Raphson method trajectory for &
-                          small stepsize. Default values should be OK.'
-      WRITE(*,*) '   -pargradfloor '
-      WRITE(*,*) '        Criterial for stopping Newtons method for small &
-                          gradient. Default values should be OK.'
-      WRITE(*,*) '   -partem '
-      WRITE(*,*) '        Proximity criteria for initializing Newtons method &
-                          trajectory. Default values should be OK.'
-      WRITE(*,*) '   -pardistance '
-      WRITE(*,*) '        Proximity criteria in Angstrom for declaring two CP &
-                          duplicates of each other. Default values shoud &
-                          be OK.'
-      WRITE(*,*) '   -parsr'
-      WRITE(*,*) '        Search radius. If a Newton Rhapson trajectory &
-                          initiated at a point, no more trajectory will &
-                          initiate within this radius. Default is 0. Higher &
-                          values will improve performance. Value higher than &
-                          3 will likely cause inaccurate results.'
+      !WRITE(*,*) '   -parnewtonr'
+      !WRITE(*,*) '        Criteria for stopping Newton Raphson method trajectory for &
+      !                    small stepsize. Default values should be OK.'
+      !WRITE(*,*) '   -pargradfloor '
+      !WRITE(*,*) '        Criterial for stopping Newtons method for small &
+      !                    gradient. Default values should be OK.'
+      !WRITE(*,*) '   -partem '
+      !WRITE(*,*) '        Proximity criteria for initializing Newtons method &
+      !                    trajectory. Default values should be OK.'
+      !WRITE(*,*) '   -pardistance '
+      !WRITE(*,*) '        Proximity criteria in Angstrom for declaring two CP &
+      !                    duplicates of each other. Default values shoud &
+      !                    be OK.'
+      !WRITE(*,*) '   -parsr'
+      !WRITE(*,*) '        Search radius. If a Newton Rhapson trajectory &
+      !                    initiated at a point, no more trajectory will &
+      !                    initiate within this radius. Default is 0. Higher &
+      !                    values will improve performance. Value higher than &
+      !                    3 will likely cause inaccurate results.'
 
     END SUBROUTINE write_help
 

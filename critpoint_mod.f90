@@ -141,7 +141,7 @@
     !WRITE(*,'(A)')  'FINDING CRITICAL POINTS'
     IF (opts%enableCHGCARSmoothening) THEN
       ! First produce a smoothened CHGCAR
-      CALL SmoothenCHGCAR(chg,avgMode,ions)
+      CALL SmoothenCHGCAR(chg,avgMode,ions,opts)
       ! This will override chg object
       smoothenedCHGCAR = "smoothenedCHGCAR_sum"
       ! Deallocating objects allocated in read_charge_chgcar
@@ -3766,9 +3766,10 @@
 
     ! This subroutine aims at reducing the bips and bumps in a CHGCAR by
     ! averaging it.
-    SUBROUTINE SmoothenCHGCAR(chg,avgMode,ions)
+    SUBROUTINE SmoothenCHGCAR(chg,avgMode,ions,opts)
       TYPE(charge_obj) :: chg
       TYPE(ions_obj) :: ions
+      TYPE(options_obj) :: opts
       REAL(q2),DIMENSION(3) :: rcar
       REAL(q2) :: sumChg, r, rmin, weight
       INTEGER,DIMENSION(3) :: p,pp,rlat
@@ -3779,13 +3780,19 @@
 
       ! These code will be in debug mode in the future
       ! first write the headder of CHGCAR from CHGCAR  
-      OPEN(55,FILE='aflow.CHGCAR_sum',STATUS='old',ACTION='read',BLANK='null',PAD='yes')
+      !OPEN(55,FILE='aflow.CHGCAR_sum',STATUS='old',ACTION='read',BLANK='null',PAD='yes')
+      OPEN(55,FILE=opts%chargefile,STATUS='old',ACTION='read',BLANK='null',PAD='yes')
       OPEN(56,FILE='smoothenedCHGCAR_sum',STATUS='REPLACE',ACTION='WRITE')
       counter = 0
+      ! need to differentiate format. 
       DO
-        IF (counter == 9 + ions%nions) EXIT
+        IF(opts%in_opt == opts%in_chgcar5) THEN
+          IF (counter == 10 + ions%nions) EXIT
+        ELSE
+          IF (counter == 9 + ions%nions) EXIT
+        END IF
         READ(55, '(A)',IOSTAT=ios) line
-        WRITE(56,'(A)') line
+        WRITE(56,'(A)') TRIM(line)
         ! CHGCAR has 7 + #atoms + 2 lines before getting into charge densities
         IF (ios/=0) EXIT
         counter = counter + 1
@@ -3797,7 +3804,7 @@
       !    the cell itself has weight equal to 4/r of the smallest r.
       ! 3: simple average of all neighbors -2 to +2 on all axis
       ! 99: debug mode. simply write out chgcar again
-      avgMode = 3
+      avgMode = 1
       !newchg = chg
       counter = 0
       DO n1 = 1, chg%npts(1)
@@ -3864,11 +3871,11 @@
             END IF
             IF (counter == 4) THEN
               WRITE(56,'(A)',advance='no') '  '
-              WRITE(56,'(ES17.11E2)') sumChg 
+              WRITE(56,'(ES18.11E2)') sumChg 
               counter = 0
             ELSE
               WRITE(56,'(A)',advance='no') '  '
-              WRITE(56,'(ES17.11E2)',advance='no') sumChg
+              WRITE(56,'(ES18.11E2)',advance='no') sumChg
               counter = counter + 1
             END IF
            
