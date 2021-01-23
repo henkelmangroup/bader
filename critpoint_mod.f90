@@ -31,17 +31,9 @@
       REAL(q2), DIMENSION(3) :: trueind, truer
       REAL(q2), DIMENSION(3) :: grad
       REAL(q2), DIMENSION(3,3) :: hessianMatrix
-      REAL(q2), DIMENSION(3) :: tempcart, tempind
-      REAL(q2), DIMENSION(3,3,3) :: dx, dy, dz ! first derivatives of neighbors
-!      REAL(q2),DIMENSION(3,3,3) :: du, dv, dw
-      REAL(q2), DIMENSION(3) :: du, dv, dw ! 1 2 3 are backward, present, forward
-      REAL(q2), DIMENSION(3) :: eigvals, r, cocart, colat, tempr
+      !REAL(q2), DIMENSION(3) :: tempcart, tempind
+      REAL(q2), DIMENSION(3) :: eigvals, r
       REAL(q2) :: rho
-      INTEGER, DIMENSION(8,3) :: nnind ! indices of neighbors 
-      ! indices from 0 to 8 are zyx 000 001 010 011 100 101 110 111
-!      REAL(q2),DIMENSION(8,3) :: nngrad ! gradients of nn mentioned above.
-!      REAL(q2),DIMENSION(6,3) :: intnngrad ! gradients of interpolated neighbors
-      ! used to find interpolated hessians.
       REAL(q2), DIMENSION(3,3) :: eigvecs
       INTEGER :: negcount
       LOGICAL :: hasProxy, isunique
@@ -62,35 +54,27 @@
     TYPE(charge_obj) :: chg
     TYPE(options_obj) :: opts
     TYPE(ions_obj) :: ions
-    TYPE(weight_obj), ALLOCATABLE, DIMENSION(:) :: gradlist
     TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpcl, cpl, cpclt ! critical point list and a temporary
     ! The above three are CP candidate list, CP list and CP list temp
 ! copy
 ! for points, 1 and 2 are +1, -1
     INTEGER :: stat, setcount, counter
-    INTEGER, DIMENSION(3) :: p, pt, ptt, ptx1, ptx2, pty1, pty2, ptz1, ptz2
-    INTEGER, DIMENSION(3) :: tempind
-    INTEGER :: n1, n2, n3, d1, d2, d3, cptnum, ucptnum, i, j, k, debugnum
+    INTEGER, DIMENSION(3) :: p
+    INTEGER, DIMENSION(3) :: tempr
+    INTEGER :: n1, n2, n3, cptnum, ucptnum, i, j, k, debugnum
     INTEGER :: negcount, bondcount, ringcount, maxcount, cagecount
     INTEGER :: ubondcount, uringcount, umaxcount, ucagecount
-    REAL(q2), DIMENSION(3) :: eigvec1, eigvec2, eigvec3, tempVec
-    REAL(q2), DIMENSION(3) :: truer, interpolGrad
+    REAL(q2), DIMENSION(3) :: truer
     REAL(q2), DIMENSION(3) :: grad, prevgrad
-    INTEGER, DIMENSION(3) :: tempr
     REAL(q2), DIMENSION(3) :: temprealr, tempreal3d
     ! to be used in newton method in finding unique critical points.
     REAL(q2), DIMENSION(3,3) ::  hessianMatrix, bkhessianMatrix
     ! these are vectors orthogonal to eigenvectors
-    REAL(q2), DIMENSION(3) :: tem, eigvals,carts
+    REAL(q2), DIMENSION(3) :: tem, eigvals
     REAL(q2) :: threshhold, tempreal, rndr
     REAL(q2), DIMENSION(3,3) :: eigvecs, inverseHessian
     ! linearized approximated derivatives for proxy critical screening
     REAL(q2) :: dx0,dx1,dy0,dy1,dz0,dz1 ! outputs from interpolated gradients
-    REAL(q2), DIMENSION(6,3) :: intcarts ! positions in cart of 6 interpolated points
-    ! row 1 2 are + and 1 x, then + and - y, then + and - z
-    REAL(q2), DIMENSION(6,3) :: intgrads ! gradients of interpolated points
-    REAL(q2), DIMENSION(6) :: intrhos ! rhos of interpolated points 
-    REAL(q2), DIMENSION(6,3) :: intinds ! fraction indicies for interpolated
     REAL(q2) :: rhocur ! rho of current point
     REAL(q2) :: stepsize, temnormcap, iS
     REAL(q2), DIMENSION(3) :: distance ! vector to 000 in trilinear
@@ -182,10 +166,10 @@
     ALLOCATE(nnInd(8,3))
 !    ALLOCATE(nnInd((nnlayers*2+1)**3,3))
     ALLOCATE(nucleiInd(ions%nions,3))
-    DO d1 = 1, ions%nions
-      nucleiInd(d1,1) = NINT(ions%r_lat(d1,1))
-      nucleiInd(d1,2) = NINT(ions%r_lat(d1,2))
-      nucleiInd(d1,3) = NINT(ions%r_lat(d1,3))
+    DO n1 = 1, ions%nions
+      nucleiInd(n1,1) = NINT(ions%r_lat(n1,1))
+      nucleiInd(n1,2) = NINT(ions%r_lat(n1,2))
+      nucleiInd(n1,3) = NINT(ions%r_lat(n1,3))
 !      WRITE (97,*) nucleiInd(d1,:)
     END DO
     setcount = 0
@@ -374,16 +358,16 @@
               bkhessianMatrix = hessianMatrix
               ! Check if the candidate list needs to be expanded.
               IF (cptnum < SIZE(cpcl) - 1 ) THEN
-                cpcl(cptnum)%du = hes%du
-                cpcl(cptnum)%dv = hes%dv  
-                cpcl(cptnum)%dw = hes%dw
+                !cpcl(cptnum)%du = hes%du
+                !cpcl(cptnum)%dv = hes%dv  
+                !cpcl(cptnum)%dw = hes%dw
                 cpcl(cptnum)%ind(1) = n1
                 cpcl(cptnum)%ind(2) = n2
                 cpcl(cptnum)%ind(3) = n3
                 cpcl(cptnum)%grad = grad
                 cpcl(cptnum)%hasProxy = .FALSE.
                 cpcl(cptnum)%r = tem
-                cpcl(cptnum)%tempcart = MATMUL(chg%car2lat,tem + p)
+                !cpcl(cptnum)%tempcart = MATMUL(chg%car2lat,tem + p)
               ELSE 
                 PRINT *, 'expanding cpcl size'
                 ALLOCATE(cpclt(cptnum + 1))
@@ -399,16 +383,16 @@
                 END DO
 !                PRINT *, 'copied back'
                 DEALLOCATE(cpclt)
-                cpcl(cptnum)%du = hes%du 
-                cpcl(cptnum)%dv = hes%dv
-                cpcl(cptnum)%dw = hes%dw
+                !cpcl(cptnum)%du = hes%du 
+                !cpcl(cptnum)%dv = hes%dv
+                !cpcl(cptnum)%dw = hes%dw
                 cpcl(cptnum)%ind(1) = n1
                 cpcl(cptnum)%ind(2) = n2
                 cpcl(cptnum)%ind(3) = n3
                 cpcl(cptnum)%grad = grad
                 cpcl(cptnum)%hasProxy = .FALSE.
                 cpcl(cptnum)%r = tem
-                cpcl(cptnum)%tempcart = MATMUL( chg%car2lat,tem + p)
+                !cpcl(cptnum)%tempcart = MATMUL( chg%car2lat,tem + p)
               END IF
             END IF
           END DO
@@ -453,7 +437,6 @@
               stepcount = 1
               averagecount = 0
               averageR = (/-1.,-1.,-1./)
-              cpcl(i)%nnind = simpleNN(cpcl(i)%r,chg)
               ! Now start newton method iterations
               truer =  cpcl(i)%ind + cpcl(i)%r
               previoustem = cpcl(i)%r
@@ -3886,9 +3869,7 @@
     END SUBROUTINE SmoothenCHGCAR
 
     ! This subroutine writes a debug CHGCAR
-    SUBROUTINE CHGCARWritter() 
 
-    END SUBROUTINE CHGCARWritter
     ! The following code is potentially useful for gradient descend
           ! This determins if validation is done with gradient descend
           !    PRINT *, 'looking at critical point candidate # ', i
