@@ -17,14 +17,14 @@
     PRIVATE 
     PUBLIC :: critpoint_find
 
-    TYPE hessian
+    !TYPE hessian
 
-      ! du dv dw are derivatives of the three original lattice vectors read from
-      ! CHGCAR
-      REAL(q2), DIMENSION(3) ::  du, dv, dw
-      REAL(q2) :: dudu, dvdv, dwdw, dudv, dudw, dvdw
-      ! eigval and eigvec are eigenvalues and eigvectors of hessian matrix
-    END TYPE
+    !  ! du dv dw are derivatives of the three original lattice vectors read from
+    !  ! CHGCAR
+    !  REAL(q2), DIMENSION(3) ::  du, dv, dw
+    !  REAL(q2) :: dudu, dvdv, dwdw, dudv, dudw, dvdw
+    !  ! eigval and eigvec are eigenvalues and eigvectors of hessian matrix
+    !END TYPE
 
     TYPE cpc ! stands for critical point candidate
       INTEGER, DIMENSION(3) :: ind  ! these are the indices of the cp
@@ -49,7 +49,7 @@
 ! These are for screening CP due to numerical error. 
 
     
-    TYPE(hessian) :: hes
+    !TYPE(hessian) :: hes
     TYPE(bader_obj) :: bdr
     TYPE(charge_obj) :: chg
     TYPE(options_obj) :: opts
@@ -63,34 +63,27 @@
     INTEGER, DIMENSION(3) :: tempr
     INTEGER :: n1, n2, n3, cptnum, ucptnum, i, j, k, debugnum
     INTEGER :: negcount, bondcount, ringcount, maxcount, cagecount
-    INTEGER :: ubondcount, uringcount, umaxcount, ucagecount
-    REAL(q2), DIMENSION(3) :: truer
-    REAL(q2), DIMENSION(3) :: grad, prevgrad
-    REAL(q2), DIMENSION(3) :: temprealr, tempreal3d
+    INTEGER :: uBondCount, uRingCount, umaxcount, uCageCount
+    REAL(q2), DIMENSION(3) :: truer, grad, prevgrad, temprealr
     ! to be used in newton method in finding unique critical points.
-    REAL(q2), DIMENSION(3,3) ::  hessianMatrix, bkhessianMatrix
+    REAL(q2), DIMENSION(3,3) ::  hessianMatrix
     ! these are vectors orthogonal to eigenvectors
     REAL(q2), DIMENSION(3) :: tem, eigvals
-    REAL(q2) :: threshhold, tempreal, rndr
     REAL(q2), DIMENSION(3,3) :: eigvecs, inverseHessian
     ! linearized approximated derivatives for proxy critical screening
-    REAL(q2) :: dx0,dx1,dy0,dy1,dz0,dz1 ! outputs from interpolated gradients
-    REAL(q2) :: rhocur ! rho of current point
     REAL(q2) :: stepsize, temnormcap, iS
     REAL(q2), DIMENSION(3) :: distance ! vector to 000 in trilinear
-    REAL(q2), DIMENSION(3) :: preal, iP,fP,pr
+    REAL(q2), DIMENSION(3) :: iP,fP,pr
     INTEGER, DIMENSION(8,3) :: nn ! alternative trilinear approx.
     REAL(q2), DIMENSION(8) :: vals
     ! points
-    LOGICAL, DIMENSION(3) :: cartcoor ! check if axis are alone cartesian.
     LOGICAL :: invac ! this point is in vacuum
-    LOGICAL :: proxy, isReduced, phmrCompliant
+    LOGICAL :: isReduced, phmrCompliant
     ! The followings are for finding unique critical points
     REAL(q2), DIMENSION(8,3) :: nngrad
     REAL(q2), DIMENSION(8,3,3) :: nnhes !hessian of 8 nn
     INTEGER, DIMENSION(:,:),ALLOCATABLE :: descendPoints, ringPoints
     INTEGER, DIMENSION(:,:),ALLOCATABLE :: nnind
-    REAL(q2), DIMENSION(6,3) :: intnngrad
     REAL(q2), DIMENSION(3,3) :: interpolHessian
     REAL(q2), DIMENSION(3) :: nexttem, previoustem, averager, temcap, temscale
     INTEGER :: averagecount, repeatcount
@@ -174,11 +167,11 @@
     END DO
     setcount = 0
     bondcount = 0
-    ubondcount = 0
+    uBondCount = 0
     ringcount = 0
-    uringcount = 0
+    uRingCount = 0
     maxcount = 0
-    ucagecount = 0
+    uCageCount = 0
     cagecount = 0
     ucptnum = 0
     cptnum = 0
@@ -234,7 +227,7 @@
     ALLOCATE (cpl(10000)) ! start with 10000 capacity
     ALLOCATE (cpcl(10000))
       ! Maxima should always be found first with gradient ascension
-    PRINT *, 'Finding maxima'
+    IF (LDM) PRINT *, 'Finding maxima'
     DO n1 = 1, ions%nions
       IF (LDM .EQV. .TRUE.) THEN
         PRINT *, "De Bugger:"
@@ -251,8 +244,8 @@
       p(1) = NINT(cpl(ucptnum)%trueind(1))
       p(2) = NINT(cpl(ucptnum)%trueind(2))
       p(3) = NINT(cpl(ucptnum)%trueind(3))
-      CALL RecordCPR(temprealr,chg,cpl,ucptnum,eigvals,eigvecs, maxcount, uringcount, &
-        ubondcount, ucagecount,opts,grad,hessianMatrix, p,LDM_RecordCPR)
+      CALL RecordCPR(temprealr,chg,cpl,ucptnum,eigvals,eigvecs, maxcount, uRingCount, &
+        uBondCount, uCageCount,opts,grad,hessianMatrix, p,LDM_RecordCPR)
       IF (LDM) THEN
         PRINT *, "recording CP to cpl, this is number ", ucptnum
         PRINT *, "location is "
@@ -260,9 +253,9 @@
       END IF
       IF (opts%noInterpolation_flag) THEN
         maxcount = ucptnum
-        uringcount = 0
-        ubondcount = 0
-        ucagecount = 0
+        uRingCount = 0
+        uBondCount = 0
+        uCageCount = 0
         cpl(ucptnum)%grad = 0
         cpl(ucptnum)%hessianMatrix = 0
         cpl(ucptnum)%negcount = 3
@@ -277,17 +270,17 @@
       DO n1 = 1, ucptnum
         cpl(n1)%negcount = 3
       END DO
-      ubondcount = 0
-      ucagecount = 0
-      uringcount = 0
+      uBondCount = 0
+      uCageCount = 0
+      uRingCount = 0
       maxcount = ucptnum
     END IF
     !PRINT *, 'after adjustments, CP counts are'
-    !PRINT *, maxcount, ubondcount, uringcount, ucagecount
+    !PRINT *, maxcount, uBondCount, uRingCount, uCageCount
 
     IF (.NOT. opts%noInterpolation_flag) THEN
       !CALL minimasearch(chg,cptnum,cpl,bdr,matm,matwprime, &
-      !                      wi,vi,vit,ggrid,outerproduct,opts,ucagecount,&
+      !                      wi,vi,vit,ggrid,outerproduct,opts,uCageCount,&
       !                      nnLayers,ions)
       DO n1 = 1,chg%npts(1)
         DO n2 = 1,chg%npts(2)
@@ -355,7 +348,6 @@
                 CYCLE
               END IF
               cptnum = cptnum + 1
-              bkhessianMatrix = hessianMatrix
               ! Check if the candidate list needs to be expanded.
               IF (cptnum < SIZE(cpcl) - 1 ) THEN
                 !cpcl(cptnum)%du = hes%du
@@ -429,7 +421,6 @@
             IF (LDM) THEN
               PRINT *, "NRTFGP converged at point "
               PRINT *, trueR
-              tempReal3D = trueR
               PRINT *, "Direct calculation starting from point "
               PRINT *, cpcl(i)%ind
               PRINT *, "recorded r is "
@@ -592,7 +583,7 @@
           IF (cpcl(i)%isunique ) THEN
             ucptnum = ucptnum + 1
             CALL RecordCPR(truer,chg,cpl,ucptnum,eigvals,eigvecs, maxcount, &
-              uringcount,ubondcount,ucagecount, opts, grad, interpolHessian, &
+              uRingCount,uBondCount,uCageCount, opts, grad, interpolHessian, &
               cpcl(i)%ind,LDM_RecordCPR)
               IF (LDM) THEN
                 PRINT *, "recording CP number ", ucptnum
@@ -607,9 +598,9 @@
           END IF
           PRINT *, "lc 3"
           IF ( LDM .AND. (&
-              truer(1)/=tempReal3D(1) .OR. &
-              truer(2)/=tempReal3D(2) .OR. &
-              truer(3)/=tempReal3D(3)) ) THEN
+              truer(1)/=trueR(1) .OR. &
+              truer(2)/=trueR(2) .OR. &
+              truer(3)/=trueR(3)) ) THEN
             PRINT *, "ERROR :"
             PRINT *, "NRTFGP and direct calculation converged to different &
               points!"
@@ -622,11 +613,12 @@
           PRINT *, 'lc 4'
         END DO
       END IF
+ 
       PRINT *, 'Number of critical point count: ', ucptnum
       PRINT *, 'Number of nucl critical point count: ', maxcount
-      PRINT *, 'Number of bond critical point count: ', ubondcount
-      PRINT *, 'Number of ring critical point count: ', uringcount
-      PRINT *, 'Number of cage critical point count: ', ucagecount
+      PRINT *, 'Number of bond critical point count: ', uBondCount
+      PRINT *, 'Number of ring critical point count: ', uRingCount
+      PRINT *, 'Number of cage critical point count: ', uCageCount
 
       ! remove duplicate CPs
 
@@ -634,18 +626,18 @@
       isReduced = .FALSE.
       DO WHILE ( .NOT. isReduced)
         CALL ReduceCP(cpl,opts,ucptnum,chg,uBondCount, &
-          uringcount,uCageCount,maxCount,isReduced,LDM_RecordCPRLight, &
+          uRingCount,uCageCount,maxCount,isReduced,LDM_RecordCPRLight, &
           LDM_ReduceCP)
       END DO
       
       ! After CP numbers are reduced, do density descend and reduce another
       ! round afterwards
       IF (opts%enableDensityDescend) THEN
-        ! First find the midpoint of all rings, and their mirror images across
+        ! First find the midpoint of all rings, and their mirror iMages across
         ! the closest pbc (to be implemented). 
-        ALLOCATE(descendPoints(uringcount*(uringcount - 1 ),3))
+        ALLOCATE(descendPoints(uRingCount*(uRingCount - 1 ),3))
         ALLOCATE(ringPoints(uringCount,3))
-        CALL ResizeCPL(cpl,SIZE(cpl) + uringcount*(uRingCount - 1))
+        CALL ResizeCPL(cpl,SIZE(cpl) + uRingCount*(uRingCount - 1))
         j = 1
         DO i = 1, ucptnum
           IF (cpl(i)%negCount == 1 ) THEN
@@ -677,14 +669,14 @@
             LDM_RecordCPRLight,LDM_DetectCircling,LDM_NRTFGP)
         END DO
         !CALL minimasearch(chg,cptnum,cpl,bdr,matm,matwprime, &
-        !       wi,vi,vit,ggrid,outerproduct,opts,ucagecount,&
+        !       wi,vi,vit,ggrid,outerproduct,opts,uCageCount,&
         !       nnLayers,ions)
         DEALLOCATE(descendPoints)
         DEALLOCATE(ringPoints)
         isReduced = .FALSE.
         DO WHILE ( .NOT. isReduced)
           CALL ReduceCP(cpl,opts,ucptnum,chg,uBondCount, &
-            uringcount,uCageCount,maxCount,isReduced,LDM_RecordCPRLight, &
+            uRingCount,uCageCount,maxCount,isReduced,LDM_RecordCPRLight, &
             LDM_ReduceCP)
         END DO
       END IF
@@ -696,9 +688,9 @@
       PRINT *, 'Numbver of atoms: ', ions%nions
       PRINT *, 'Number of critical point count: ', ucptnum
       PRINT *, 'Number of nucl critical point count: ', maxcount
-      PRINT *, 'Number of bond critical point count: ', ubondcount
-      PRINT *, 'Number of ring critical point count: ', uringcount
-      PRINT *, 'Number of cage critical point count: ', ucagecount
+      PRINT *, 'Number of bond critical point count: ', uBondCount
+      PRINT *, 'Number of ring critical point count: ', uRingCount
+      PRINT *, 'Number of cage critical point count: ', uCageCount
 
       CALL  PHRuleExam(maxCount,ubondCount,uringCount,ucageCount,opts,&
         ions,phmrCompliant)
@@ -708,8 +700,8 @@
         stat = 0
       END IF
       ! output the cp to files
-      CALL OutputCP(cpl,opts,ucptnum,chg,setcount, ubondcount, &
-        uringcount, ucagecount, maxcount)
+      CALL OutputCP(cpl,opts,ucptnum,chg,setcount, uBondCount, &
+        uRingCount, uCageCount, maxcount)
       DEALLOCATE(cpRoster)
     END IF
     PRINT *, 'outputting debugging information to allcpPOSCAR'
@@ -733,33 +725,33 @@
       INTEGER :: findnnlayers
       TYPE(ions_obj) :: ions
       REAL(q2), DIMENSION(4,3) :: latsums!lat12, lat13, lat23, lat123
-      REAL(q2) :: latmag, minmag, maxmag
+      REAL(q2) :: latMag, minMag, maxMag
       INTEGER :: i
       latsums(1,:) = ions%lattice(1,:) + ions%lattice(2,:)
       latsums(2,:) = ions%lattice(1,:) + ions%lattice(3,:)
       latsums(3,:) = ions%lattice(2,:) + ions%lattice(3,:)
       latsums(4,:) = ions%lattice(1,:) + ions%lattice(2,:) + ions%lattice(3,:)
-      minmag = mag(latsums(1,:))
-      maxmag = mag(latsums(1,:))
+      minMag = Mag(latsums(1,:))
+      maxMag = Mag(latsums(1,:))
       DO i = 2, 4
-        latmag = mag(latsums(i,:))
-        IF (latmag >= maxmag) THEN
-          maxmag = latmag
+        latMag = Mag(latsums(i,:))
+        IF (latMag >= maxMag) THEN
+          maxMag = latMag
         END IF
-        IF (latmag <= minmag) THEN
-          minmag = latmag
+        IF (latMag <= minMag) THEN
+          minMag = latMag
         END IF
       END DO
       DO i = 1, 3
-        latmag = mag(ions%lattice(i,:))
-        IF (latmag >= maxmag) THEN
-          maxmag = latmag
+        latMag = Mag(ions%lattice(i,:))
+        IF (latMag >= maxMag) THEN
+          maxMag = latMag
         END IF
-        IF (latmag <= minmag) THEN
-          minmag = latmag
+        IF (latMag <= minMag) THEN
+          minMag = latMag
         END IF
       END DO
-      findnnlayers = CEILING(maxmag/minmag)
+      findnnlayers = CEILING(maxMag/minMag)
 
     END FUNCTION findnnlayers
   
@@ -826,7 +818,7 @@
             counter = counter + 1
             nnind(counter,:) = (/i,j,k/) + baseind
             pcart = MATMUL(chg%lat2car,nnind(counter,:))
-            nndist(counter)%rho = mag(truecart - pcart)
+            nndist(counter)%rho = Mag(truecart - pcart)
             nndist(counter)%pos(:) = (/i,j,k/) + baseind
             ! remember, rho here is really the distance
             FindNN(counter,:) = (/i,j,k/) + baseind
@@ -1138,7 +1130,7 @@
       CDHessian(1,2) = &
         ( &
         ! this is the backward dv
-!        - 0.5_q2 / vmag * &
+!        - 0.5_q2 / vMag * &
         - 0.25_q2 * & 
         ((rho_val(chg,ptxy2(1),ptxy2(2),ptxy2(3)) + &
             rho_val(chg,pty1(1),pty1(2),pty1(3)))  - &
@@ -1332,7 +1324,6 @@
     ! finding lsg of gradients found with lsg
     FUNCTION lsh(r0,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
       TYPE(charge_obj) :: chg
-      TYPE(hessian) :: hes
       REAL(q2), DIMENSION(3,3) :: lsh
       INTEGER, DIMENSION(3) :: r0
       ! to store neighbor lsg's
@@ -1660,14 +1651,14 @@
 
 
     SUBROUTINE minimasearch(chg,cptnum,cpl,bdr,matm,matwprime, &
-                          wi,vi,vit,ggrid,outerproduct,opts,ucagecount,&
+                          wi,vi,vit,ggrid,outerproduct,opts,uCageCount,&
                           nnLayers, ions)
       TYPE(charge_obj) :: chg
       TYPE(bader_obj) :: bdr
       TYPE(options_obj) :: opts
       TYPE(ions_obj) :: ions
       TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpl
-      INTEGER :: cptnum, ucagecount, nnLayers
+      INTEGER :: cptnum, uCageCount, nnLayers
       INTEGER :: n1,n2,n3,i, counter
       INTEGER :: bx,by,bz
       INTEGER, DIMENSION(26,3) :: nn
@@ -1715,7 +1706,7 @@
 !            PRINT *,'finished comparing values'
             IF ( isminimum .EQV. .TRUE.  ) THEN
               cptnum = cptnum + 1
-              ucagecount = ucagecount + 1
+              uCageCount = uCageCount + 1
               minpos = (/n1,n2,n3/)
               minr = descension(minpos,chg,matm,matwprime, &
                           wi,vi,vit,ggrid,outerproduct,opts,nnLayers,ions)
@@ -2049,10 +2040,10 @@
       !sign a lot.
 
 
-      IF (mag(previoustem) == temnormcap) THEN
+      IF (Mag(previoustem) == temnormcap) THEN
         capprev = .TRUE.
       END IF
-      IF (mag(nexttem) == temnormcap ) THEN
+      IF (Mag(nexttem) == temnormcap ) THEN
         capnext = .TRUE.
       END IF
 
@@ -2126,11 +2117,11 @@
       RETURN
     END FUNCTION
 
-    ! give the magnitude of a 3d vector
-    FUNCTION mag(vec3d)
+    ! give the Magnitude of a 3d vector
+    FUNCTION Mag(vec3d)
       REAL(q2), DIMENSION(3) :: vec3d
-      REAL(q2) :: mag
-      mag = SQRT(SUM(vec3d*vec3d))
+      REAL(q2) :: Mag
+      Mag = SQRT(SUM(vec3d*vec3d))
       RETURN
     END FUNCTION
 
@@ -2143,8 +2134,8 @@
       DO i = 1 , 3
         TemMods(i) = TemMods(i) * temscale(i)
       END DO
-      IF (mag(TemMods) > temNormCap) THEN
-        TemMods = TemMods/mag(TemMods) * temScale
+      IF (Mag(TemMods) > temNormCap) THEN
+        TemMods = TemMods/Mag(TemMods) * temScale
       END IF
       RETURN
     END FUNCTION
@@ -2172,7 +2163,6 @@
     ! if it is detected that the hessian 
     FUNCTION unZeroHessian(truer,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
       TYPE(charge_obj) :: chg
-      TYPE(hessian) :: hes
       REAL(q2), DIMENSION(3,3) :: unZeroHessian, lsd
       INTEGER, DIMENSION(3) :: truer
       INTEGER, DIMENSION(3,26) :: vi
@@ -2201,10 +2191,10 @@
 
     ! check if the number of each type of critical point satisfies the
     ! Poincare-Hopf rule
-    FUNCTION PHRuleChecker(maxcount, ubondcount, uringcount, ucagecount, opts, &
+    FUNCTION PHRuleChecker(maxcount, uBondCount, uRingCount, uCageCount, opts, &
       ions )
       LOGICAL :: PHRuleChecker
-      INTEGER :: maxcount, ubondcount, uringcount, ucagecount
+      INTEGER :: maxcount, uBondCount, uRingCount, uCageCount
       TYPE(options_obj) :: opts
       TYPE(ions_obj) :: ions
       phrulechecker = .FALSE.
@@ -2214,11 +2204,11 @@
         PRINT *, 'WARNING : MORE MAXIMA FOUND THAN NUMBER OF NUCLEI!'
       ELSE 
         IF (opts%iscrystal ) THEN
-          IF (maxcount - ubondcount + uringcount - ucagecount == 0) THEN
+          IF (maxcount - uBondCount + uRingCount - uCageCount == 0) THEN
             phrulechecker = .TRUE.
           END IF
         ELSE 
-          IF (maxcount - ubondcount + uringcount - ucagecount == 1) THEN
+          IF (maxcount - uBondCount + uRingCount - uCageCount == 1) THEN
             phrulechecker = .TRUE.
           END IF 
         END IF
@@ -2328,8 +2318,8 @@
     END SUBROUTINE 
     ! count the number of negative eigenvalues to characterize a critical point
     SUBROUTINE RecordCP(p,chg,matm,matwprime,wi,vi,vit,ggrid &
-      ,outerproduct,cpl,ucptnum,eigvals,eigvecs, maxcount, uringcount, &
-      ubondcount, ucagecount,opts,LDM)
+      ,outerproduct,cpl,ucptnum,eigvals,eigvecs, maxcount, uRingCount, &
+      uBondCount, uCageCount,opts,LDM)
       TYPE(charge_obj) :: chg
       TYPE(options_obj) :: opts
       TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpl
@@ -2344,7 +2334,7 @@
       REAL(q2), DIMENSION(3,3) :: matm
       REAL(q2), DIMENSION(3,3) :: outerproduct
       INTEGER :: i, j, k, ucptnum, negcount
-      INTEGER :: maxcount, uringcount, ubondcount, ucagecount
+      INTEGER :: maxcount, uRingCount, uBondCount, uCageCount
       INTEGER :: it_num, rot_num
       LOGICAL :: LDM
       IF (opts%leastSquare_flag) THEN
@@ -2376,8 +2366,8 @@
 
 
     ! the version of the above subroutine where p is real not integer
-    SUBROUTINE RecordCPR(p,chg,cpl,ucptnum,eigvals,eigvecs, maxcount, uringcount, &
-      ubondcount, ucagecount,opts,grad,hessianMatrix,ind,LDM)
+    SUBROUTINE RecordCPR(p,chg,cpl,ucptnum,eigvals,eigvecs, maxcount, uRingCount, &
+      uBondCount, uCageCount,opts,grad,hessianMatrix,ind,LDM)
       TYPE(charge_obj) :: chg
       TYPE(options_obj) :: opts
       TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpl
@@ -2393,7 +2383,7 @@
       REAL(q2), DIMENSION(3,3) :: outerproduct
       INTEGER,DIMENSION(3) :: ind
       INTEGER :: i, j, k, ucptnum, negCount
-      INTEGER :: maxcount, uringcount, ubondcount, ucagecount
+      INTEGER :: maxcount, uRingCount, uBondCount, uCageCount
       INTEGER :: it_num, rot_num
       LOGICAL :: LDM
       cpl(ucptnum)%hessianMatrix = hessianMatrix
@@ -2424,8 +2414,8 @@
       END IF
     END SUBROUTINE RecordCPR
     
-    SUBROUTINE RecordCPRLight(p,chg,cpl,ucptnum, maxcount, uringcount, &
-      ubondcount, ucagecount,ind,LDM)
+    SUBROUTINE RecordCPRLight(p,chg,cpl,ucptnum, maxcount, uRingCount, &
+      uBondCount, uCageCount,ind,LDM)
       TYPE(charge_obj) :: chg
       TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpl
       REAL(q2), DIMENSION(3) :: eigvals, grad
@@ -2441,7 +2431,7 @@
       INTEGER, DIMENSION(3,26) :: vi
       INTEGER,DIMENSION(3) :: ind
       INTEGER :: i, j, k, ucptnum, negCount
-      INTEGER :: maxcount, uringcount, ubondcount, ucagecount
+      INTEGER :: maxcount, uRingCount, uBondCount, uCageCount
       INTEGER :: it_num, rot_num
       LOGICAL :: LDM
       hessianMatrix = CDHessianR(p,chg)
@@ -2474,13 +2464,13 @@
       END IF
     END SUBROUTINE RecordCPRLight
 
-    SUBROUTINE  OutputCP(cpl,opts,ucptnum,chg,setcount,ubondcount, &
-      uringcount,ucagecount, maxcount)
+    SUBROUTINE  OutputCP(cpl,opts,ucptnum,chg,setcount,uBondCount, &
+      uRingCount,uCageCount, maxcount)
       TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpl
       TYPE(options_obj) :: opts
       TYPE(charge_obj) :: chg
       INTEGER :: ucptnum, i, setcount
-      INTEGER :: ubondcount, uringcount, ucagecount, maxcount
+      INTEGER :: uBondCount, uRingCount, uCageCount, maxcount
       REAL(q2),DIMENSION(3) :: grad
       CHARACTER(10) :: fileName
       PRINT *, 'Writting critical point output files'
@@ -2488,9 +2478,9 @@
       PRINT *, 'Critical point information are written in file: ', filename
       OPEN(98,FILE=filename,STATUS='REPLACE',ACTION='WRITE')
       WRITE(98,*) 'Number of critical points written: ', ucptnum
-      WRITE(98,*) 'Number of bond critical point written: ', ubondcount
-      WRITE(98,*) 'Number of ring critical point written: ', uringcount
-      WRITE(98,*) 'Number of cage critical point written: ', ucagecount
+      WRITE(98,*) 'Number of bond critical point written: ', uBondCount
+      WRITE(98,*) 'Number of ring critical point written: ', uRingCount
+      WRITE(98,*) 'Number of cage critical point written: ', uCageCount
       !WRITE(98,*) 'Number of nucl critical point written: ', maxcount
       WRITE(98,*) 'Nuclear critical points are omitted. Use atomic positions.'
       DO i = 1, ucptnum
@@ -2570,14 +2560,14 @@
       ! look for all equivalents of p within nnlayer, find the smallest distance
       rt = MATMUL(chg%lat2car,pt)
       r = MATMUL(chg%lat2car,p)
-      GetPointDistance = mag( r - rt)
+      GetPointDistance = Mag( r - rt)
       DO i = -nnlayer, nnlayer
         DO j = -nnlayer, nnlayer
           DO k = -nnlayer, nnlayer
             IF (i == 0.AND.j == 0.AND.k == 0) CYCLE
             nnp = p + (/i * chg%npts(1), j * chg%npts(2), k * chg%npts(3)/)
             nnr = MATMUL(chg%lat2car,nnp)
-            distance = mag( nnr - rt)
+            distance = Mag( nnr - rt)
             GetPointDistance = MIN(GetPointDistance, distance)
           END DO
         END DO
@@ -2600,7 +2590,7 @@
       ! look for all equivalents of p within nnlayer, find the smallest distance
       rt = MATMUL(chg%lat2car,pt)
       r = MATMUL(chg%lat2car,p)
-      GetPointDistanceR = mag( r - rt)
+      GetPointDistanceR = Mag( r - rt)
       DO i = -nnlayer, nnlayer
         DO j = -nnlayer, nnlayer
           DO k = -nnlayer, nnlayer
@@ -2608,7 +2598,7 @@
             nnp = p + (/REAL(i * chg%npts(1),q2), REAL(j * chg%npts(2),q2), &
                   REAL(k * chg%npts(3),q2)/)
             nnr = MATMUL(chg%lat2car,nnp)
-            distance = mag( nnr - rt)
+            distance = Mag( nnr - rt)
             GetPointDistanceR = MIN(GetPointDistanceR, distance)
           END DO
         END DO
@@ -2879,7 +2869,7 @@
           DO j = 1, 10
             IF ( j == i ) CYCLE
             IF (ALL(temList(i,:) == temList(j,:),1) ) THEN 
-              IF (mag(temList(j,:))== 1.) CYCLE
+              IF (Mag(temList(j,:))== 1.) CYCLE
               isRunningCircles = .TRUE.
               EXIT outer
             END IF
@@ -2924,7 +2914,7 @@
       INTEGER :: rCPTNum, rBondCount,rRingCount,rCageCount,rmaxCount
       INTEGER :: i,j, nUCPTNum, weight, dupCount
       LOGICAL :: isReduced,LDM_RecordCPRLight,LDM
-      PRINT *, 'Checking for duplicate CP'
+      IF (LDM) PRINT *, 'Checking for duplicate CP'
       isReduced = .TRUE.
       dupCount = 0
       rmaxCount = 0
@@ -2948,7 +2938,7 @@
         DO j = i, ucptnum
           ! Periodic boundary condition will come to haunt me, periodically. 
           IF (j == i) CYCLE
-          IF ( mag(cpl(i)%truer - cpl(j)%truer) .LE. opts%par_distance ) THEN
+          IF ( Mag(cpl(i)%truer - cpl(j)%truer) .LE. opts%par_distance ) THEN
             cpl(j)%hasProxy = .TRUE.
             
             avgR = (avgR * weight + cpl(j)%truer )/(weight + 1)
@@ -2989,7 +2979,7 @@
       uBondCount = rBondCount
       uCageCount = rCageCount
       ucptnum = nUCPTnum
-      PRINT *, 'The number of duplicate CP found is', dupcount
+      IF (LDM) PRINT *, 'The number of duplicate CP found is', dupcount
       DEALLOCATE(rcpl)
     END SUBROUTINE ReduceCP
    
@@ -3092,7 +3082,7 @@
     OPEN(51,FILE='debug_line_gradient_cart.dat',STATUS='REPLACE',ACTION='WRITE')
     OPEN(52,FILE='debug_line_hessian_cart.dat',STATUS='REPLACE',ACTION='WRITE')
     OPEN(53,FILE='debug_line_rhograd_cart.dat',STATUS='REPLACE',ACTION='WRITE')
-    sN = CEILING( mag( fP - iP ) / iS )
+    sN = CEILING( Mag( fP - iP ) / iS )
     sZ = ( fP - iP ) / sN
     DO i = 0, sN
       p = iP + i * sZ ! This is in cartesian
@@ -3870,6 +3860,62 @@
 
     ! This subroutine writes a debug CHGCAR
 
+    ! This subroutine is used when NR trajectories fail to converge.
+    ! It calculates the modulus of the charge density gradient
+    ! And calculate the gradient of this modulus
+    ! And descend the gradient of the modulus.
+    ! It takes in only the starting point index, 
+    !and returns the converged point in lattice coordiantes.
+    SUBROUTINE GradientDescend(iniI,finR)
+      INTEGER,DIMENSION(8,3) :: nnInd
+      INTEGER,DIMENSION(3) :: iniI
+      REAL(q2),DIMENSION(3) :: finR
+      REAL(q2),DIMENSION(3) :: gMCDG 
+      ! gradient of modulus of charge density gradient
+    END SUBROUTINE GradientDescend
+
+    ! Central Difference Gradient of Modulus of Charge Density Gradient
+    ! Operates on grid points
+    FUNCTION CDGMCDG(p,chg)
+      TYPE(charge_obj) :: chg
+      INTEGER,DIMENSION(8,3) :: nnInd
+      INTEGER,DIMENSION(3) :: p
+      INTEGER, DIMENSION(3) :: pzm,pzp,pxm,pxp,pym,pyp
+      REAL(q2), DIMENSION(8) :: nnM
+      REAL(q2), DIMENSION(3) :: CDGMCDG
+      REAL(q2):: mCDGpzm,mCDGpzp,mCDGpxm,&
+        mCDGpxp,mCDGpym,mCDGpyp
+
+      ! First get get the Magnitude of all neary by charge density gradient
+      pzm = p + (/0,0,-1/)
+      pzp = p + (/0,0,1/)
+      pxm = p + (/-1,0,0/)
+      pxp = p + (/1,0,0/)
+      pym = p + (/0,-1,0/)
+      pyp = p + (/0,1,0/)
+      CALL pbc(pxm,chg%npts)
+      CALL pbc(pym,chg%npts)
+      CALL pbc(pzm,chg%npts)
+      CALL pbc(pxp,chg%npts)
+      CALL pbc(pyp,chg%npts)
+      CALL pbc(pzp,chg%npts)
+      mCDGpzm = Mag(CDGrad(pzm,chg))
+      mCDGpzp = Mag(CDGrad(pzp,chg))
+      mCDGpxm = Mag(CDGrad(pxm,chg))
+      mCDGpxp = Mag(CDGrad(pxp,chg))
+      mCDGpym = Mag(CDGrad(pym,chg))
+      mCDGpyp = Mag(CDGrad(pyp,chg))
+      ! Calculate the gradient of modulus.
+      !CDGrad(3) = 0.5*(rho_val(chg,pzp(1),pzp(2),pzp(3)) - &
+      !            rho_val(chg,pzm(1),pzm(2),pzm(3)))
+      !CDGrad(2) = 0.5*(rho_val(chg,pyp(1),pyp(2),pyp(3)) - &
+      !            rho_val(chg,pym(1),pym(2),pym(3)))
+      !CDGrad(1) = 0.5*(rho_val(chg,pxp(1),pxp(2),pxp(3)) - &
+      !            rho_val(chg,pxm(1),pxm(2),pxm(3)))
+      !CDGrad = MATMUL(CDGrad,chg%car2lat)
+   
+      RETURN
+    END FUNCTION CDGMCDG
     ! The following code is potentially useful for gradient descend
           ! This determins if validation is done with gradient descend
           !    PRINT *, 'looking at critical point candidate # ', i
