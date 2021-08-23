@@ -2226,6 +2226,7 @@
       LOGICAL :: phmrCompliant
       phSum = maxCount - bondCount + ringCount - cageCount
       iphSum = ions%nions - bondCount + ringCount - cageCount
+      !phSum = iphSum ! Using atom count to override. 
       phmrCompliant = .FALSE.
       IF (opts%isCrystal) THEN
         PRINT *, 'The system is assigned as a Crystal'
@@ -2517,6 +2518,10 @@
         WRITE (98,*) cpl(i)%hessianMatrix(1,:)
         WRITE (98,*) cpl(i)%hessianMatrix(2,:)
         WRITE (98,*) cpl(i)%hessianMatrix(3,:)
+        WRITE (98,*) 'Laplacian is'
+        WRITE (98,*) cpl(i)%hessianMatrix(1,1)**2 + & 
+                     cpl(i)%hessianMatrix(2,2)**2 + &
+                     cpl(i)%hessianMatrix(3,3)**2
         WRITE (98,*) 'Eigenvalues are'
         WRITE (98,*) cpl(i)%eigvals
         WRITE (98,*) 'Eigenvectors are'
@@ -2774,7 +2779,7 @@
       REAL(q2),DIMENSION(8,3,3) :: nnHes
       REAL(q2),DIMENSION(8,3) :: nnGrad
       REAL(q2),DIMENSION(3,3) :: hessianMatrix,eigvecs
-      REAL(q2),DIMENSION(3) :: grad,eigvals,distance, dir
+      REAL(q2),DIMENSION(3) :: grad,eigvals,distance, dir,r
       INTEGER,DIMENSION(8,3) :: nnInd
       INTEGER :: cptnum,i,n1,negCount, j
       INTEGER :: maxCount,bondCount,ringCount,cageCount
@@ -2826,10 +2831,15 @@
         DO n1 = 1, cptnum
           IF (.NOT.cpcl(n1)%isunique) CYCLE
           IF (cpcl(n1)%negCount == j) THEN
-            WRITE(11,*) MATMUL(chg%lat2car,cpcl(n1)%trueR)
-            dir(1) = cpcl(n1)%trueR(1)/chg%npts(1)
-            dir(2) = cpcl(n1)%trueR(2)/chg%npts(2)
-            dir(3) = cpcl(n1)%trueR(3)/chg%npts(3)
+            ! Because lattice starts at 1 1 1 but cartesian starts at 0 0 0
+            r(1) = cpcl(n1)%trueR(1) - 1
+            r(2) = cpcl(n1)%trueR(2) - 1
+            r(3) = cpcl(n1)%trueR(3) - 1
+            WRITE(11,*) MATMUL(chg%lat2car,r)
+            !WRITE(11,*) MATMUL(chg%lat2car,cpcl(n1)%trueR)
+            !dir(1) = cpcl(n1)%trueR(1)/chg%npts(1)
+            !dir(2) = cpcl(n1)%trueR(2)/chg%npts(2)
+            !dir(3) = cpcl(n1)%trueR(3)/chg%npts(3)
           END IF
         END DO
       END DO
