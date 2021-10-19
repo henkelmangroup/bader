@@ -701,7 +701,7 @@
       END IF
       ! output the cp to files
       CALL OutputCP(cpl,opts,ucptnum,chg,setcount, uBondCount, &
-        uRingCount, uCageCount, maxcount)
+        uRingCount, uCageCount, maxcount,ions)
       DEALLOCATE(cpRoster)
     END IF
     PRINT *, 'outputting debugging information to allcpPOSCAR'
@@ -2466,14 +2466,17 @@
     END SUBROUTINE RecordCPRLight
 
     SUBROUTINE  OutputCP(cpl,opts,ucptnum,chg,setcount,uBondCount, &
-      uRingCount,uCageCount, maxcount)
+      uRingCount,uCageCount, maxcount,ions)
       TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpl
       TYPE(options_obj) :: opts
       TYPE(charge_obj) :: chg
+      TYPE(ions_obj) :: ions
       INTEGER :: ucptnum, i, setcount
       INTEGER :: uBondCount, uRingCount, uCageCount, maxcount
       REAL(q2),DIMENSION(3) :: grad
+      REAL(q2) :: vol
       CHARACTER(10) :: fileName
+      vol = matrix_volume(ions%lattice)
       PRINT *, 'Writting critical point output files'
       WRITE(fileName,fmt='(a,i2.2,a)') TRIM('CPFU'), setcount,TRIM('.dat')
       PRINT *, 'Critical point information are written in file: ', filename
@@ -2511,7 +2514,7 @@
             cpl(i)%truer(3)/chg%npts(3)
         END IF
         WRITE (98,*) "Charge density is"
-        WRITE (98,*) cpl(i)%rho 
+        WRITE (98,*) cpl(i)%rho/vol 
         WRITE (98,*) 'Gradiant is'
         WRITE (98,*) cpl(i)%grad
         WRITE (98,*) 'Hessian is'
