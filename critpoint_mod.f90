@@ -37,6 +37,7 @@
       REAL(q2), DIMENSION(3,3) :: eigvecs
       INTEGER :: negcount
       LOGICAL :: hasProxy, isunique
+      INTEGER, DIMENSION(2) :: connectedAtoms
     END TYPE
     CONTAINS
 
@@ -61,7 +62,7 @@
     INTEGER :: stat, setcount, counter
     INTEGER, DIMENSION(3) :: p
     INTEGER, DIMENSION(3) :: tempr
-    INTEGER :: n1, n2, n3, cptnum, ucptnum, i, j, k, debugnum
+    INTEGER :: n1, n2, n3, cptnum, ucptnum, i, j, k, debugnum,ij, trajcount, trajtotal
     INTEGER :: negcount, bondcount, ringcount, maxcount, cagecount
     INTEGER :: uBondCount, uRingCount, umaxcount, uCageCount
     REAL(q2), DIMENSION(3) :: truer, grad, prevgrad, temprealr
@@ -70,10 +71,16 @@
     ! these are vectors orthogonal to eigenvectors
     REAL(q2), DIMENSION(3) :: tem, eigvals
     REAL(q2), DIMENSION(3,3) :: eigvecs, inverseHessian
+    INTEGER, DIMENSION(2) :: connectedAtoms
     ! linearized approximated derivatives for proxy critical screening
     REAL(q2) :: stepsize, temnormcap, iS
     REAL(q2), DIMENSION(3) :: distance ! vector to 000 in trilinear
     REAL(q2), DIMENSION(3) :: iP,fP,pr
+    !the following is for gradient descend unit testing
+    INTEGER, DIMENSION(20,3) :: iniIList
+    INTEGER :: axisnum
+    REAL (q2), DIMENSION (8,3) :: finRList
+    REAL (q2), DIMENSION(3) :: finR
     INTEGER, DIMENSION(8,3) :: nn ! alternative trilinear approx.
     REAL(q2), DIMENSION(8) :: vals
     ! points
@@ -88,7 +95,7 @@
     REAL(q2), DIMENSION(3) :: nexttem, previoustem, averager, temcap, temscale
     INTEGER :: averagecount, repeatcount
     INTEGER, DIMENSION(:,:), ALLOCATABLE :: nucleiInd
-    REAL(q2), DIMENSION(:,:), ALLOCATABLE :: cpRoster
+    REAL(q2), DIMENSION(:,:), ALLOCATABLE :: cpRoster, fullcpRoster, reducedcpRoster
     INTEGER :: stepcount, nnlayers
     ! The following are for least square calculations
     INTEGER, DIMENSION(3,26) :: vi, matw
@@ -104,7 +111,10 @@
     LOGICAL :: HCF,LDM ! has config file, local debug mode
     LOGICAL :: LDM_DetectCircling, LDM_ReduceCP
     LOGICAL :: LDM_DensityDescend,LDM_RecordCPRLight
-    LOGICAL :: LDM_NRTFGP,LDM_CalcTEMLat,LDM_RecordCPR
+    LOGICAL :: LDM_NRTFGP,LDM_CalcTEMLat,LDM_RecordCPR, LDM_GradMagGrad, LDM_RingAscend, LDM_Trajectories
+    LOGICAL :: isUniqueTest
+    INTEGER, DIMENSION(2) :: doubleascend_test
+    INTEGER, DIMENSION(:), ALLOCATABLE :: RingList
     ! below are variables for least sqaures gradient
     stat = 0 ! 0 means nothing
     !PRINT *, ''//achar(27)//'[31m Finding Critical points'//achar(27)//'[0m'
@@ -144,7 +154,7 @@
       PRINT *, "Reading debug flags from debugConfig"
       CALL GetDebugFlags(opts,LDM,LDM_DetectCircling,&
         LDM_ReduceCP,LDM_DensityDescend,LDM_RecordCPRLight,&
-        LDM_NRTFGP,LDM_CalcTEMLat,LDM_RecordCPR)
+        LDM_NRTFGP,LDM_CalcTEMLat,LDM_RecordCPR,LDM_GradMagGrad,LDM_RingAscend,LDM_Trajectories)
     ELSE
       LDM_DetectCircling = .FALSE.
       LDM_ReduceCP = .FALSE.
@@ -153,6 +163,9 @@
       LDM_NRTFGP = .FALSE.
       LDM_CalcTEMLat = .FALSE.
       LDM_RecordCPR = .FALSE.
+      LDM_GradMagGrad = .FALSE.
+      LDM_RingAscend = .FALSE.
+      LDM_Trajectories = .FALSE.
     END IF
     ! get expected nucleus indices
 !    WRITE (97,*) , 'expecting nuclei at:'
@@ -175,7 +188,7 @@
     cagecount = 0
     ucptnum = 0
     cptnum = 0
-   ! ! ********** Debug part*********
+   ! !********** Debug part*********
    ! iP = (/0.,0.,6.216/)
    ! fP = (/1.234,-0.712,6.216/)
    ! iS = 0.01
@@ -218,15 +231,48 @@
 
 
 
-
-
-
-
     PRINT *, '******************************************************' 
 
     ALLOCATE (cpl(10000)) ! start with 10000 capacity
     ALLOCATE (cpcl(10000))
       ! Maxima should always be found first with gradient ascension
+
+
+    !gradient descent unit test with arbitrary initial point
+    !iniI and finR were defined in the main critpoint_fnd method for lack of a better place to define them.
+    IF (LDM_GradMagGrad) THEN
+  
+     !this list is intended to be near a critical point of cyclohexane 
+     ! iniIList(1,:) = (/45,46,50/)
+     ! iniIList(2,:) = (/47,47,54/)
+     ! iniIList(3,:) = (/49,48,50/)
+      
+      iniIList(6,:) = (/47,47,52/)
+      axisnum = 3
+      DO ij=1,11
+          IF (axisnum == 1) THEN
+             iniIList(ij,:) = (/iniIList(6,1)+ij-6,iniIList(6,2), iniIList(6,3)/)
+          ELSE IF (axisnum == 2) THEN
+             iniIList(ij,:) = (/iniIList(6,1),iniIList(6,2)+ij-6, iniIList(6,3)/)
+          ELSE
+             iniIList(ij,:) = (/iniIList(6,1),iniIList(6,2), iniIList(6,3)+ij-6/)
+          END IF
+      END DO
+      iniIList(12,:) = (/43, 44, 49/)
+      iniIList(13,:) = (/43, 45, 49/)
+      DO ij=1,13
+         ! PRINT *, "Segfault check loop",ij
+          isUniqueTest = .TRUE.
+          CALL GradientDescend(bdr,chg,opts,finR,iniIList(ij,:), isUniqueTest ,3000,LDM_GradMagGrad)
+          PRINT *, finR
+         ! isUniqueTest = printinfo(iniIList(ij,:),chg)
+          PRINT *, " "
+      END DO
+      
+
+    END IF
+
+
     IF (LDM) PRINT *, 'Finding maxima'
     DO n1 = 1, ions%nions
       IF (LDM .EQV. .TRUE.) THEN
@@ -244,7 +290,7 @@
       p(1) = NINT(cpl(ucptnum)%trueind(1))
       p(2) = NINT(cpl(ucptnum)%trueind(2))
       p(3) = NINT(cpl(ucptnum)%trueind(3))
-      CALL RecordCPR(temprealr,chg,cpl,ucptnum,eigvals,eigvecs, maxcount, uRingCount, &
+      CALL RecordCPR(temprealr,chg,cpl,ucptnum,eigvals,eigvecs,connectedAtoms, maxcount, uRingCount, &
         uBondCount, uCageCount,opts,grad,hessianMatrix, p,LDM_RecordCPR)
       IF (LDM) THEN
         PRINT *, "recording CP to cpl, this is number ", ucptnum
@@ -340,7 +386,7 @@
             END IF
             IF ( (ABS(tem(1)) <= 1.5 + opts%par_tem .AND. &
                  ABS(tem(2)) <= 1.5 + opts%par_tem .AND. &
-                 ABS(tem(3)) <= 1.5 + opts%par_tem)) THEN
+                 ABS(tem(3)) <= 1.5 + opts%par_tem )) THEN
                 ! ABS(tem(3)) <= 0.5 + opts%par_tem) .OR. &
                 !(SUM(grad*grad) <= (0.1*opts%par_gradfloor)**2 )) THEN              
               ! finding proximity could potentially be costly
@@ -390,6 +436,11 @@
           END DO
         END DO
       END DO
+
+          
+
+
+
       PRINT *, "Number of Newton Rhapson trajectory needed: ", cptnum 
 !!**  *****************************************************************
       ! To find critical points (unique), start with a cell that contains a
@@ -401,6 +452,7 @@
       ! point is within half lattice to another, do not record this new point.
       IF (.TRUE.) THEN
         ALLOCATE(cpRoster(cptnum,3))
+        IF (LDM_Trajectories) ALLOCATE(fullcpRoster(cptnum,3))
         DO i = 1, cptnum
           cpcl(i)%isunique = .FALSE.
           temcap = (/1.,1.,1./)
@@ -409,10 +461,29 @@
           IF (.FALSE.) THEN
             CYCLE
           ELSE
-          ! Begins newton raphson validation process
-            CALL NRTFGP(bdr,chg,opts,trueR,&
-              LDM_detectCircling,cpcl(i)%isUnique,cpcl(i)%r,cpcl(i)%ind,&
-              1000,LDM_NRTFGP)
+           
+            IF (opts%gradMode) THEN
+               !uses GradientDescend instead of NRTFGP          
+               IF (LDM) PRINT *, "Gradient Mode Activated"
+               
+               
+               CALL GradientDescend(bdr,chg,opts,trueR,cpcl(i)%ind,&
+               cpcl(i)%isUnique,3000,LDM_GradMagGrad)
+               
+               
+               IF (.TRUE.) THEN
+                 IF (ABS(trueR(1))>200 .OR. ABS(trueR(2))>200 .OR. ABS(trueR(3))>200) THEN
+                    PRINT *, "Way out of bounds!"
+                    EXIT
+                 END IF
+               END IF
+            ELSE
+               ! Begins newton raphson validation process
+               CALL NRTFGP(bdr,chg,opts,trueR,&
+               LDM_detectCircling,cpcl(i)%isUnique,cpcl(i)%r,cpcl(i)%ind,&
+               1000,LDM_NRTFGP)
+            END IF
+
             IF (LDM) THEN
               PRINT *, "trueR is"
               PRINT *, trueR
@@ -573,6 +644,10 @@
             END IF
           END IF
           IF (LDM) PRINT *, "lc 2"
+          
+          IF (LDM_Trajectories)  CALL MakeFullCPRoster(fullcpRoster,i,truer)
+          
+
           IF (cpcl(i)%isUnique ) THEN
 
             CALL MakeCPRoster(cpRoster,i,truer)
@@ -582,9 +657,12 @@
           END IF
           IF (cpcl(i)%isunique ) THEN
             ucptnum = ucptnum + 1
-            CALL RecordCPR(truer,chg,cpl,ucptnum,eigvals,eigvecs, maxcount, &
+            CALL RecordCPR(truer,chg,cpl,ucptnum,eigvals,eigvecs,connectedAtoms, maxcount, &
               uRingCount,uBondCount,uCageCount, opts, grad, interpolHessian, &
               cpcl(i)%ind,LDM_RecordCPR)
+              
+              
+              
               IF (LDM) THEN
                 PRINT *, "recording CP number ", ucptnum
                 PRINT *, "location is "
@@ -694,15 +772,51 @@
 
       CALL  PHRuleExam(maxCount,ubondCount,uringCount,ucageCount,opts,&
         ions,phmrCompliant)
+      
       IF (phmrCompliant) THEN
         stat = 1
       ELSE
         stat = 0
       END IF
+      ! stat = 1
+
+        
+
+      !Runs DoubleAscension and RingAscension on all detected critical points
+      DO ij = 1,ucptnum
+        !Saves pairs of connected atoms in connectedAtoms
+        cpl(ij)%connectedAtoms = DoubleAscension(cpl(ij),chg,ions)
+       
+        IF (LDM_RingAscend) THEN
+           !Prints Rings
+           CALL RingAscension(cpl(ij),chg,ions,RingList)
+        END IF
+      END DO
+      
+
       ! output the cp to files
       CALL OutputCP(cpl,opts,ucptnum,chg,setcount, uBondCount, &
-        uRingCount, uCageCount, maxcount,ions)
+        uRingCount, uCageCount, maxcount)
+
+      !Output the found list of connectivity pairs to file 
+      CALL OutputNetwork(cpl,ucptnum,setcount)
+      
+      IF (LDM_Trajectories) THEN
+          !Performs statistical analysis (standard deviation) on the CP Roster 
+          CALL CPRosterAnalysis(cpl,ions,fullcpRoster,chg)
+    
+          !unique_realcoords removes NaN/0 valued blank CPs, condenses the list to only the relevant ones inside reducedcpRoster
+          CALL unique_realcoords(cpRoster,reducedcpRoster) 
+          
+          !Output the CP Roster to file
+          CALL OutputCPRoster(fullcpRoster,setcount)
+          
+          DEALLOCATE(fullcpRoster)
+          DEALLOCATE(reducedcpRoster)
+      END IF
+
       DEALLOCATE(cpRoster)
+
     END IF
     PRINT *, 'outputting debugging information to allcpPOSCAR'
 !    CALL VisAllCP(cpcl,cptnum,chg,ions,opts)
@@ -1199,7 +1313,7 @@
     END FUNCTION findstepsize
 
     ! this funciton finds hessian of a interpolated point using interpolated
-    ! nearest neighbor gradiants. Also gradiants taken in here should be in
+    ! nearest neighbor gradients. Also gradients taken in here should be in
     ! lattice.
     FUNCTION inthessian(grad,stepsize)
       REAL(q2),DIMENSION(6,3) :: grad
@@ -1221,7 +1335,7 @@
     END FUNCTION inthessian
 
    
-    ! below is the function for least sqare gradient
+    ! below is the function for least square gradient
     FUNCTION lsg(r0,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct) 
       TYPE(charge_obj) :: chg
       REAL(q2), DIMENSION(3) :: lsg
@@ -1551,7 +1665,297 @@
 !      PRINT *, 'ascension step count is ', stepcount
       RETURN 
     END FUNCTION ascension
+   
+
+    SUBROUTINE RingAscension(cp,chg,ions, UniqueCPs)
+      !Starting from a ring critical point, locates the positions of associated nuclei critical points
+      REAL(q2), DIMENSION(3) :: ind
+      REAL(q2), DIMENSION(3) :: vec1, vec2,vecsum
+      TYPE(charge_obj) :: chg
+      TYPE(ions_obj) :: ions
+      TYPE(cpc) :: cp
+      REAL(q2),DIMENSION(3) :: descension, distance
+      INTEGER, DIMENSION(:,:),ALLOCATABLE :: nnind
+      INTEGER,DIMENSION(:),ALLOCATABLE :: UniqueCPs
+      INTEGER,DIMENSION(:), ALLOCATABLE :: CPsFound1
+      INTEGER, DIMENSION(:), ALLOCATABLE :: CPsFound2
+      INTEGER :: i, divs, divs2
+      LOGICAL :: foundring
+      
+      ind = cp%truer
+      !checks to make sure is a ring CP
+      divs = 10
+      divs2 = 30
+      ALLOCATE(CPsFound1(divs))
+      ALLOCATE(CPsFound2(divs2))
+      CPsFound1 = CPsFound1*0
+      CPsFound2 = CPsFound2*0
+      IF (cp%eigvals(1) < 0 .AND. cp%eigvals(2) > 0 .AND. cp%eigvals(3) > 0 ) THEN
+        vec1(1) = cp%eigvecs(1,2)
+        vec1(2) = cp%eigvecs(2,2)
+        vec1(3) = cp%eigvecs(3,2)
+        
+        vec2(1) = cp%eigvecs(1,3)
+        vec2(2) = cp%eigvecs(2,3)
+        vec2(3) = cp%eigvecs(3,3)
+        foundring = .TRUE.
+      ELSE IF (cp%eigvals(1) > 0 .AND. cp%eigvals(2) < 0 .AND. cp%eigvals(3) > 0 ) THEN
+        vec1(1) = cp%eigvecs(1,1)
+        vec1(2) = cp%eigvecs(2,1)
+        vec1(3) = cp%eigvecs(3,1)
+
+        vec2(1) = cp%eigvecs(1,3)
+        vec2(2) = cp%eigvecs(2,3)
+        vec2(3) = cp%eigvecs(3,3)
+        foundring = .TRUE.
+      ELSE IF (cp%eigvals(1) > 0 .AND. cp%eigvals(2) > 0 .AND. cp%eigvals(3) < 0 ) THEN
+        vec1(1) = cp%eigvecs(1,1)
+        vec1(2) = cp%eigvecs(2,1)
+        vec1(3) = cp%eigvecs(3,1)
+        
+        vec2(1) = cp%eigvecs(1,2)
+        vec2(2) = cp%eigvecs(2,2)
+        vec2(3) = cp%eigvecs(3,2)
+        foundring = .TRUE.
+      ELSE
+       ! PRINT *, "Not a ring CP"
+        vec1 = (/0.0, 0.0, 0.0/)
+        vec2 = (/0.0, 0.0, 0.0/)
+        foundring = .FALSE.
+      END IF
+      vec1 = vec1/Mag(vec1)
+      vec2 = vec2 - DOT_PRODUCT(vec1,vec2)/DOT_PRODUCT(vec1,vec1)*vec1
+      vec2 = vec2/Mag(vec2)
+      
+
+      IF (foundring) THEN
+        DO i=1,divs
+          vecsum = vec1*COS(i*2*3.1415/divs) + vec2*SIN(i*2*3.1415/divs)
+          CPsFound1(i) = ascension_new(ind+vecsum, chg, ions)
+         ! PRINT *,"Nuclei found 1st run: ", CPsFound1(i)
+        END DO
+
+        vec1 = 2*vec1
+        vec2 = 2*vec2
+        PRINT *, " "
+        DO i=1,divs2
+          vecsum = vec1*COS(i*2*3.1415/divs2) + vec2*SIN(i*2*3.1415/divs2)
+          CPsFound2(i) = ascension_new(ind+vecsum, chg, ions)
+         ! PRINT *, "Nuclei found 2nd run: ", CPsFound2(i)
+
+        END DO
+       ! PRINT *,"CPsFound2: ",  CPsFound2
+      END IF
+      
+      CALL unique(CPsFound1,UniqueCPs)
+      IF (foundring) PRINT *, divs, " run: ", UniqueCPs
+      CALL unique(CPsFound2,UniqueCPs)
+      IF (foundring) PRINT *, divs2, " run: ", UniqueCPs 
+      IF (foundring) PRINT *, " "
+    END SUBROUTINE RingAscension
     
+    !helper subroutine for RingAscension which takes an array of integers and returns an array of the unique elements of that array
+    SUBROUTINE unique(vec,vec_unique)
+      IMPLICIT NONE
+      INTEGER,DIMENSION(:),INTENT(in) :: vec
+      INTEGER, DIMENSION(:), ALLOCATABLE, INTENT(out) :: vec_unique
+      INTEGER :: i, num
+      LOGICAL, DIMENSION(size(vec)) :: mask
+
+      mask = .FALSE.
+      DO i=1,size(vec)
+        num = count(vec(i)==vec)
+
+        IF (num==1) THEN
+          mask(i) = .TRUE.
+        ELSE
+          IF (.NOT. ANY(vec(i)==vec .AND. mask)) mask(i) = .TRUE.
+        END IF
+      END DO
+
+      ALLOCATE(vec_unique(count(mask)) )
+      vec_unique = pack(vec,mask)
+    END SUBROUTINE unique
+   !removes the zero/NaN entries in a list of real-valued vectors 
+    SUBROUTINE unique_realcoords(vec,vec_unique)
+      IMPLICIT NONE
+      REAL(q2), DIMENSION(:,:), INTENT(in) :: vec
+      REAL(q2), DIMENSION(:,:), ALLOCATABLE, INTENT(out) :: vec_unique
+      INTEGER :: i
+      LOGICAL, DIMENSION(size(vec,1),size(vec,2)) :: mask
+      mask = .TRUE.
+      DO i=1,size(vec,1)
+        IF (vec(i,1) .NE. vec(i,1) .OR. vec(i,2) .NE. vec(i,2) .OR. vec(i,3) .NE. vec(i,3) ) THEN
+          mask(i,:) = .FALSE.
+        ELSE IF (Mag(vec(i,:)) <1) THEN
+          mask(i,:) = .FALSE.
+        END IF
+      END DO
+      ALLOCATE(vec_unique(count(mask)/3, 3) )
+      vec_unique =reshape( pack(vec,mask), (/count(mask)/3, 3 /) )
+    END SUBROUTINE unique_realcoords
+
+    FUNCTION DoubleAscension(cp,chg,ions)
+      !cp is a selected critical point candidate (cpc) object
+      !performs ascension starting from an input bond CP to find the array indices of the two associated nuclei CPs.
+      !will gradient ascend from two points shifted in opposite directions around it following the bond eigenvector. 
+      !Returns the index numbers of the two nuclei found as an array of size 2
+      REAL(q2), DIMENSION(3) :: ind
+      REAL(q2), DIMENSION(3) ::vector
+      TYPE(charge_obj) :: chg
+      TYPE(ions_obj) :: ions
+      REAL(q2),DIMENSION(3) :: ascension, distance
+      INTEGER, DIMENSION(:,:),ALLOCATABLE :: nnind
+      REAL(q2), DIMENSION(8,3) :: nngrad
+      INTEGER :: j, stepcount, nnLayers
+      REAL(q2), DIMENSION(3) :: tempr, rn, rnm1 ! rn minus 1
+      REAL(q2), DIMENSION(3) :: grad, stepsize, gradnm1
+      REAL(q2), DIMENSION(26) :: wi
+      REAL(q2), DIMENSION(3) :: ind_plus, ind_minus
+      TYPE(cpc) :: cp
+      INTEGER :: vecnum, i
+      INTEGER :: nuc1num, nuc2num
+      INTEGER, DIMENSION(2) :: DoubleAscension
+      
+      
+     !assigns ind to the starting critical point coordinate 
+      ind(1) = cp%truer(1)
+      ind(2) = cp%truer(2)
+      ind(3) = cp%truer(3)
+
+      ! PRINT *, cp%eigvals
+      
+      !checks to make sure only one eigenvalue is positive (indicating bond CP), and finds which one it is.
+      IF (cp%eigvals(1) < 0 .AND. cp%eigvals(2) < 0 .AND. cp%eigvals(3) > 0 ) THEN
+        vecnum = 3
+      ELSE IF (cp%eigvals(1) < 0 .AND. cp%eigvals(2) > 0 .AND. cp%eigvals(3) <0 ) THEN
+        vecnum = 2
+      ELSE IF (cp%eigvals(1) > 0 .AND. cp%eigvals(2) < 0 .AND. cp%eigvals(3) < 0 ) THEN
+        vecnum = 1
+      ELSE
+        vecnum = 0
+      END IF
+      
+      nuc1num = 0
+      nuc2num = 0
+
+      IF (vecnum == 0) THEN
+       ! PRINT *, "Not a valid bond critical point! Exactly one positive eigenvalue is required to proceed"
+      ELSE
+        vector(1) = cp%eigvecs(1,vecnum)
+        vector(2) = cp%eigvecs(2,vecnum)
+        vector(3) = cp%eigvecs(3,vecnum)
+        vector = vector/Mag(vector)
+        
+       ! PRINT *, vector
+
+        ind_plus(1) = ind(1)+vector(1)
+        ind_plus(2) = ind(2)+vector(2)
+        ind_plus(3) = ind(3)+vector(3)
+
+        ind_minus(1) = ind(1)-vector(1)
+        ind_minus(2) = ind(2)-vector(2)
+        ind_minus(3) = ind(3)-vector(3)
+       ! PRINT *,"ind_plus", ind_plus
+       ! PRINT *,"ind_minus", ind_minus
+      
+        nuc1num = ascension_new(ind_plus,chg,ions)
+        nuc2num = ascension_new(ind_minus,chg,ions)
+
+      END IF
+
+      DoubleAscension(1) = nuc1num
+      DoubleAscension(2) = nuc2num
+    
+      RETURN
+
+    END FUNCTION DoubleAscension
+
+    FUNCTION ascension_new(ind, chg, ions)
+    !used by DoubleAscension  
+    !performs gradient ascent on a real coordinate, returns list index of the first nuclei found within 0.5 units of position .  
+      REAL(q2), DIMENSION(3) ::startpos, ind
+      TYPE(charge_obj) :: chg
+      TYPE(ions_obj) :: ions
+      
+      REAL(q2), DIMENSION(3) :: grad,oldgrad, distance
+      REAL(q2) :: maxstepsize
+      INTEGER,DIMENSION(8,3) :: nnInd
+      REAL(q2), DIMENSION(8,3) :: nngrad
+      INTEGER :: i, j, loopcount, stepMax
+      INTEGER :: ascension_new
+      LOGICAL :: foundAtom
+      
+      CALL pbc_r_lat(ind, chg%npts)
+      
+      startpos = ind
+
+      nnInd = simpleNN(ind, chg)
+      DO j=1,8
+        CALL pbc(nnInd(j,:),chg%npts)
+        nngrad(j,:) = CDGrad(nnInd(j,:),chg)
+      END DO
+      distance = ind - nnInd(1,:)
+
+      grad = trilinear_interpol_grad(nnGrad,distance)
+      grad = MATMUL(grad,chg%lat2car)
+
+      foundAtom = .FALSE.
+      ascension_new = 0
+      maxstepsize = 0.5
+      loopcount = 0
+      stepMax = 1000
+      DO WHILE(loopcount < stepMax)
+        loopcount = loopcount + 1
+       ! PRINT *, "ind", ind
+        DO i=1,ions%nions
+          ! PRINT *, ions%r_lat(i,:)
+          IF (Mag(ions%r_lat(i,:)-ind ) < 0.5 ) THEN
+           ! PRINT *, "Found an atom within 0.5" 
+            ascension_new = i
+            foundAtom = .TRUE.
+            !PRINT *, "Cartesian Distance: ", Mag(MATMUL(ind,chg%lat2car)-MATMUL(startpos,chg%lat2car))
+            EXIT
+          END IF
+        END DO
+        
+        IF (foundAtom) THEN
+          EXIT
+        END IF
+        
+        grad = MIN(Mag(grad),maxstepsize) * grad/Mag(grad)
+
+        ind = ind + grad
+        
+        oldgrad = grad
+
+        CALL pbc_r_lat(ind, chg%npts)
+        nnInd = simpleNN(ind,chg)
+        DO j=1,8
+          CALL pbc(nnInd(j,:),chg%npts)
+          nngrad(j,:) = CDGrad(nnInd(j,:),chg)
+        END DO
+        distance = ind - nnInd(1,:)
+        grad = trilinear_interpol_grad(nnGrad,distance)
+        grad = MATMUL(grad,chg%lat2car)
+        
+        IF (SUM(grad*oldgrad)<0) THEN
+          maxstepsize = 1*maxstepsize
+        END IF
+      
+
+      END DO
+      
+      IF (.NOT. foundAtom) THEN
+       ! PRINT *, "No atom was found"
+      END IF
+
+      RETURN
+
+    END FUNCTION ascension_new
+
+
+
     FUNCTION descension(ind,chg,matm,matwprime,wi,vi,vit, & 
                        ggrid,outerproduct,opts,nnLayers,ions)
       ! this function finds nucleus critical points. 
@@ -2226,7 +2630,7 @@
       LOGICAL :: phmrCompliant
       phSum = maxCount - bondCount + ringCount - cageCount
       iphSum = ions%nions - bondCount + ringCount - cageCount
-      !phSum = iphSum ! Using atom count to override. 
+      !phSum = iphSum ! Using atom count to override
       phmrCompliant = .FALSE.
       IF (opts%isCrystal) THEN
         PRINT *, 'The system is assigned as a Crystal'
@@ -2292,7 +2696,7 @@
           phmrCompliant = .TRUE.
           PRINT *, ''//achar(27)//'[32m This system has not been designated & 
             as a molecule or crystal but the Poincare-Hopf rule for &
-            moleculess are satisfied.' //achar(27)//'[0m'
+            molecules are satisfied.' //achar(27)//'[0m'
         END IF
         IF (iphSum == 0 .AND. iphSum /= phSum) THEN
           phmrCompliant = .TRUE.
@@ -2309,7 +2713,7 @@
             //achar(27)//'[0m'
           PRINT *, ''//achar(27)//'[32m This system has not been designated & 
             as a molecule or crystal but the Poincare-Hopf rule for &
-            moleculess are satisfied.' //achar(27)//'[0m'
+            molecules are satisfied.' //achar(27)//'[0m'
         END IF
         IF (.NOT. phmrCompliant) THEN
           PRINT *, ''//achar(27)//'[31m ERROR: FAILED Poincare Hopf Rule & 
@@ -2367,13 +2771,14 @@
 
 
     ! the version of the above subroutine where p is real not integer
-    SUBROUTINE RecordCPR(p,chg,cpl,ucptnum,eigvals,eigvecs, maxcount, uRingCount, &
+    SUBROUTINE RecordCPR(p,chg,cpl,ucptnum,eigvals,eigvecs,connectedAtoms, maxcount, uRingCount, &
       uBondCount, uCageCount,opts,grad,hessianMatrix,ind,LDM)
       TYPE(charge_obj) :: chg
       TYPE(options_obj) :: opts
       TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpl
       REAL(q2), DIMENSION(3) :: eigvals, grad
       REAL(q2), DIMENSION(3,3) :: eigvecs, hessianMatrix
+      INTEGER, DIMENSION(2) :: connectedAtoms
       REAL(q2), DIMENSION(3) :: p
       INTEGER, DIMENSION(3,26) :: vi
       INTEGER, DIMENSION(26,3) :: vit
@@ -2404,6 +2809,7 @@
       cpl(ucptnum)%negcount = negcount
       cpl(ucptnum)%hasProxy = .FALSE.
       cpl(ucptnum)%ind = ind
+      cpl(ucptnum)%connectedAtoms = connectedAtoms
       IF (LDM) THEN
         PRINT *, "RecordCPR recorded CP number ", ucptnum
         PRINT *, "location is "
@@ -2466,17 +2872,18 @@
     END SUBROUTINE RecordCPRLight
 
     SUBROUTINE  OutputCP(cpl,opts,ucptnum,chg,setcount,uBondCount, &
-      uRingCount,uCageCount, maxcount,ions)
+      uRingCount,uCageCount, maxcount)
       TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpl
       TYPE(options_obj) :: opts
       TYPE(charge_obj) :: chg
-      TYPE(ions_obj) :: ions
       INTEGER :: ucptnum, i, setcount
       INTEGER :: uBondCount, uRingCount, uCageCount, maxcount
+      ! TYPE(ions_obj) :: ions
+      ! vol was used to calculate charge density with cpl(i)%rho/vol
+      ! REAL(q2) :: vol
+      ! vol = matrix_volume(ions%lattice)
       REAL(q2),DIMENSION(3) :: grad
-      REAL(q2) :: vol
       CHARACTER(10) :: fileName
-      vol = matrix_volume(ions%lattice)
       PRINT *, 'Writting critical point output files'
       WRITE(fileName,fmt='(a,i2.2,a)') TRIM('CPFU'), setcount,TRIM('.dat')
       PRINT *, 'Critical point information are written in file: ', filename
@@ -2514,23 +2921,29 @@
             cpl(i)%truer(3)/chg%npts(3)
         END IF
         WRITE (98,*) "Charge density is"
-        WRITE (98,*) cpl(i)%rho/vol 
-        WRITE (98,*) 'Gradiant is'
+        WRITE (98,*) cpl(i)%rho
+        WRITE (98,*) 'Gradient is'
         WRITE (98,*) cpl(i)%grad
         WRITE (98,*) 'Hessian is'
         WRITE (98,*) cpl(i)%hessianMatrix(1,:)
         WRITE (98,*) cpl(i)%hessianMatrix(2,:)
         WRITE (98,*) cpl(i)%hessianMatrix(3,:)
-        WRITE (98,*) 'Laplacian is'
-        WRITE (98,*) cpl(i)%hessianMatrix(1,1)**2 + & 
-                     cpl(i)%hessianMatrix(2,2)**2 + &
-                     cpl(i)%hessianMatrix(3,3)**2
+        ! WRITE (98,*) 'Laplacian is'
+        ! WRITE (98,*) cpl(i)%hessianMatrix(1,1)**2 &
+        !              + cpl(i)%hessianMatrix(2,2)**2 &
+        !              + cpl(i)%hessianMatrix(3,3)**2
         WRITE (98,*) 'Eigenvalues are'
         WRITE (98,*) cpl(i)%eigvals
         WRITE (98,*) 'Eigenvectors are'
         WRITE (98,*) cpl(i)%eigvecs(1,:)
         WRITE (98,*) cpl(i)%eigvecs(2,:)
         WRITE (98,*) cpl(i)%eigvecs(3,:)
+
+        IF (cpl(i)%negcount == 2) THEN
+          WRITE(98,*) 'Connected Atoms are'
+          WRITE(98,*) cpl(i)%connectedAtoms
+        END IF
+
         IF (cpl(i)%negcount == 0) THEN
           WRITE(98,*) 'This is a cage critical point'
           WRITE(98,*) ' '
@@ -2550,8 +2963,151 @@
     WRITE(98,*) ''
     CLOSE(98)
     END SUBROUTINE OutputCP
+    
+    !Outputs a list of connections in a file
+    SUBROUTINE OutputNetwork(cpl,ucptnum,setcount)
+      TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpl
+      INTEGER :: ucptnum, i, setcount
+      CHARACTER(10) :: fileName
+      INTEGER, DIMENSION(2) :: pair
+      WRITE(fileName,fmt='(a,i2.2,a)') TRIM('LINK'),setcount, TRIM('.dat')
+      PRINT *, "Network Graph is written in file: ", fileName
+      OPEN(98,FILE=fileName,STATUS='REPLACE',ACTION='WRITE')
+      
+      !WRITE(98,*) size(ions%atomic_num)
+      !DO i=1,size(ions%atomic_num)
+      !  WRITE (98,*) ions%atomic_num(i)  
+      !END DO
 
+     ! WRITE(98,*) ucptnum
+      DO i=1,ucptnum
+        pair = cpl(i)%connectedAtoms
+        IF (pair(1) == 0 .AND. pair(2) == 0 ) THEN
+          !PRINT *, "Invalid bond CP"
+        ELSE
+          WRITE(98,*) pair(1),' ', i, ' ', pair(2)
+        END IF
+        
+      END DO
+      CLOSE(98)
 
+    END SUBROUTINE OutputNetwork
+    
+    SUBROUTINE OutputCPRoster(cpRoster,setcount)
+      REAL(q2), DIMENSION(:,:), ALLOCATABLE :: cpRoster
+      CHARACTER(19) :: fileName
+      INTEGER :: i,setcount
+      WRITE(fileName,fmt='(a,i2.2,a)') TRIM ('TrajEndPoints'), setcount, TRIM('.dat')
+      PRINT *, "Trajectory End Point Roster is written in file: ", fileName 
+      OPEN(98,FILE=fileName,STATUS='REPLACE',ACTION='WRITE')
+
+      DO i=1,size(cpRoster,1)
+        WRITE(98,*) cpRoster(i,:)
+      END DO
+      CLOSE(98)
+    END SUBROUTINE OutputCPRoster
+
+    SUBROUTINE CPRosterAnalysis(cpl,ions, cproster, chg)
+      TYPE(cpc), ALLOCATABLE,DIMENSION(:) :: cpl
+      TYPE(charge_obj) :: chg
+      TYPE(ions_obj) :: ions
+      REAL(q2), DIMENSION(3) :: r, cp, nnp 
+      REAL(q2), DIMENSION(:,:), ALLOCATABLE :: cproster
+      REAL(q2), DIMENSION(:), ALLOCATABLE :: nearby
+      LOGICAL, DIMENSION(size(cproster,1)) :: mask
+      REAL(q2), DIMENSION(size(cproster,1)) :: distances
+      INTEGER :: i,trajcount, ij,i1,i2,i3
+      REAL(q2) :: val, sumsq, StdDev, truedist
+      REAL(q2), DIMENSION(size(cpl)) :: StdDevList
+      
+      trajcount = 0
+      DO ij = 1,size(cpl)
+        cp = cpl(ij)%truer
+        mask = .FALSE.
+        DO i=1,size(cproster,1)
+          r = cproster(i,:)
+          val = Mag(r-cp)
+          IF (val < 1.0) THEN
+            mask(i) = .TRUE.
+          END IF
+          distances(i) = val
+        END DO
+
+        nearby = PACK(distances,mask)
+        sumsq= 0
+        trajcount = trajcount + size(nearby)
+        DO i =1, size(nearby)
+          sumsq = sumsq + nearby(i)**2
+        END DO
+        IF (size(nearby) == 0 ) THEN
+          StdDev = 0.00
+        ELSE
+          StdDev = SQRT(sumsq/(size(nearby)) )
+        END IF
+        
+        StdDevList(ij) = StdDev
+
+        PRINT "(I5,A,es10.3,A,i5,A)", ij, ": StdDev is ", StdDev, " with ", size(nearby), " trajectories"
+      !   PRINT *, cp
+        IF (StdDev > 0.01) THEN
+          PRINT *, "High Standard Deviation detected."
+          PRINT *, " " 
+        END IF
+        DEALLOCATE(nearby)
+      END DO
+      PRINT *, "Total Trajectories Used: ", trajcount
+      
+      DO ij = 1,size(cpl)
+         cp = cpl(ij)%truer 
+         DO i=ij,size(cpl)
+           IF (i /= ij) THEN
+             truedist = Mag(cpl(i)%truer - cp)
+             DO i1 = -1,1
+               DO i2 = -1,1
+                 DO i3 = -1,1
+                   IF (i1 == 0 .AND. i2 == 0 .AND. i3 == 0) CYCLE
+                     nnp = cp + (/i1 * chg%npts(1), i2 * chg%npts(2), i3 * chg%npts(3)/)
+                     truedist = MIN(truedist, Mag(cpl(i)%truer - nnp) )
+                 END DO
+               END DO
+             END DO
+             
+             
+             
+             IF (truedist < 5) THEN
+               PRINT "(A,i5,A,i5,A,es10.3)", "Distance between", ij, " and ", i, " is: ", truedist
+                
+               IF (cpl(ij)%negcount /= cpl(i)%negcount) THEN
+                 IF (cpl(ij)%negcount == 0) THEN
+                   PRINT "(i5,A)", ij," is of type: nuclear"
+                 ELSE IF (cpl(ij)%negcount == 1) THEN
+                   PRINT "(i5,A)", ij," is of type: bond"
+                 ELSE IF (cpl(ij)%negcount == 2) THEN
+                   PRINT "(i5,A)", ij, " is of type: ring"
+                 ELSE
+                   PRINT "(i5,A)", ij," is of type: cage"
+                 END IF
+
+                 IF (cpl(i)%negcount == 0) THEN
+                    PRINT "(i5,A)", i," is of type: nuclear"
+                 ELSE IF (cpl(i)%negcount == 1) THEN
+                    PRINT "(i5,A)", i," is of type: bond"
+                 ELSE IF (cpl(i)%negcount == 2) THEN
+                   PRINT "(i5,A)", i, " is of type: ring"
+                 ELSE
+                   PRINT "(i5,A)", i," is of type: cage"
+                 END IF
+                 PRINT *, " "
+               END IF
+             END IF
+           END IF
+         END DO
+
+      END DO
+
+    END SUBROUTINE CPRosterAnalysis
+    
+    
     ! get the distance between two points, considering that these two points can
     ! be neighbors across the periodic boundary
     ! The output distance is in cartesian
@@ -2633,7 +3189,14 @@
       REAL(q2), DIMENSION(3) :: r
       cpr(cptnum,:) = r
     END SUBROUTINE MakeCPRoster
-
+    
+    !Stores every coordinate converged to, even if nonunique
+    SUBROUTINE MakeFullCPRoster(cpr,cptnum,r)
+      REAL(q2), DIMENSION(:,:), ALLOCATABLE :: cpr
+      INTEGER :: cptnum
+      REAL(q2), DIMENSION(3) :: r
+      cpr(cptnum, :) = r
+    END SUBROUTINE MakeFullCPRoster
 
     ! this function interpolates the gradient of a point. weight towards each nn
     ! is determined by its distance to that neighbor. 
@@ -2782,7 +3345,7 @@
       REAL(q2),DIMENSION(8,3,3) :: nnHes
       REAL(q2),DIMENSION(8,3) :: nnGrad
       REAL(q2),DIMENSION(3,3) :: hessianMatrix,eigvecs
-      REAL(q2),DIMENSION(3) :: grad,eigvals,distance, dir,r
+      REAL(q2),DIMENSION(3) :: grad,eigvals,distance, dir !, r
       INTEGER,DIMENSION(8,3) :: nnInd
       INTEGER :: cptnum,i,n1,negCount, j
       INTEGER :: maxCount,bondCount,ringCount,cageCount
@@ -2807,7 +3370,11 @@
       END IF
       CLOSE(100)
       ! Write header of allcpPOSCAR
-      OPEN(11,FILE='allcpPOSCAR',STATUS='REPLACE',ACTION='WRITE')
+      IF (opts%gradMode) THEN
+         OPEN(11,FILE='allcpPOSCAR_GD',STATUS='REPLACE',ACTION='WRITE')
+      ELSE
+         OPEN(11,FILE='allcpPOSCAR_NM',STATUS='REPLACE',ACTION='WRITE')
+      END IF
       IF (cageCount>0) WRITE(11,'(a)',ADVANCE='NO') 'Ar '
       IF (ringCount>0) WRITE(11,'(a)',ADVANCE='NO') 'Ne '
       IF (bondCount>0) WRITE(11,'(a)',ADVANCE='NO') 'He '
@@ -2834,15 +3401,15 @@
         DO n1 = 1, cptnum
           IF (.NOT.cpcl(n1)%isunique) CYCLE
           IF (cpcl(n1)%negCount == j) THEN
-            ! Because lattice starts at 1 1 1 but cartesian starts at 0 0 0
-            r(1) = cpcl(n1)%trueR(1) - 1
-            r(2) = cpcl(n1)%trueR(2) - 1
-            r(3) = cpcl(n1)%trueR(3) - 1
-            WRITE(11,*) MATMUL(chg%lat2car,r)
-            !WRITE(11,*) MATMUL(chg%lat2car,cpcl(n1)%trueR)
-            !dir(1) = cpcl(n1)%trueR(1)/chg%npts(1)
-            !dir(2) = cpcl(n1)%trueR(2)/chg%npts(2)
-            !dir(3) = cpcl(n1)%trueR(3)/chg%npts(3)
+            ! ! Because lattice starts at 1 1 1 but cartesian starts at 0 0 0
+            ! r(1) = cpcl(n1)%trueR(1) - 1
+            ! r(2) = cpcl(n1)%trueR(2) - 1
+            ! r(3) = cpcl(n1)%trueR(3) - 1
+            ! WRITE(11,*) MATMUL(chg%lat2car,r)
+            WRITE(11,*) MATMUL(chg%lat2car,cpcl(n1)%trueR)
+            dir(1) = cpcl(n1)%trueR(1)/chg%npts(1)
+            dir(2) = cpcl(n1)%trueR(2)/chg%npts(2)
+            dir(3) = cpcl(n1)%trueR(3)/chg%npts(3)
           END IF
         END DO
       END DO
@@ -3297,19 +3864,26 @@
 
     SUBROUTINE GetDebugFlags(opts,LDM,LDM_DetectCircling,&
       LDM_ReduceCP,LDM_DensityDescend,LDM_RecordCPRLight,&
-      LDM_NRTFGP,LDM_CalcTEMLat,LDM_RecordCPR)
+      LDM_NRTFGP,LDM_CalcTEMLat,LDM_RecordCPR,LDM_GradMagGrad,LDM_RingAscend,LDM_Trajectories)
       TYPE(options_obj) :: opts
       CHARACTER(128) :: debugFlags
       INTEGER :: ios
       LOGICAL :: HCF,LDM ! has config file, local debug mode
       LOGICAL :: LDM_RecordCPRLight, LDM_NRTFGP
       LOGICAL :: LDM_DetectCircling, LDM_ReduceCP, LDM_DensityDescend
-      LOGICAL :: LDM_CalcTEMLat,LDM_RecordCPR
+      LOGICAL :: LDM_CalcTEMLat,LDM_RecordCPR, LDM_GradMagGrad,LDM_RingAscend,LDM_Trajectories
       LDM = .FALSE.
       LDM_DetectCircling = .FALSE.
       LDM_ReduceCP = .FALSE.
       LDM_DensityDescend = .FALSE.
       LDM_RecordCPRLight = .FALSE.
+      LDM_GradMagGrad = .FALSE.
+      LDM_RingAscend = .FALSE.
+      LDM_Trajectories = .FALSE.
+      LDM_RecordCPR = .FALSE.
+      LDM_CalcTEMLat = .FALSE.
+      LDM_NRTFGP = .FALSE.
+      
       INQUIRE(FILE="debugConfig",EXIST=HCF)
       IF (HCF) THEN
         OPEN(60,FILE="debugConfig",STATUS='old',ACTION='read',BLANK='null',PAD='yes')
@@ -3346,6 +3920,18 @@
           IF (debugFlags == "RecordCPR") THEN
             LDM_RecordCPR = .TRUE.
             PRINT *, "De Bugger: Debugging SUBROUTINE RecordCPR"
+          END IF
+          IF (debugFlags == "GradMagGrad") THEN
+            LDM_GradMagGrad = .TRUE.
+            PRINT *, "De Bugger: Debugging SUBROUTINE GradientDescend"
+          END IF
+          IF (debugFlags == "RingAscend") THEN
+            LDM_RingAscend = .TRUE.
+            PRINT *, "De Bugger: Debugging SUBROUTINE RingAscension"
+          END IF
+          IF (debugFlags == "Trajectories") THEN
+            LDM_Trajectories = .TRUE.
+            PRINT *, "De Bugger: Debugging Trajectories (FUNCTIONs CPRosterAnalysis, OutputCPRoster)"
           END IF
           IF (ios/=0) EXIT
         END DO
@@ -3879,13 +4465,183 @@
     ! And descend the gradient of the modulus.
     ! It takes in only the starting point index, 
     !and returns the converged point in lattice coordiantes.
-    SUBROUTINE GradientDescend(iniI,finR)
+    SUBROUTINE GradientDescend(bdr, chg, opts, rn, iniI,isUnique,stepMax,&
+    LDM)
       INTEGER,DIMENSION(8,3) :: nnInd
-      INTEGER,DIMENSION(3) :: iniI
-      REAL(q2),DIMENSION(3) :: finR
-      REAL(q2),DIMENSION(3) :: gMCDG 
+      INTEGER,DIMENSION(3) :: iniI,  nearestint, tempint
+      REAL(q2),DIMENSION(3) :: tempr
+      REAL(q2),DIMENSION(3):: distance
+      REAL(q2),DIMENSION(3) :: gMCDG, oldgMCDG 
       ! gradient of modulus of charge density gradient
+      REAL(q2),DIMENSION(3) :: maxstepsize
+      REAL(q2) :: maxstepsize_mag
+      INTEGER, DIMENSION(3) :: crossings ! count how many times pbc crossed
+      
+      !magMode uses the overall magnitude of the gradient vector for criteria. When off, it checks separately along each axis.
+      LOGICAL :: magMode 
+      
+
+      TYPE(charge_obj) :: chg
+      TYPE(options_obj) :: opts
+      TYPE(bader_obj) :: bdr
+     
+
+      
+      LOGICAL :: isUnique
+
+      INTEGER ::j, stepcount, loopcount, stepMax
+      REAL(q2), DIMENSION(3)::rn 
+      REAL(q2), DIMENSION(8,3) :: nngrad
+      LOGICAL :: LDM
+      
+      magMode = opts%GD_magMode
+      
+      !maximum step size
+      maxstepsize =(/0.5,0.5,0.5/)
+      maxstepsize_mag = 0.5
+      gMCDG = CDGMCDG(iniI,chg)
+      
+
+      rn(1) = REAL(iniI(1),q2)
+      rn(2) = REAL(iniI(2),q2)
+      rn(3) = REAL(iniI(3),q2)
+
+
+      oldgMCDG(1) = 0
+      oldgMCDG(2) = 0
+      oldgMCDG(3) = 0
+
+      stepcount=0
+      loopcount=0
+      !The main gradient descent iteration loop
+      DO WHILE (loopcount<stepMax)
+         loopcount = loopcount + 1
+          
+
+         !checks if the gradient is close enough to zero which implies it is a critical point
+         !par_GDgradfloor
+         IF (Mag(gMCDG)<= 0.00001 )  THEN
+            ! we are at a critical point !
+            isUnique= .TRUE.
+            IF (LDM)  PRINT *, 'Critical point found!'
+            EXIT
+         END IF
+
+         !checks if maxstepsize is too small
+         IF (magMode) THEN
+            IF (maxstepsize_mag <= 0.001) THEN
+              isUnique = .TRUE.
+              IF (LDM) PRINT *, "The step size became too small. Gradient Descent stopped."
+              EXIT
+            END IF
+         ELSE
+            IF (Mag(maxstepsize) <= 0.001) THEN
+              !critical point found by step size becoming too small
+              isUnique = .TRUE.
+              IF (LDM) PRINT *, "The step size became too small. Gradient Descent stopped."
+              EXIT
+            END IF
+         END IF
+
+
+        !tempr is the gradient vector with minimum step size condition included.
+        
+         tempr = gMCDG
+         !adjusts the magnitude of each tempr coordinate to be the minimum of its normed magnitude and the max stepsize value.
+         !ensures while the magnitudes are constrained, the directions are still correct.
+         
+         IF (magMode) THEN
+           tempr = MIN(Mag(tempr),maxstepsize_mag) * tempr/Mag(tempr)
+
+         ELSE
+         
+           tempr(1) =  MIN(ABS(tempr(1)), maxstepsize(1))* tempr(1)/ABS(tempr(1))
+           tempr(2) =  MIN(ABS(tempr(2)), maxstepsize(2))* tempr(2)/ABS(tempr(2))
+           tempr(3) =  MIN(ABS(tempr(3)), maxstepsize(3))* tempr(3)/ABS(tempr(3))
+         
+         END IF
+         !gradient position update
+
+         IF (tempr(1) /= tempr(1) ) tempr(1) = 0
+         IF (tempr(2) /= tempr(2) ) tempr(2) = 0
+         IF (tempr(3) /= tempr(3) ) tempr(3) = 0
+      
+         rn = rn - tempr
+
+         CALL pbc_r_lat(rn,chg%npts)
+
+         nnInd = simpleNN(rn,chg)
+         DO j = 1,8
+            CALL pbc(nnind(j,:),chg%npts)
+            nngrad(j,:) = CDGMCDG(nnInd(j,:),chg)
+         END DO
+         distance = rn - nnind(1,:)
+          
+         tempint(1) = NINT(rn(1))
+         tempint(2) = NINT(rn(2))
+         tempint(3) = NINT(rn(3))
+          
+         CALL pbc(tempint,chg%npts) 
+
+         IF (bdr%volnum(tempint(1),tempint(2),tempint(3)) == bdr%bnum + 1) THEN
+            IF (LDM) PRINT *, "Entered the void"
+            isUnique = .FALSE.
+            EXIT
+         END IF
+
+
+         oldgMCDG(1) = tempr(1)
+         oldgMCDG(2) = tempr(2)
+         oldgMCDG(3) = tempr(3)
+
+         gMCDG = trilinear_interpol_grad(nngrad,distance)
+        
+        !method of looking at each coordinate separately when restricting stepsize
+        !If any of the step directions are reversed from the previous step, decrease the overall step size.
+        ! IF (gMCDG(1) * oldgMCDG(1) <= 0 .OR.  gMCDG(2) * oldgMCDG(2) <= 0 .OR.  gMCDG(3) * oldgMCDG(3) <= 0 ) THEN
+        !     stepsize = stepsize*0.5
+        ! END IF
+        IF (magMode) THEN
+           IF(SUM(gMCDG*oldgMCDG) < 0) THEN
+              maxstepsize_mag = 0.5* maxstepsize_mag
+           END IF
+
+        ELSE
+        
+          IF ( gMCDG(1) * oldgMCDG(1) <= 0 ) THEN
+            maxstepsize(1) = maxstepsize(1)*0.5
+          END IF
+          IF (gMCDG(2) * oldgMCDG(2) <= 0 ) THEN
+            maxstepsize(2) = maxstepsize(2)*0.5
+          END IF
+          IF (gMCDG(3) * oldgMCDG(3) <= 0) THEN
+            maxstepsize(3) = maxstepsize(3)*0.5
+          END IF
+      
+        END IF
+        !If the Dot Product is negative (new gradient in reverse direction), the maximum stepsize is decreased 
+        ! IF (SUM(gMCDG*oldgMCDG) .LT. 0) THEN
+        !    maxstepsize = 0.5 *maxstepsize
+        ! END IF
+
+
+     END DO     
+
+    IF (LDM) THEN
+      PRINT *, 'starting position'
+      PRINT *, iniI
+      PRINT *, ' rn is'
+      PRINT *, rn
+      PRINT *, 'final gradient is'
+      PRINT *, gMCDG
+      PRINT *, 'final stepsize is'
+      PRINT *, maxstepsize
+      PRINT *, ' final loopcount is'
+      PRINT *, loopcount
+    END IF
+
     END SUBROUTINE GradientDescend
+
 
     ! Central Difference Gradient of Modulus of Charge Density Gradient
     ! Operates on grid points
@@ -3894,6 +4650,8 @@
       INTEGER,DIMENSION(8,3) :: nnInd
       INTEGER,DIMENSION(3) :: p
       INTEGER, DIMENSION(3) :: pzm,pzp,pxm,pxp,pym,pyp
+      REAL(q2) :: gradz,gradx,grady
+      REAL(q2), DIMENSION(3) :: gradxyz
       REAL(q2), DIMENSION(8) :: nnM
       REAL(q2), DIMENSION(3) :: CDGMCDG
       REAL(q2):: mCDGpzm,mCDGpzp,mCDGpxm,&
@@ -3912,23 +4670,50 @@
       CALL pbc(pxp,chg%npts)
       CALL pbc(pyp,chg%npts)
       CALL pbc(pzp,chg%npts)
-      mCDGpzm = Mag(CDGrad(pzm,chg))
-      mCDGpzp = Mag(CDGrad(pzp,chg))
-      mCDGpxm = Mag(CDGrad(pxm,chg))
-      mCDGpxp = Mag(CDGrad(pxp,chg))
-      mCDGpym = Mag(CDGrad(pym,chg))
-      mCDGpyp = Mag(CDGrad(pyp,chg))
-      ! Calculate the gradient of modulus.
-      !CDGrad(3) = 0.5*(rho_val(chg,pzp(1),pzp(2),pzp(3)) - &
-      !            rho_val(chg,pzm(1),pzm(2),pzm(3)))
-      !CDGrad(2) = 0.5*(rho_val(chg,pyp(1),pyp(2),pyp(3)) - &
-      !            rho_val(chg,pym(1),pym(2),pym(3)))
-      !CDGrad(1) = 0.5*(rho_val(chg,pxp(1),pxp(2),pxp(3)) - &
-      !            rho_val(chg,pxm(1),pxm(2),pxm(3)))
-      !CDGrad = MATMUL(CDGrad,chg%car2lat)
+
+
+
+      mCDGpzm = Mag(MATMUL(chg%lat2car,CDGrad(pzm,chg)))
+      mCDGpzp = Mag(MATMUL(chg%lat2car,CDGrad(pzp,chg)))
+      mCDGpxm = Mag(MATMUL(chg%lat2car,CDGrad(pxm,chg)))
+      mCDGpxp = Mag(MATMUL(chg%lat2car,CDGrad(pxp,chg)))
+      mCDGpym = Mag(MATMUL(chg%lat2car,CDGrad(pym,chg)))
+      mCDGpyp = Mag(MATMUL(chg%lat2car,CDGrad(pyp,chg)))
+
+      gradz = 0.5*(MCDGpzp-MCDGpzm)
+      gradx = 0.5*(MCDGpxp-MCDGpxm)
+      grady = 0.5*(MCDGpyp-MCDGpym)
+      CDGMCDG(1) = REAL(gradx,q2)
+      CDGMCDG(2) = REAL(grady,q2)
+      CDGMCDG(3) = REAL(gradz,q2)
+     ! gradmag = Mag(gradxyz)
+     !  Calculate the gradient of modulus.
+     ! CDGrad(3) = 0.5*(rho_val(chg,pzp(1),pzp(2),pzp(3)) - &
+     !             rho_val(chg,pzm(1),pzm(2),pzm(3)))
+     ! CDGrad(2) = 0.5*(rho_val(chg,pyp(1),pyp(2),pyp(3)) - &
+     !             rho_val(chg,pym(1),pym(2),pym(3)))
+     ! CDGrad(1) = 0.5*(rho_val(chg,pxp(1),pxp(2),pxp(3)) - &
+     !             rho_val(chg,pxm(1),pxm(2),pxm(3)))
+     ! CDGrad = MATMUL(CDGrad,chg%car2lat)
    
       RETURN
     END FUNCTION CDGMCDG
+
+    
+    FUNCTION printinfo(grid,chg)
+      TYPE(charge_obj) :: chg
+      INTEGER, DIMENSION(3) :: grid
+      LOGICAL :: printinfo
+      PRINT *, 'grid point is'
+      PRINT *, grid
+     ! PRINT *, 'CDGMCDG:'
+     ! PRINT *, CDGMCDG(grid,chg)
+     ! PRINT *, 'grad:'
+     ! PRINT *, CDGrad(grid,chg)
+      PRINT *, 'mag(grad:'
+      PRINT *, Mag(CDGrad(grid,chg))
+      RETURN
+    END FUNCTION printinfo
     ! The following code is potentially useful for gradient descend
           ! This determins if validation is done with gradient descend
           !    PRINT *, 'looking at critical point candidate # ', i

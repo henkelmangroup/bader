@@ -36,7 +36,10 @@
       LOGICAL :: debugMode
       LOGICAL :: dohes
       LOGICAL :: enableDensityDescend,enableCHGCARSmoothening
-    END TYPE options_obj
+      LOGICAL :: gradMode
+      !gradMode enables the gradient descend subroutine and disables the Newton's Method subroutine
+      LOGICAL :: GD_magMode
+   END TYPE options_obj
 
     PRIVATE
     PUBLIC :: get_options, options_obj
@@ -66,13 +69,14 @@
       ! due to spacial proximity. This is in lattice units.
       opts%par_newtonr = 0.000001
       opts%par_gradfloor = 0.000001
+     ! opts%par_GDgradfloor = 0.2
       opts%ismolecule = .FALSE.
       opts%iscrystal = .FALSE.
       opts%dohes = .FALSE.
       opts%out_opt = opts%out_chgcar4
       opts%in_opt = opts%in_auto
       opts%debugMode = .FALSE.
-      ! print options
+    !   print options
       opts%vac_flag = .FALSE.
 !      opts%vac_flag = .TRUE.
       opts%vacval = 1E-3
@@ -102,6 +106,8 @@
       opts%print_surfaces_atoms = .FALSE.
       opts%enableDensityDescend = .FALSE.
       opts%enableCHGCARSmoothening = .FALSE.
+      opts%gradMode = .FALSE.
+      opts%GD_magMode = .TRUE.
 !      n=IARGC()
       n=COMMAND_ARGUMENT_COUNT()
       IF (n == 0) THEN
@@ -150,7 +156,6 @@
         ! Verbose
         ELSEIF (p(1:ip) == '-v') THEN
           opts%verbose_flag = .TRUE.
-
         ! critpoint options
         ELSEIF (p(1:ip) == '-cp') THEN
           opts%find_critpoints_flag = .TRUE.
@@ -168,6 +173,9 @@
           PRINT *, 'Entering debug mode.'
           PRINT *, 'Reading debugConfig for instructions'
           opts%debugMode = .TRUE.  
+        ELSEIF (p(1:ip) == '-gradmode') THEN
+          PRINT *, 'Prioritizing gradient descent as default heuristic.'
+          opts%gradMode = .TRUE.
         ELSEIF (p(1:ip) == '-smoothenCHGCAR') THEN
           opts%enableCHGCARSmoothening = .TRUE.  
         ELSEIF (p(1:ip) == '-partem') THEN
