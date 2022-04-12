@@ -2634,7 +2634,11 @@
       phmrCompliant = .FALSE.
       IF (opts%isCrystal) THEN
         PRINT *, 'The system is assigned as a Crystal'
-        IF (phSum == 0) THEN
+        IF (.NOT. (maxCount>=1 .AND. bondCount>=3 .AND. ringCount>=3 .AND. cageCount>=1)) THEN
+          PRINT *,''//achar(27)//'[31m ERROR: FAILED Morse relationship. Number&
+            of CPs found is not enough.' &
+            //achar(27)//'[0m'
+        ELSE IF (phSum == 0) THEN
           PRINT *, ''//achar(27)//'[32m Satisfies the Morse Relationship' &
             //achar(27)//'[0m'
           phmrCompliant = .TRUE.
@@ -2688,6 +2692,11 @@
         END IF
       ELSE 
         IF (phSum == 0) THEN
+          IF (.NOT. (maxCount>=1 .AND. bondCount>=3 .AND. ringCount>=3 .AND. cageCount>=1)) THEN
+            PRINT *,''//achar(27)//'[31m ERROR: FAILED Morse relationship. Number&
+              of CPs found is not enough and FAILED Poincare Hopf Rule.' &
+            //achar(27)//'[0m'
+          END IF
           phmrCompliant = .TRUE.
           PRINT *, ''//achar(27)//'[32m This system has not been designated & 
             as a molecule or crystal but the Morse relationship for & 
