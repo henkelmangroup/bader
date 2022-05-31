@@ -28,17 +28,15 @@
 
     TYPE cpc ! stands for critical point candidate
       INTEGER, DIMENSION(3) :: ind  ! these are the indices of the cp
-      REAL(q2), DIMENSION(3) :: trueind, truer
-      REAL(q2), DIMENSION(3) :: grad
-      REAL(q2), DIMENSION(3,3) :: hessianMatrix
+      REAL(q2), DIMENSION(3) :: trueind,truer,grad,eigvals,r
+      REAL(q2), DIMENSION(3,3) :: hessianMatrix,eigvecs
       !REAL(q2), DIMENSION(3) :: tempcart, tempind
-      REAL(q2), DIMENSION(3) :: eigvals, r
       REAL(q2) :: rho
-      REAL(q2), DIMENSION(3,3) :: eigvecs
+      INTEGER, DIMENSION(2) :: connectedAtoms
       INTEGER :: negcount
       LOGICAL :: hasProxy, isunique
-      INTEGER, DIMENSION(2) :: connectedAtoms
     END TYPE
+    REAL(q2) :: voxvol
     CONTAINS
 
 !-----------------------------------------------------------------------------------!
@@ -126,6 +124,7 @@
     !PRINT *, ''//achar(27)//'[95m Critical point is like a box of chocolates. &
     !          You never know what you are gonna get.'//achar(27)//'[0m'
     !WRITE(*,'(A)')  'FINDING CRITICAL POINTS'
+    CALL get_voxvol(chg,ions)
     IF (opts%enableCHGCARSmoothening) THEN
       ! First produce a smoothened CHGCAR
       CALL SmoothenCHGCAR(chg,avgMode,ions,opts)
@@ -461,16 +460,11 @@
           IF (.FALSE.) THEN
             CYCLE
           ELSE
-           
             IF (opts%gradMode) THEN
                !uses GradientDescend instead of NRTFGP          
                IF (LDM) PRINT *, "Gradient Mode Activated"
-               
-               
                CALL GradientDescend(bdr,chg,opts,trueR,cpcl(i)%ind,&
                cpcl(i)%isUnique,3000,LDM_GradMagGrad)
-               
-               
                IF (.TRUE.) THEN
                  IF (ABS(trueR(1))>200 .OR. ABS(trueR(2))>200 .OR. ABS(trueR(3))>200) THEN
                     PRINT *, "Way out of bounds!"
@@ -483,7 +477,6 @@
                LDM_detectCircling,cpcl(i)%isUnique,cpcl(i)%r,cpcl(i)%ind,&
                1000,LDM_NRTFGP)
             END IF
-
             IF (LDM) THEN
               PRINT *, "trueR is"
               PRINT *, trueR
@@ -591,7 +584,6 @@
                 IF (ABS(grad(1)) <= 0.1*opts%par_gradfloor .AND. &
                     ABS(grad(2)) <= 0.1*opts%par_gradfloor .AND. &
                     ABS(grad(3)) <= 0.1*opts%par_gradfloor) THEN
-
                   cpcl(i)%trueind = truer 
                   cpcl(i)%isunique = .TRUE.
                   PRINT *, "Trajectory converged after direct calculation & 
@@ -600,7 +592,6 @@
                   PRINT *, grad
                   EXIT
                 END IF
-
                 CALL DetectCircling(stepCount,rList,temList,trueR,nextTem,averageR, &
                   LDM_DetectCircling,cpcl(i)%ind)
                 IF (ALL(averageR /= -1.,1)) THEN
@@ -640,29 +631,23 @@
               PRINT *, "Direct calculation trajectory converged at point"
               PRINT *, truer
               PRINT *, "after ", stepCount, " steps "
-
             END IF
           END IF
           IF (LDM) PRINT *, "lc 2"
-          
           IF (LDM_Trajectories)  CALL MakeFullCPRoster(fullcpRoster,i,truer)
-          
-
           IF (cpcl(i)%isUnique ) THEN
-
             CALL MakeCPRoster(cpRoster,i,truer)
             cpcl(i)%trueind = truer
           ELSE 
             CYCLE
           END IF
           IF (cpcl(i)%isunique ) THEN
+            interpolHessian = trilinear_interpol_hes(nnHes,distance)
             ucptnum = ucptnum + 1
+            interpolHessian = CDHessianR(truer,chg)
             CALL RecordCPR(truer,chg,cpl,ucptnum,eigvals,eigvecs,connectedAtoms, maxcount, &
               uRingCount,uBondCount,uCageCount, opts, grad, interpolHessian, &
               cpcl(i)%ind,LDM_RecordCPR)
-              
-              
-              
               IF (LDM) THEN
                 PRINT *, "recording CP number ", ucptnum
                 PRINT *, "location is "
@@ -691,13 +676,11 @@
           PRINT *, 'lc 4'
         END DO
       END IF
- 
       PRINT *, 'Number of critical point count: ', ucptnum
       PRINT *, 'Number of nucl critical point count: ', maxcount
       PRINT *, 'Number of bond critical point count: ', uBondCount
       PRINT *, 'Number of ring critical point count: ', uRingCount
       PRINT *, 'Number of cage critical point count: ', uCageCount
-
       ! remove duplicate CPs
 
 
@@ -779,9 +762,6 @@
         stat = 0
       END IF
       ! stat = 1
-
-        
-
       !Runs DoubleAscension and RingAscension on all detected critical points
       DO ij = 1,ucptnum
         !Saves pairs of connected atoms in connectedAtoms
@@ -792,31 +772,23 @@
            CALL RingAscension(cpl(ij),chg,ions,RingList)
         END IF
       END DO
-      
-
       ! output the cp to files
       CALL OutputCP(cpl,opts,ucptnum,chg,setcount, uBondCount, &
         uRingCount, uCageCount, maxcount)
-
       !Output the found list of connectivity pairs to file 
       CALL OutputNetwork(cpl,ucptnum,setcount)
       
       IF (LDM_Trajectories) THEN
-          !Performs statistical analysis (standard deviation) on the CP Roster 
-          CALL CPRosterAnalysis(cpl,ions,fullcpRoster,chg)
-    
-          !unique_realcoords removes NaN/0 valued blank CPs, condenses the list to only the relevant ones inside reducedcpRoster
-          CALL unique_realcoords(cpRoster,reducedcpRoster) 
-          
-          !Output the CP Roster to file
-          CALL OutputCPRoster(fullcpRoster,setcount)
-          
-          DEALLOCATE(fullcpRoster)
-          DEALLOCATE(reducedcpRoster)
+        !Performs statistical analysis (standard deviation) on the CP Roster 
+        CALL CPRosterAnalysis(cpl,ions,fullcpRoster,chg)
+        !unique_realcoords removes NaN/0 valued blank CPs, condenses the list to only the relevant ones inside reducedcpRoster
+        CALL unique_realcoords(cpRoster,reducedcpRoster) 
+        !Output the CP Roster to file
+        CALL OutputCPRoster(fullcpRoster,setcount)
+        DEALLOCATE(fullcpRoster)
+        DEALLOCATE(reducedcpRoster)
       END IF
-
       DEALLOCATE(cpRoster)
-
     END IF
     PRINT *, 'outputting debugging information to allcpPOSCAR'
 !    CALL VisAllCP(cpcl,cptnum,chg,ions,opts)
@@ -827,10 +799,7 @@
 !    CLOSE(98)
     CLOSE(1)
     CLOSE(2)
-
     END SUBROUTINE critpoint_find
-
-    
 
     ! this function determins when looking for nn, how many layers to search
     ! within. It looks for the smallest vector sum of lattice vectors, and the
@@ -967,14 +936,14 @@
       g1 = 1._q2-f1
       g2 = 1._q2-f2
       g3 = 1._q2-f3
-      rho000 = rho_val(chg,nn(1,1),nn(1,2),nn(1,3))
-      rho001 = rho_val(chg,nn(2,1),nn(2,2),nn(2,3))
-      rho010 = rho_val(chg,nn(3,1),nn(3,2),nn(3,3))
-      rho100 = rho_val(chg,nn(4,1),nn(4,2),nn(4,3))
-      rho011 = rho_val(chg,nn(5,1),nn(5,2),nn(5,3))
-      rho101 = rho_val(chg,nn(6,1),nn(6,2),nn(6,3))
-      rho110 = rho_val(chg,nn(7,1),nn(7,2),nn(7,3))
-      rho111 = rho_val(chg,nn(8,1),nn(8,2),nn(8,3))
+      rho000 = rho_val(chg,nn(1,1),nn(1,2),nn(1,3))/voxvol
+      rho001 = rho_val(chg,nn(2,1),nn(2,2),nn(2,3))/voxvol
+      rho010 = rho_val(chg,nn(3,1),nn(3,2),nn(3,3))/voxvol
+      rho100 = rho_val(chg,nn(4,1),nn(4,2),nn(4,3))/voxvol
+      rho011 = rho_val(chg,nn(5,1),nn(5,2),nn(5,3))/voxvol
+      rho101 = rho_val(chg,nn(6,1),nn(6,2),nn(6,3))/voxvol
+      rho110 = rho_val(chg,nn(7,1),nn(7,2),nn(7,3))/voxvol
+      rho111 = rho_val(chg,nn(8,1),nn(8,2),nn(8,3))/voxvol
       rho00_ = rho000*g3 + rho001*f3
       rho01_ = rho010*g3 + rho011*f3
       rho10_ = rho100*g3 + rho101*f3
@@ -995,7 +964,7 @@
       rho_grad_lat(2) = rho_1_ - rho_0_
       rho_grad_lat(3) = rho__1 - rho__0
   !   CALL vector_matrix(rho_grad_lat, chg%car2lat, rho_grad)
-      nn_grad = MATMUL(chg%car2lat,rho_grad_lat)
+      nn_grad = MATMUL(chg%car2lat,rho_grad_lat)/voxvol
     RETURN
     END FUNCTION nn_grad
 
@@ -1063,28 +1032,28 @@
       p3 = FLOOR(r(3))
       tempp = (/p1,p2,p3/)
       CALL pbc(tempp,chg%npts)
-      vals(1) = rho_val(chg,tempp(1),tempp(2),tempp(3))
+      vals(1) = rho_val(chg,tempp(1),tempp(2),tempp(3))/voxvol
       tempp = (/p1+1,p2,p3/)
       CALL pbc(tempp,chg%npts)
-      vals(2) = rho_val(chg,tempp(1),tempp(2),tempp(3))
+      vals(2) = rho_val(chg,tempp(1),tempp(2),tempp(3))/voxvol
       tempp = (/p1,p2+1,p3/)
       CALL pbc(tempp,chg%npts)
-      vals(3) = rho_val(chg,tempp(1),tempp(2),tempp(3))
+      vals(3) = rho_val(chg,tempp(1),tempp(2),tempp(3))/voxvol
       tempp = (/p1+1,p2+1,p3/)
       CALL pbc(tempp,chg%npts)
-      vals(4) = rho_val(chg,tempp(1),tempp(2),tempp(3))
+      vals(4) = rho_val(chg,tempp(1),tempp(2),tempp(3))/voxvol
       tempp = (/p1,p2,p3+1/)
       CALL pbc(tempp,chg%npts)
-      vals(5) = rho_val(chg,tempp(1),tempp(2),tempp(3))
+      vals(5) = rho_val(chg,tempp(1),tempp(2),tempp(3))/voxvol
       tempp = (/p1+1,p2,p3+1/)
       CALL pbc(tempp,chg%npts)
-      vals(6) = rho_val(chg,tempp(1),tempp(2),tempp(3))
+      vals(6) = rho_val(chg,tempp(1),tempp(2),tempp(3))/voxvol
       tempp = (/p1,p2+1,p3+1/)
       CALL pbc(tempp,chg%npts)
-      vals(7) = rho_val(chg,tempp(1),tempp(2),tempp(3))
+      vals(7) = rho_val(chg,tempp(1),tempp(2),tempp(3))/voxvol
       tempp = (/p1+1,p2+1,p3+1/)
       CALL pbc(tempp,chg%npts)
-      vals(8) = rho_val(chg,tempp(1),tempp(2),tempp(3))
+      vals(8) = rho_val(chg,tempp(1),tempp(2),tempp(3))/voxvol
       f1 = r(1) - REAL(p1,q2)
       f2 = r(2) - REAL(p2,q2)
       f3 = r(3) - REAL(p3,q2)
@@ -1145,7 +1114,6 @@
       val0__ = val00_*g2 + val01_*f2
       val1__ = val10_*g2 + val11_*f2
       trilinear_interpol_hes = val0__*g1 + val1__*f1
-      
     END FUNCTION
 
 
@@ -1171,11 +1139,11 @@
       CALL pbc(pyp,chg%npts)
       CALL pbc(pzp,chg%npts)
       CDGrad(3) = 0.5*(rho_val(chg,pzp(1),pzp(2),pzp(3)) - &
-                  rho_val(chg,pzm(1),pzm(2),pzm(3)))
+                  rho_val(chg,pzm(1),pzm(2),pzm(3)))/voxvol
       CDGrad(2) = 0.5*(rho_val(chg,pyp(1),pyp(2),pyp(3)) - &
-                  rho_val(chg,pym(1),pym(2),pym(3)))
+                  rho_val(chg,pym(1),pym(2),pym(3)))/voxvol
       CDGrad(1) = 0.5*(rho_val(chg,pxp(1),pxp(2),pxp(3)) - &
-                  rho_val(chg,pxm(1),pxm(2),pxm(3)))
+                  rho_val(chg,pxm(1),pxm(2),pxm(3)))/voxvol
       CDGrad = MATMUL(CDGrad,chg%car2lat)
       RETURN
       ! now the gradient should be in cartesian
@@ -1204,19 +1172,19 @@
       CALL pbc(ptz2,chg%npts)
       CDHessian(1,1) = &
          (rho_val(chg,ptx1(1),ptx1(2),ptx1(3)) - &
-         rho_val(chg,p(1),p(2),p(3))) - &
+         rho_val(chg,p(1),p(2),p(3)))/voxvol - &
          (rho_val(chg,p(1),p(2),p(3)) - &
-         rho_val(chg,ptx2(1),ptx2(2),ptx2(3)))
+         rho_val(chg,ptx2(1),ptx2(2),ptx2(3)))/voxvol
       CDHessian(2,2) = &
         (rho_val(chg,pty1(1),pty1(2),pty1(3)) - &
-         rho_val(chg,p(1),p(2),p(3))) - &
+         rho_val(chg,p(1),p(2),p(3)))/voxvol - &
         (rho_val(chg,p(1),p(2),p(3)) - &
-         rho_val(chg,pty2(1),pty2(2),pty2(3)))
+         rho_val(chg,pty2(1),pty2(2),pty2(3)))/voxvol
       CDHessian(3,3) = &
         (rho_val(chg,ptz1(1),ptz1(2),ptz1(3)) - &
-         rho_val(chg,p(1),p(2),p(3))) - &
+         rho_val(chg,p(1),p(2),p(3)))/voxvol - &
         (rho_val(chg,p(1),p(2),p(3)) - &
-         rho_val(chg,ptz2(1),ptz2(2),ptz2(3)))
+         rho_val(chg,ptz2(1),ptz2(2),ptz2(3)))/voxvol
       ptxy1 = p + (/-1,-1,0/)
       ptxy2 = p + (/-1,+1,0/)
       ptxy3 = p + (/+1,+1,0/)
@@ -1249,13 +1217,13 @@
         ((rho_val(chg,ptxy2(1),ptxy2(2),ptxy2(3)) + &
             rho_val(chg,pty1(1),pty1(2),pty1(3)))  - &
           (rho_val(chg,ptxy1(1),ptxy1(2),ptxy1(3)) + &
-            rho_val(chg,pty2(1),pty2(2),pty2(3)))  ) & 
+            rho_val(chg,pty2(1),pty2(2),pty2(3)))  )/voxvol & 
         ! this is the forward dv
         + 0.25_q2 * & 
         ((rho_val(chg,ptxy3(1),ptxy3(2),ptxy3(3)) + &
             rho_val(chg,pty1(1),pty1(2),pty1(3)))  - &
           (rho_val(chg,ptxy4(1),ptxy4(2),ptxy4(3)) + &
-            rho_val(chg,pty2(1),pty2(2),pty2(3)))  ) &
+            rho_val(chg,pty2(1),pty2(2),pty2(3)))  )/voxvol &
         )
       CDHessian(2,1) = CDHessian(1,2)
       CDHessian(1,3) = &
@@ -1265,13 +1233,13 @@
         ((rho_val(chg,ptxz2(1),ptxz2(2),ptxz2(3)) + &
             rho_val(chg,ptz1(1),ptz1(2),ptz1(3)))   - &
           (rho_val(chg,ptxz1(1),ptxz1(2),ptxz1(3)) + &
-            rho_val(chg,ptz2(1),ptz2(2),ptz2(3)))   )  &
+            rho_val(chg,ptz2(1),ptz2(2),ptz2(3)))   )/voxvol  &
         ! this is the forward dw
         + 0.25_q2 * & 
         ((rho_val(chg,ptxz3(1),ptxz3(2),ptxz3(3)) + &
             rho_val(chg,ptz1(1),ptz1(2),ptz1(3)))   - &
           (rho_val(chg,ptxz4(1),ptxz4(2),ptxz4(3)) + &
-            rho_val(chg,ptz2(1),ptz2(2),ptz2(3)))   ) &
+            rho_val(chg,ptz2(1),ptz2(2),ptz2(3)))   )/voxvol &
         ) 
       CDHessian(3,1) = CDHessian(1,3)
       CDHessian(2,3) = &
@@ -1281,20 +1249,23 @@
         ((rho_val(chg,ptyz2(1),ptyz2(2),ptyz2(3)) + &
             rho_val(chg,ptz1(1),ptz1(2),ptz1(3)))  - &
           (rho_val(chg,ptyz1(1),ptyz1(2),ptyz1(3)) + &
-            rho_val(chg,ptz2(1),ptz2(2),ptz2(3)))  ) & 
+            rho_val(chg,ptz2(1),ptz2(2),ptz2(3)))  )/voxvol & 
         ! this is the forward dw
         + 0.25_q2 * & 
         ((rho_val(chg,ptyz3(1),ptyz3(2),ptyz3(3)) + &
             rho_val(chg,ptz1(1),ptz1(2),ptz1(3)))  - &
           (rho_val(chg,ptyz4(1),ptyz4(2),ptyz4(3)) + &
-            rho_val(chg,ptz2(1),ptz2(2),ptz2(3)))  ) &
+            rho_val(chg,ptz2(1),ptz2(2),ptz2(3)))  )/voxvol &
         )
       CDHessian(3,2) = CDHessian(2,3)
       ! Convert the hessian, which is now in lattice coordinates, to cartesian
       !CDHessian = MATMUL(MATMUL(chg%car2lat,CDHessian),TRANSPOSE(chg%car2lat))
       CDHessian = MATMUL(TRANSPOSE(chg%car2lat),MATMUL(CDHessian,chg%car2lat))
+      IF ( GetHessianMag(CDHessian) < 0.000000001) THEN
+        PRINT *, "WARNING, zero Hessian matrix at ", p
+      END IF
       RETURN
-    END FUNCTION
+    END FUNCTION CDHessian
     
 
     ! This function takes in current position and grid point position in
@@ -1389,10 +1360,10 @@
         PRINT *, 'nbp i + 13 is'
         PRINT *, nbp(:,i + 13)
         PRINT *, MATMUL(chg%lat2car,nbp(:,i+13))
-        deltarho(i) = rho_val(chg,nbp(1,i),nbp(2,i),nbp(3,i)) - &
-          rho_val(chg,nbp(1,i+13),nbp(2,i+13),nbp(3,i+13))
-        PRINT *, rho_val(chg,nbp(1,i),nbp(2,i),nbp(3,i)), &
-          rho_val(chg,nbp(1,i+13),nbp(2,i+13),nbp(3,i+13))
+        deltarho(i) = rho_val(chg,nbp(1,i),nbp(2,i),nbp(3,i))/voxvol - &
+          rho_val(chg,nbp(1,i+13),nbp(2,i+13),nbp(3,i+13))/voxvol
+        PRINT *, rho_val(chg,nbp(1,i),nbp(2,i),nbp(3,i))/voxvol, &
+          rho_val(chg,nbp(1,i+13),nbp(2,i+13),nbp(3,i+13))/voxvol
         PRINT *, deltarho(i)
       END DO
       lsg = 0._q2
@@ -1846,13 +1817,10 @@
         vector(2) = cp%eigvecs(2,vecnum)
         vector(3) = cp%eigvecs(3,vecnum)
         vector = vector/Mag(vector)
-        
        ! PRINT *, vector
-
         ind_plus(1) = ind(1)+vector(1)
         ind_plus(2) = ind(2)+vector(2)
         ind_plus(3) = ind(3)+vector(3)
-
         ind_minus(1) = ind(1)-vector(1)
         ind_minus(2) = ind(2)-vector(2)
         ind_minus(3) = ind(3)-vector(3)
@@ -2865,7 +2833,8 @@
       cpl(ucptnum)%negCount = negCount
       cpl(ucptnum)%hasProxy = .FALSE.
       cpl(ucptnum)%ind = ind
-      realDump = rho_grad(chg,p,rho)
+      realDump = rho_grad(chg,p,rho)/voxvol
+      rho = rho/voxvol
       cpl(ucptnum)%rho = rho
       IF (LDM) THEN
         PRINT *, "RecordCPRLight recorded CP number ",ucptnum
@@ -2876,7 +2845,9 @@
         PRINT *, "negCount is"
         PRINT *, negCount
         PRINT *, "Hessian matrix is "
-        PRINT *, hessianMatrix
+        PRINT *, hessianMatrix(1,:)
+        PRINT *, hessianMatrix(2,:)
+        PRINT *, hessianMatrix(3,:)
       END IF
     END SUBROUTINE RecordCPRLight
 
@@ -2937,10 +2908,10 @@
         WRITE (98,*) cpl(i)%hessianMatrix(1,:)
         WRITE (98,*) cpl(i)%hessianMatrix(2,:)
         WRITE (98,*) cpl(i)%hessianMatrix(3,:)
-        ! WRITE (98,*) 'Laplacian is'
-        ! WRITE (98,*) cpl(i)%hessianMatrix(1,1)**2 &
-        !              + cpl(i)%hessianMatrix(2,2)**2 &
-        !              + cpl(i)%hessianMatrix(3,3)**2
+        WRITE (98,*) 'Laplacian is'
+        WRITE (98,*) cpl(i)%hessianMatrix(1,1)**2 &
+                     + cpl(i)%hessianMatrix(2,2)**2 &
+                     + cpl(i)%hessianMatrix(3,3)**2
         WRITE (98,*) 'Eigenvalues are'
         WRITE (98,*) cpl(i)%eigvals
         WRITE (98,*) 'Eigenvectors are'
@@ -3303,13 +3274,13 @@
         normalizer = normalizer + weight(i)
       END DO
       IF (onGrid) THEN
-        R2RhoInterpol = rho_val(chg,nnind(i,1),nnind(i,2),nnind(i,3))
+        R2RhoInterpol = rho_val(chg,nnind(i,1),nnind(i,2),nnind(i,3))/voxvol
       ELSE
         weight = weight / normalizer
         R2RhoInterpol = 0
         DO i = 1,SIZE(nnInd)/3
           R2RhoInterpol = R2RhoInterpol + rho_val(chg,nnind(i,1),nnind(i,2),&
-            nnind(i,3)) * weight(i)
+            nnind(i,3))/voxvol * weight(i)
         END DO
       END IF
       DEALLOCATE(weight)
@@ -3529,13 +3500,14 @@
           IF (j == i) CYCLE
           IF ( Mag(cpl(i)%truer - cpl(j)%truer) .LE. opts%par_distance ) THEN
             cpl(j)%hasProxy = .TRUE.
-            
             avgR = (avgR * weight + cpl(j)%truer )/(weight + 1)
             weight = weight + 1
             dupCount = dupCount + 1
             ! The two CP should be the same type!
             IF (cpl(i)%negCount /= cpl(j)%negCount) THEN
               IF (cpl(i)%negCount == 3) CYCLE !Skip validating maxima.
+              IF (cpl(j)%negCount == 3) CYCLE !ascension is bugged. 
+              ! it some times go to bond CP
               PRINT *,'ERROR: TWO TYPES OF CP ARE TOO CLOSE TO EACH OTHER. &
                 TURN ON DEBUGMODE and enter ReduceCP in debugConfig FOR MORE INFORAMTION'
               IF (LDM) THEN 
@@ -3544,11 +3516,20 @@
                 PRINT *, cpl(i)%trueR
                 PRINT *, "Number of negative eigenvalue is "
                 PRINT *, cpl(i)%negCount
+                PRINT *, "The Hessian matrix is "
+                PRINT *, cpl(i)%hessianMatrix(1,:)
+                PRINT *, cpl(i)%hessianMatrix(2,:)
+                PRINT *, cpl(i)%hessianMatrix(3,:)
                 PRINT *, "Critical point number ", j
                 PRINT *, "Location is "
                 PRINT *, cpl(j)%trueR
                 PRINT *, "Number of negative eigenvalue is "
                 PRINT *, cpl(j)%negCount
+                PRINT *, "The Hessian matrix is "
+                PRINT *, cpl(j)%hessianMatrix(1,:)
+                PRINT *, cpl(j)%hessianMatrix(2,:)
+                PRINT *, cpl(j)%hessianMatrix(3,:)
+                PRINT *, "***** end of one pair ****"
               END IF
             END IF 
             isReduced = .FALSE.
@@ -3617,6 +3598,9 @@
        !the next big step is to interpolate the force at predicted critical
        !point.
       CDHessianR = trilinear_interpol_hes(nnHes,distance)
+      IF ( GetHessianMag(CDHessianR) < 0.000000001) THEN
+        PRINT *, "WARNING, zero Hessian matrix at ", r
+      END IF
       RETURN
     END FUNCTION CDHessianR
 
@@ -3681,7 +3665,8 @@
       PRINT *, 'Position in lattie is'
       PRINT *, p
       CALL pbc_r_lat(p,chg%npts)
-      grad = rho_grad(chg,p,rho)
+      grad = rho_grad(chg,p,rho)/voxvol
+      rho = rho/voxvol
       WRITE (53,*) grad
       PRINT *, "cartesian grad from rho_grad is "
       PRINT *, grad 
@@ -4091,7 +4076,7 @@
       IF ( LDM ) THEN
         PRINT *, "DensityDescend starting at "
         PRINT *, p
-        PRINT *, "Initial density is", rho_val(chg,p(1),p(2),p(3))
+        PRINT *, "Initial density is", rho_val(chg,p(1),p(2),p(3))/voxvol
       END IF
       DO WHILE (.NOT. minimized) 
         minimized = .TRUE.
@@ -4105,7 +4090,7 @@
                 IF (LDM) THEN
                   PRINT *, "Descended to point"
                   PRINT *, p
-                  PRINT *, "New density is ", rho_val(chg,p(1),p(2),p(3))
+                  PRINT *, "New density is ", rho_val(chg,p(1),p(2),p(3))/voxvol
                 END IF
                 CALL pbc(p,chg%npts)
                 EXIT outer
@@ -4124,7 +4109,7 @@
             DO n2 = -1,1
               DO n3 = -1,1
                 IF (n1==0 .AND. n2==0 .AND. n3==0) CYCLE
-                PRINT *, rho_val(chg,p(1)+n1,p(2)+n2,p(3)+n3)
+                PRINT *, rho_val(chg,p(1)+n1,p(2)+n2,p(3)+n3)/voxvol
               END DO
             END DO
           END DO
@@ -4178,14 +4163,14 @@
     INTEGER,DIMENSION(3) :: p
     INTEGER :: i,j,k
     PRINT *, "Printing charges of all neighbors at "
-    PRINT *, p, rho_val(chg,p(1),p(2),p(3))
+    PRINT *, p, rho_val(chg,p(1),p(2),p(3))/voxvol
     DO i = 1, 3
       DO j = 1,3
         DO k = 1,3
           IF ( i == 0 .AND. j == 0 .AND. k == 0) THEN
             CYCLE
           END IF
-          PRINT *, rho_val(chg,p(1)+i,p(1)+j,p(1)+k)
+          PRINT *, rho_val(chg,p(1)+i,p(1)+j,p(1)+k)/voxvol
         END DO
       END DO
     END DO
@@ -4398,7 +4383,7 @@
               sumChg = 0
               weight = 0
             ELSE
-              sumChg = rho_val(chg,n1,n2,n3)
+              sumChg = rho_val(chg,n1,n2,n3)/voxvol
             END IF
             rmin = 99999.
             IF (avgMode == 1 .OR. avgMode == 2) THEN
@@ -4411,7 +4396,7 @@
                     pp(3) = n3 + k
                     CALL pbc(pp,chg%npts)
                     IF (avgMode == 1) THEN
-                      sumChg = sumChg + rho_val(chg,pp(1),pp(2),pp(3))
+                      sumChg = sumChg + rho_val(chg,pp(1),pp(2),pp(3))/voxvol
                     ELSE IF (avgMode == 2) THEN
                       rlat(1) = i
                       rlat(2) = j
@@ -4419,7 +4404,7 @@
                       rcar = MATMUL(rlat,ions%lattice)
                       r = SQRT(rcar(1)**2 + rcar(2)**2 + rcar(3)**2)
                       IF (rmin < r ) rmin = r
-                      sumChg = sumChg + 1/r * rho_val(chg,pp(1),pp(2),pp(3))
+                      sumChg = sumChg + 1/r * rho_val(chg,pp(1),pp(2),pp(3))/voxvol
                       weight = weight + 1/r
                     END IF
                   END DO
@@ -4434,7 +4419,7 @@
                     pp(2) = n2 + j
                     pp(3) = n3 + k
                     CALL pbc(pp,chg%npts)
-                    sumChg = sumChg + rho_val(chg,pp(1),pp(2),pp(3))
+                    sumChg = sumChg + rho_val(chg,pp(1),pp(2),pp(3))/voxvol
                   END DO
                 END DO
               END DO
@@ -4723,6 +4708,26 @@
       PRINT *, Mag(CDGrad(grid,chg))
       RETURN
     END FUNCTION printinfo
+
+    SUBROUTINE get_voxvol(chg,ions)
+      TYPE(charge_obj) :: chg
+      TYPE(ions_obj) :: ions
+      
+      voxvol = matrix_volume(ions%lattice)/ chg%nrho
+    END SUBROUTINE
+  
+    FUNCTION GetHessianMag(hes)
+      REAL(q2),DIMENSION(3,3) :: hes
+      REAL(q2) :: GetHessianMag
+      INTEGER :: i,j
+      GetHessianMag = 0
+      DO i = 1, 3
+        DO j = 1,3
+          GetHessianMag = GetHessianMag + hes(i,j)**2 
+        END DO
+      END DO
+    END FUNCTION GetHessianMag
+
     ! The following code is potentially useful for gradient descend
           ! This determins if validation is done with gradient descend
           !    PRINT *, 'looking at critical point candidate # ', i
