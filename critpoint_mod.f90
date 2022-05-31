@@ -113,6 +113,7 @@
     LOGICAL :: isUniqueTest
     INTEGER, DIMENSION(2) :: doubleascend_test
     INTEGER, DIMENSION(:), ALLOCATABLE :: RingList
+
     ! below are variables for least sqaures gradient
     stat = 0 ! 0 means nothing
     !PRINT *, ''//achar(27)//'[31m Finding Critical points'//achar(27)//'[0m'
@@ -435,11 +436,6 @@
           END DO
         END DO
       END DO
-
-          
-
-
-
       PRINT *, "Number of Newton Rhapson trajectory needed: ", cptnum 
 !!**  *****************************************************************
       ! To find critical points (unique), start with a cell that contains a
@@ -752,7 +748,6 @@
       PRINT *, 'Number of bond critical point count: ', uBondCount
       PRINT *, 'Number of ring critical point count: ', uRingCount
       PRINT *, 'Number of cage critical point count: ', uCageCount
-
       CALL  PHRuleExam(maxCount,ubondCount,uringCount,ucageCount,opts,&
         ions,phmrCompliant)
       
@@ -936,14 +931,14 @@
       g1 = 1._q2-f1
       g2 = 1._q2-f2
       g3 = 1._q2-f3
-      rho000 = rho_val(chg,nn(1,1),nn(1,2),nn(1,3))/voxvol
-      rho001 = rho_val(chg,nn(2,1),nn(2,2),nn(2,3))/voxvol
-      rho010 = rho_val(chg,nn(3,1),nn(3,2),nn(3,3))/voxvol
-      rho100 = rho_val(chg,nn(4,1),nn(4,2),nn(4,3))/voxvol
-      rho011 = rho_val(chg,nn(5,1),nn(5,2),nn(5,3))/voxvol
-      rho101 = rho_val(chg,nn(6,1),nn(6,2),nn(6,3))/voxvol
-      rho110 = rho_val(chg,nn(7,1),nn(7,2),nn(7,3))/voxvol
-      rho111 = rho_val(chg,nn(8,1),nn(8,2),nn(8,3))/voxvol
+      rho000 = rho_val(chg,nn(1,1),nn(1,2),nn(1,3))
+      rho001 = rho_val(chg,nn(2,1),nn(2,2),nn(2,3))
+      rho010 = rho_val(chg,nn(3,1),nn(3,2),nn(3,3))
+      rho100 = rho_val(chg,nn(4,1),nn(4,2),nn(4,3))
+      rho011 = rho_val(chg,nn(5,1),nn(5,2),nn(5,3))
+      rho101 = rho_val(chg,nn(6,1),nn(6,2),nn(6,3))
+      rho110 = rho_val(chg,nn(7,1),nn(7,2),nn(7,3))
+      rho111 = rho_val(chg,nn(8,1),nn(8,2),nn(8,3))
       rho00_ = rho000*g3 + rho001*f3
       rho01_ = rho010*g3 + rho011*f3
       rho10_ = rho100*g3 + rho101*f3
@@ -964,7 +959,7 @@
       rho_grad_lat(2) = rho_1_ - rho_0_
       rho_grad_lat(3) = rho__1 - rho__0
   !   CALL vector_matrix(rho_grad_lat, chg%car2lat, rho_grad)
-      nn_grad = MATMUL(chg%car2lat,rho_grad_lat)/voxvol
+      nn_grad = MATMUL(chg%car2lat,rho_grad_lat)
     RETURN
     END FUNCTION nn_grad
 
@@ -1032,28 +1027,28 @@
       p3 = FLOOR(r(3))
       tempp = (/p1,p2,p3/)
       CALL pbc(tempp,chg%npts)
-      vals(1) = rho_val(chg,tempp(1),tempp(2),tempp(3))/voxvol
+      vals(1) = rho_val(chg,tempp(1),tempp(2),tempp(3))
       tempp = (/p1+1,p2,p3/)
       CALL pbc(tempp,chg%npts)
-      vals(2) = rho_val(chg,tempp(1),tempp(2),tempp(3))/voxvol
+      vals(2) = rho_val(chg,tempp(1),tempp(2),tempp(3))
       tempp = (/p1,p2+1,p3/)
       CALL pbc(tempp,chg%npts)
-      vals(3) = rho_val(chg,tempp(1),tempp(2),tempp(3))/voxvol
+      vals(3) = rho_val(chg,tempp(1),tempp(2),tempp(3))
       tempp = (/p1+1,p2+1,p3/)
       CALL pbc(tempp,chg%npts)
-      vals(4) = rho_val(chg,tempp(1),tempp(2),tempp(3))/voxvol
+      vals(4) = rho_val(chg,tempp(1),tempp(2),tempp(3))
       tempp = (/p1,p2,p3+1/)
       CALL pbc(tempp,chg%npts)
-      vals(5) = rho_val(chg,tempp(1),tempp(2),tempp(3))/voxvol
+      vals(5) = rho_val(chg,tempp(1),tempp(2),tempp(3))
       tempp = (/p1+1,p2,p3+1/)
       CALL pbc(tempp,chg%npts)
-      vals(6) = rho_val(chg,tempp(1),tempp(2),tempp(3))/voxvol
+      vals(6) = rho_val(chg,tempp(1),tempp(2),tempp(3))
       tempp = (/p1,p2+1,p3+1/)
       CALL pbc(tempp,chg%npts)
-      vals(7) = rho_val(chg,tempp(1),tempp(2),tempp(3))/voxvol
+      vals(7) = rho_val(chg,tempp(1),tempp(2),tempp(3))
       tempp = (/p1+1,p2+1,p3+1/)
       CALL pbc(tempp,chg%npts)
-      vals(8) = rho_val(chg,tempp(1),tempp(2),tempp(3))/voxvol
+      vals(8) = rho_val(chg,tempp(1),tempp(2),tempp(3))
       f1 = r(1) - REAL(p1,q2)
       f2 = r(2) - REAL(p2,q2)
       f3 = r(3) - REAL(p3,q2)
@@ -1139,15 +1134,15 @@
       CALL pbc(pyp,chg%npts)
       CALL pbc(pzp,chg%npts)
       CDGrad(3) = 0.5*(rho_val(chg,pzp(1),pzp(2),pzp(3)) - &
-                  rho_val(chg,pzm(1),pzm(2),pzm(3)))/voxvol
+                  rho_val(chg,pzm(1),pzm(2),pzm(3)))
       CDGrad(2) = 0.5*(rho_val(chg,pyp(1),pyp(2),pyp(3)) - &
-                  rho_val(chg,pym(1),pym(2),pym(3)))/voxvol
+                  rho_val(chg,pym(1),pym(2),pym(3)))
       CDGrad(1) = 0.5*(rho_val(chg,pxp(1),pxp(2),pxp(3)) - &
-                  rho_val(chg,pxm(1),pxm(2),pxm(3)))/voxvol
+                  rho_val(chg,pxm(1),pxm(2),pxm(3)))
       CDGrad = MATMUL(CDGrad,chg%car2lat)
       RETURN
       ! now the gradient should be in cartesian
-    END FUNCTION
+    END FUNCTION CDGrad
     
     ! the following subroutine gets hes and force in lattice units and converts
     ! to cartesian by the end
@@ -1172,19 +1167,19 @@
       CALL pbc(ptz2,chg%npts)
       CDHessian(1,1) = &
          (rho_val(chg,ptx1(1),ptx1(2),ptx1(3)) - &
-         rho_val(chg,p(1),p(2),p(3)))/voxvol - &
+         rho_val(chg,p(1),p(2),p(3))) - &
          (rho_val(chg,p(1),p(2),p(3)) - &
-         rho_val(chg,ptx2(1),ptx2(2),ptx2(3)))/voxvol
+         rho_val(chg,ptx2(1),ptx2(2),ptx2(3))) 
       CDHessian(2,2) = &
         (rho_val(chg,pty1(1),pty1(2),pty1(3)) - &
-         rho_val(chg,p(1),p(2),p(3)))/voxvol - &
+         rho_val(chg,p(1),p(2),p(3)))  - &
         (rho_val(chg,p(1),p(2),p(3)) - &
-         rho_val(chg,pty2(1),pty2(2),pty2(3)))/voxvol
+         rho_val(chg,pty2(1),pty2(2),pty2(3))) 
       CDHessian(3,3) = &
         (rho_val(chg,ptz1(1),ptz1(2),ptz1(3)) - &
-         rho_val(chg,p(1),p(2),p(3)))/voxvol - &
+         rho_val(chg,p(1),p(2),p(3)))  - &
         (rho_val(chg,p(1),p(2),p(3)) - &
-         rho_val(chg,ptz2(1),ptz2(2),ptz2(3)))/voxvol
+         rho_val(chg,ptz2(1),ptz2(2),ptz2(3))) 
       ptxy1 = p + (/-1,-1,0/)
       ptxy2 = p + (/-1,+1,0/)
       ptxy3 = p + (/+1,+1,0/)
@@ -1217,13 +1212,13 @@
         ((rho_val(chg,ptxy2(1),ptxy2(2),ptxy2(3)) + &
             rho_val(chg,pty1(1),pty1(2),pty1(3)))  - &
           (rho_val(chg,ptxy1(1),ptxy1(2),ptxy1(3)) + &
-            rho_val(chg,pty2(1),pty2(2),pty2(3)))  )/voxvol & 
+            rho_val(chg,pty2(1),pty2(2),pty2(3)))  )  & 
         ! this is the forward dv
         + 0.25_q2 * & 
         ((rho_val(chg,ptxy3(1),ptxy3(2),ptxy3(3)) + &
             rho_val(chg,pty1(1),pty1(2),pty1(3)))  - &
           (rho_val(chg,ptxy4(1),ptxy4(2),ptxy4(3)) + &
-            rho_val(chg,pty2(1),pty2(2),pty2(3)))  )/voxvol &
+            rho_val(chg,pty2(1),pty2(2),pty2(3)))  )  &
         )
       CDHessian(2,1) = CDHessian(1,2)
       CDHessian(1,3) = &
@@ -1233,13 +1228,13 @@
         ((rho_val(chg,ptxz2(1),ptxz2(2),ptxz2(3)) + &
             rho_val(chg,ptz1(1),ptz1(2),ptz1(3)))   - &
           (rho_val(chg,ptxz1(1),ptxz1(2),ptxz1(3)) + &
-            rho_val(chg,ptz2(1),ptz2(2),ptz2(3)))   )/voxvol  &
+            rho_val(chg,ptz2(1),ptz2(2),ptz2(3)))   )   &
         ! this is the forward dw
         + 0.25_q2 * & 
         ((rho_val(chg,ptxz3(1),ptxz3(2),ptxz3(3)) + &
             rho_val(chg,ptz1(1),ptz1(2),ptz1(3)))   - &
           (rho_val(chg,ptxz4(1),ptxz4(2),ptxz4(3)) + &
-            rho_val(chg,ptz2(1),ptz2(2),ptz2(3)))   )/voxvol &
+            rho_val(chg,ptz2(1),ptz2(2),ptz2(3)))   )  &
         ) 
       CDHessian(3,1) = CDHessian(1,3)
       CDHessian(2,3) = &
@@ -1249,21 +1244,20 @@
         ((rho_val(chg,ptyz2(1),ptyz2(2),ptyz2(3)) + &
             rho_val(chg,ptz1(1),ptz1(2),ptz1(3)))  - &
           (rho_val(chg,ptyz1(1),ptyz1(2),ptyz1(3)) + &
-            rho_val(chg,ptz2(1),ptz2(2),ptz2(3)))  )/voxvol & 
+            rho_val(chg,ptz2(1),ptz2(2),ptz2(3)))  )  & 
         ! this is the forward dw
         + 0.25_q2 * & 
         ((rho_val(chg,ptyz3(1),ptyz3(2),ptyz3(3)) + &
             rho_val(chg,ptz1(1),ptz1(2),ptz1(3)))  - &
           (rho_val(chg,ptyz4(1),ptyz4(2),ptyz4(3)) + &
-            rho_val(chg,ptz2(1),ptz2(2),ptz2(3)))  )/voxvol &
+            rho_val(chg,ptz2(1),ptz2(2),ptz2(3)))  )  &
         )
       CDHessian(3,2) = CDHessian(2,3)
       ! Convert the hessian, which is now in lattice coordinates, to cartesian
       !CDHessian = MATMUL(MATMUL(chg%car2lat,CDHessian),TRANSPOSE(chg%car2lat))
       CDHessian = MATMUL(TRANSPOSE(chg%car2lat),MATMUL(CDHessian,chg%car2lat))
-      IF ( GetHessianMag(CDHessian) < 0.000000001) THEN
-        PRINT *, "WARNING, zero Hessian matrix at ", p
-      END IF
+      !CDHessian = MATMUL(CDHessian,chg%car2lat)
+      
       RETURN
     END FUNCTION CDHessian
     
@@ -1360,10 +1354,10 @@
         PRINT *, 'nbp i + 13 is'
         PRINT *, nbp(:,i + 13)
         PRINT *, MATMUL(chg%lat2car,nbp(:,i+13))
-        deltarho(i) = rho_val(chg,nbp(1,i),nbp(2,i),nbp(3,i))/voxvol - &
-          rho_val(chg,nbp(1,i+13),nbp(2,i+13),nbp(3,i+13))/voxvol
-        PRINT *, rho_val(chg,nbp(1,i),nbp(2,i),nbp(3,i))/voxvol, &
-          rho_val(chg,nbp(1,i+13),nbp(2,i+13),nbp(3,i+13))/voxvol
+        deltarho(i) = rho_val(chg,nbp(1,i),nbp(2,i),nbp(3,i))  - &
+          rho_val(chg,nbp(1,i+13),nbp(2,i+13),nbp(3,i+13)) 
+        PRINT *, rho_val(chg,nbp(1,i),nbp(2,i),nbp(3,i)) , &
+          rho_val(chg,nbp(1,i+13),nbp(2,i+13),nbp(3,i+13)) 
         PRINT *, deltarho(i)
       END DO
       lsg = 0._q2
@@ -2756,7 +2750,7 @@
       REAL(q2), DIMENSION(3) :: eigvals, grad
       REAL(q2), DIMENSION(3,3) :: eigvecs, hessianMatrix
       INTEGER, DIMENSION(2) :: connectedAtoms
-      REAL(q2), DIMENSION(3) :: p
+      REAL(q2), DIMENSION(3) :: p,realdump
       INTEGER, DIMENSION(3,26) :: vi
       INTEGER, DIMENSION(26,3) :: vit
       REAL(q2), DIMENSION(3,3) :: ggrid
@@ -2764,6 +2758,7 @@
       REAL(q2), DIMENSION(3,13) :: matwprime
       REAL(q2), DIMENSION(3,3) :: matm
       REAL(q2), DIMENSION(3,3) :: outerproduct
+      REAL(q2) :: rho
       INTEGER,DIMENSION(3) :: ind
       INTEGER :: i, j, k, ucptnum, negCount
       INTEGER :: maxcount, uRingCount, uBondCount, uCageCount
@@ -2787,6 +2782,9 @@
       cpl(ucptnum)%hasProxy = .FALSE.
       cpl(ucptnum)%ind = ind
       cpl(ucptnum)%connectedAtoms = connectedAtoms
+      realDump = rho_grad(chg,p,rho) 
+      rho = rho 
+      cpl(ucptnum)%rho = rho
       IF (LDM) THEN
         PRINT *, "RecordCPR recorded CP number ", ucptnum
         PRINT *, "location is "
@@ -2833,8 +2831,8 @@
       cpl(ucptnum)%negCount = negCount
       cpl(ucptnum)%hasProxy = .FALSE.
       cpl(ucptnum)%ind = ind
-      realDump = rho_grad(chg,p,rho)/voxvol
-      rho = rho/voxvol
+      realDump = rho_grad(chg,p,rho)
+      rho = rho
       cpl(ucptnum)%rho = rho
       IF (LDM) THEN
         PRINT *, "RecordCPRLight recorded CP number ",ucptnum
@@ -2862,7 +2860,8 @@
       ! vol was used to calculate charge density with cpl(i)%rho/vol
       ! REAL(q2) :: vol
       ! vol = matrix_volume(ions%lattice)
-      REAL(q2),DIMENSION(3) :: grad
+      REAL(q2),DIMENSION(3) :: grad,realDump
+      REAL(q2) :: rho
       CHARACTER(10) :: fileName
       PRINT *, 'Writting critical point output files'
       WRITE(fileName,fmt='(a,i2.2,a)') TRIM('CPFU'), setcount,TRIM('.dat')
@@ -2901,6 +2900,8 @@
             cpl(i)%truer(3)/chg%npts(3)
         END IF
         WRITE (98,*) "Charge density is"
+        ! It appears rho_val values are densities indeed. Volume is already
+        ! factored in.
         WRITE (98,*) cpl(i)%rho
         WRITE (98,*) 'Gradient is'
         WRITE (98,*) cpl(i)%grad
@@ -2923,7 +2924,6 @@
           WRITE(98,*) 'Connected Atoms are'
           WRITE(98,*) cpl(i)%connectedAtoms
         END IF
-
         IF (cpl(i)%negcount == 0) THEN
           WRITE(98,*) 'This is a cage critical point'
           WRITE(98,*) ' '
@@ -3274,13 +3274,13 @@
         normalizer = normalizer + weight(i)
       END DO
       IF (onGrid) THEN
-        R2RhoInterpol = rho_val(chg,nnind(i,1),nnind(i,2),nnind(i,3))/voxvol
+        R2RhoInterpol = rho_val(chg,nnind(i,1),nnind(i,2),nnind(i,3))
       ELSE
         weight = weight / normalizer
         R2RhoInterpol = 0
         DO i = 1,SIZE(nnInd)/3
           R2RhoInterpol = R2RhoInterpol + rho_val(chg,nnind(i,1),nnind(i,2),&
-            nnind(i,3))/voxvol * weight(i)
+            nnind(i,3)) * weight(i)
         END DO
       END IF
       DEALLOCATE(weight)
@@ -3665,8 +3665,8 @@
       PRINT *, 'Position in lattie is'
       PRINT *, p
       CALL pbc_r_lat(p,chg%npts)
-      grad = rho_grad(chg,p,rho)/voxvol
-      rho = rho/voxvol
+      grad = rho_grad(chg,p,rho)
+      rho = rho
       WRITE (53,*) grad
       PRINT *, "cartesian grad from rho_grad is "
       PRINT *, grad 
@@ -4076,7 +4076,7 @@
       IF ( LDM ) THEN
         PRINT *, "DensityDescend starting at "
         PRINT *, p
-        PRINT *, "Initial density is", rho_val(chg,p(1),p(2),p(3))/voxvol
+        PRINT *, "Initial density is", rho_val(chg,p(1),p(2),p(3))
       END IF
       DO WHILE (.NOT. minimized) 
         minimized = .TRUE.
@@ -4090,7 +4090,7 @@
                 IF (LDM) THEN
                   PRINT *, "Descended to point"
                   PRINT *, p
-                  PRINT *, "New density is ", rho_val(chg,p(1),p(2),p(3))/voxvol
+                  PRINT *, "New density is ", rho_val(chg,p(1),p(2),p(3))
                 END IF
                 CALL pbc(p,chg%npts)
                 EXIT outer
@@ -4109,7 +4109,7 @@
             DO n2 = -1,1
               DO n3 = -1,1
                 IF (n1==0 .AND. n2==0 .AND. n3==0) CYCLE
-                PRINT *, rho_val(chg,p(1)+n1,p(2)+n2,p(3)+n3)/voxvol
+                PRINT *, rho_val(chg,p(1)+n1,p(2)+n2,p(3)+n3)
               END DO
             END DO
           END DO
@@ -4163,14 +4163,14 @@
     INTEGER,DIMENSION(3) :: p
     INTEGER :: i,j,k
     PRINT *, "Printing charges of all neighbors at "
-    PRINT *, p, rho_val(chg,p(1),p(2),p(3))/voxvol
+    PRINT *, p, rho_val(chg,p(1),p(2),p(3))
     DO i = 1, 3
       DO j = 1,3
         DO k = 1,3
           IF ( i == 0 .AND. j == 0 .AND. k == 0) THEN
             CYCLE
           END IF
-          PRINT *, rho_val(chg,p(1)+i,p(1)+j,p(1)+k)/voxvol
+          PRINT *, rho_val(chg,p(1)+i,p(1)+j,p(1)+k)
         END DO
       END DO
     END DO
@@ -4383,7 +4383,7 @@
               sumChg = 0
               weight = 0
             ELSE
-              sumChg = rho_val(chg,n1,n2,n3)/voxvol
+              sumChg = rho_val(chg,n1,n2,n3)
             END IF
             rmin = 99999.
             IF (avgMode == 1 .OR. avgMode == 2) THEN
@@ -4396,7 +4396,7 @@
                     pp(3) = n3 + k
                     CALL pbc(pp,chg%npts)
                     IF (avgMode == 1) THEN
-                      sumChg = sumChg + rho_val(chg,pp(1),pp(2),pp(3))/voxvol
+                      sumChg = sumChg + rho_val(chg,pp(1),pp(2),pp(3))
                     ELSE IF (avgMode == 2) THEN
                       rlat(1) = i
                       rlat(2) = j
@@ -4404,7 +4404,7 @@
                       rcar = MATMUL(rlat,ions%lattice)
                       r = SQRT(rcar(1)**2 + rcar(2)**2 + rcar(3)**2)
                       IF (rmin < r ) rmin = r
-                      sumChg = sumChg + 1/r * rho_val(chg,pp(1),pp(2),pp(3))/voxvol
+                      sumChg = sumChg + 1/r * rho_val(chg,pp(1),pp(2),pp(3))
                       weight = weight + 1/r
                     END IF
                   END DO
@@ -4419,7 +4419,7 @@
                     pp(2) = n2 + j
                     pp(3) = n3 + k
                     CALL pbc(pp,chg%npts)
-                    sumChg = sumChg + rho_val(chg,pp(1),pp(2),pp(3))/voxvol
+                    sumChg = sumChg + rho_val(chg,pp(1),pp(2),pp(3))
                   END DO
                 END DO
               END DO
@@ -4712,7 +4712,6 @@
     SUBROUTINE get_voxvol(chg,ions)
       TYPE(charge_obj) :: chg
       TYPE(ions_obj) :: ions
-      
       voxvol = matrix_volume(ions%lattice)/ chg%nrho
     END SUBROUTINE
   
@@ -4727,6 +4726,26 @@
         END DO
       END DO
     END FUNCTION GetHessianMag
+
+
+    SUBROUTINE GetRhoAround(p,chg,ions)
+      TYPE(charge_obj) :: chg
+      TYPE(ions_obj) :: ions
+      INTEGER,DIMENSION(3) :: p
+      PRINT *, "printing rho_val around ", p       
+      PRINT *, "x-1 to x+1 are ", rho_val(chg,p(1)-1,p(2),p(3)),rho_val(chg,p(1),p(2),p(3)),rho_val(chg,p(1)+1,p(2),p(3))
+      PRINT *, "y-1 to y+1 are ", rho_val(chg,p(1),p(2)-1,p(3)),rho_val(chg,p(1),p(2),p(3)),rho_val(chg,p(1),p(2)+1,p(3))
+      PRINT *, "z-1 to z+1 are ", rho_val(chg,p(1),p(2),p(3)-1),rho_val(chg,p(1),p(2),p(3)),rho_val(chg,p(1),p(2),p(3)+1)
+      PRINT *, "voxel length on 3 directions are"
+      PRINT *, "x: ", SQRT(ions%lattice(1,1)**2 +ions%lattice(1,2)**2 +ions%lattice(1,3)**2) &
+        / chg%npts(1)
+      PRINT *, "y: ", SQRT(ions%lattice(2,1)**2 +ions%lattice(2,2)**2 +ions%lattice(2,3)**2) &
+        / chg%npts(2)
+      PRINT *, "z: ", SQRT(ions%lattice(3,1)**2 +ions%lattice(3,2)**2 +ions%lattice(3,3)**2) &
+        / chg%npts(3)
+
+    END SUBROUTINE GetRhoAround
+
 
     ! The following code is potentially useful for gradient descend
           ! This determins if validation is done with gradient descend
