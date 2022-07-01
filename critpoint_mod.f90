@@ -37,6 +37,7 @@
       LOGICAL :: hasProxy, isunique
     END TYPE
     REAL(q2) :: voxvol
+    !INTEGER :: stat
     CONTAINS
 
 !-----------------------------------------------------------------------------------!
@@ -57,7 +58,8 @@
     ! The above three are CP candidate list, CP list and CP list temp
 ! copy
 ! for points, 1 and 2 are +1, -1
-    INTEGER :: stat, setcount, counter
+    INTEGER :: setcount, counter
+    INTEGER :: stat
     INTEGER, DIMENSION(3) :: p
     INTEGER, DIMENSION(3) :: tempr
     INTEGER :: n1, n2, n3, cptnum, ucptnum, i, j, k, debugnum,ij, trajcount, trajtotal
@@ -282,8 +284,10 @@
       tempr(1) = NINT(ions%r_dir(n1,1) * chg%npts(1)) 
       tempr(2) = NINT(ions%r_dir(n1,2) * chg%npts(2)) 
       tempr(3) = NINT(ions%r_dir(n1,3) * chg%npts(3)) 
+      !temprealr = ascension(tempr,chg,matm,matwprime, &
+      !           wi,vi,vit,ggrid,outerproduct,opts,nnLayers,ions)
       temprealr = ascension(tempr,chg,matm,matwprime, &
-                 wi,vi,vit,ggrid,outerproduct,opts,nnLayers,ions)
+                 vi,ggrid,opts,ions)
       ucptnum = ucptnum + 1
       cpl(ucptnum)%trueind = temprealr
       ! these points are to stay in the list so cpl is used instead of cpcl
@@ -341,9 +345,12 @@
             ! missed commonly. 
             p = (/n1,n2,n3/)
             IF (opts%leastsquare_flag .EQV. .TRUE.) THEN
-              grad = lsg(p,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
+              !grad = lsg(p,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
+              grad = lsg(p,chg,matm,matwprime,vi,ggrid)
+              !hessianMatrix = &
+                !lsh(p,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
               hessianMatrix = &
-                lsh(p,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
+                lsh(p,chg,matm,matwprime,vi,ggrid)
               IF (opts%dohes) THEN
                 CALL DiagonalOnlyHes(hessianMatrix)
               END IF
@@ -390,7 +397,7 @@
                 ! ABS(tem(3)) <= 0.5 + opts%par_tem) .OR. &
                 !(SUM(grad*grad) <= (0.1*opts%par_gradfloor)**2 )) THEN              
               ! finding proximity could potentially be costly
-              IF (ProxyToCPCandidate(p,opts,cpcl,cptnum,chg,nnLayers)) THEN
+              IF (ProxyToCPCandidate(p,opts,cpcl,cptnum,chg)) THEN
                 CYCLE
               END IF
               cptnum = cptnum + 1
@@ -497,7 +504,7 @@
                   prevgrad = grad
                 END IF
                 CALL pbc_r_lat(truer,chg%npts)
-                nnind = simpleNN(truer,chg)
+                nnind = SimpleNN(truer,chg)
                 distance = truer - nnind(1,:)
                 nexttem = CalcTEMLat(trueR,chg,temScale,previousTEM,grad,temNormCap,&
                   LDM)
@@ -507,8 +514,10 @@
                   PRINT *, "Starting debug output for CalcTEMLat"
                   DO j = 1,8
                     IF (opts%leastsquare_flag .EQV. .true.) THEN
-                      nngrad(j,:) = lsg(nnind(j,:),chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
-                      hessianmatrix = lsh(nnind(j,:),chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
+                      !nngrad(j,:) = lsg(nnind(j,:),chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
+                      !hessianmatrix = lsh(nnind(j,:),chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
+                      nngrad(j,:) = lsg(nnind(j,:),chg,matm,matwprime,vi,ggrid)
+                      hessianmatrix = lsh(nnind(j,:),chg,matm,matwprime,vi,ggrid)
                       IF (opts%dohes) THEN
                         CALL DiagonalOnlyHes(hessianMatrix)
                       END IF
@@ -757,6 +766,7 @@
         stat = 0
       END IF
       ! stat = 1
+
       !Runs DoubleAscension and RingAscension on all detected critical points
       DO ij = 1,ucptnum
         !Saves pairs of connected atoms in connectedAtoms
@@ -785,6 +795,7 @@
       END IF
       DEALLOCATE(cpRoster)
     END IF
+    !PRINT *, 'stat', stat
     PRINT *, 'outputting debugging information to allcpPOSCAR'
 !    CALL VisAllCP(cpcl,cptnum,chg,ions,opts)
     CALL VisAllCP(cpl,ucptnum,chg,ions,opts,uringCount,ubondCount,ucageCount)
@@ -799,6 +810,7 @@
     ! this function determins when looking for nn, how many layers to search
     ! within. It looks for the smallest vector sum of lattice vectors, and the
     ! largest vector
+    ! USED IN THIS MODULE
     FUNCTION findnnlayers(ions)
       INTEGER :: findnnlayers
       TYPE(ions_obj) :: ions
@@ -834,6 +846,7 @@
     END FUNCTION findnnlayers
   
     ! This function gives the simple box for trilinear interpolation.
+    ! USED IN THIS MODULE
     FUNCTION SimpleNN(p,chg)
       REAL(q2), DIMENSION(3) :: p
       TYPE(charge_obj) :: chg
@@ -973,6 +986,7 @@
     !  1   2   3   4   5   6   7   8
     ! r is the indice of the predicted critical point
     ! The interpolation result is checked to be OK by mathematica
+    ! USED IN THIS MODULE
     FUNCTION trilinear_interpol_grad(vals,r)
       ! varls come nngrad
       ! could r be the problem?
@@ -1068,6 +1082,7 @@
     END FUNCTION
 
     ! This function outputs hessian in direct coordinates
+    ! USED IN THIS MODULE
     FUNCTION trilinear_interpol_hes(vals,r)
       ! varls come nnhes
       ! r needs to be a vector where each component
@@ -1116,6 +1131,7 @@
     ! The following subroutine gets gradient using central difference
     ! converts the gradient from lattice to cartesian by the end of it
     ! Note that the gradient is contravariant
+    ! USED IN THIS MODULE
     FUNCTION CDGrad(p,chg)
       TYPE(charge_obj) :: chg
       INTEGER, DIMENSION(3) :: p
@@ -1146,6 +1162,7 @@
     
     ! the following subroutine gets hes and force in lattice units and converts
     ! to cartesian by the end
+    ! USED IN THIS MODULE
     FUNCTION CDHessian(p,chg)
       REAL(q2),DIMENSION(3,3) :: CDHessian
       TYPE(charge_obj) :: chg
@@ -1301,7 +1318,9 @@
 
    
     ! below is the function for least square gradient
-    FUNCTION lsg(r0,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct) 
+    ! USED IN THIS MODULE
+    FUNCTION lsg(r0,chg,matm,matwprime,vi,ggrid)
+    !FUNCTION lsg(r0,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct) 
       TYPE(charge_obj) :: chg
       REAL(q2), DIMENSION(3) :: lsg
       !INTEGER, DIMENSION(3) :: p
@@ -1312,7 +1331,7 @@
       INTEGER,DIMENSION(3,26) :: vi, nbp
       ! v is a column of coordinates. 
       ! nbp is indecies of neighbors, to be used for pbc
-      INTEGER, DIMENSION(26,3) :: vit
+      !INTEGER, DIMENSION(26,3) :: vit
       ! vit is the transpose of vi
       ! vi are the vectors from point r0 to ri, where ri are all neighbors of r0
       REAL(q2), DIMENSION(3) :: frakturavi
@@ -1322,7 +1341,7 @@
       REAL(q2), DIMENSION(3,13) :: matwprime
       !REAL(q2), DIMENSION(13,3) :: matwprime
       REAL(q2), DIMENSION(3,3) ::  matm
-      REAL(q2), DIMENSION(26) :: wi
+      !REAL(q2), DIMENSION(26) :: wi
       ! wi are the weights of each neighbor
       REAL(q2), DIMENSION(3,26) :: bi
       ! bi is weight times direction times difference towards each neighbor
@@ -1333,7 +1352,7 @@
       ! ggrid is the metric tensor, from grid basis to dual basis
       INTEGER :: i, j, k
       REAL(q2), DIMENSION(3,3) :: testermatrix
-      REAL(q2), DIMENSION(3,3) :: outerproduct
+      !REAL(q2), DIMENSION(3,3) :: outerproduct
       ! get the value differences to all neighbors
       PRINT *, 'position is'
       PRINT *, r0
@@ -1401,7 +1420,9 @@
 
     ! This function finds hessian by 
     ! finding lsg of gradients found with lsg
-    FUNCTION lsh(r0,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
+    ! USED IN THIS MODULE
+    FUNCTION lsh(r0,chg,matm,matwprime,vi,ggrid)
+    !FUNCTION lsh(r0,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
       TYPE(charge_obj) :: chg
       REAL(q2), DIMENSION(3,3) :: lsh
       INTEGER, DIMENSION(3) :: r0
@@ -1409,24 +1430,25 @@
       REAL(q2), DIMENSION(3,26) :: lsg_val
       ! vi, as usual
       INTEGER, DIMENSION(3,26) :: vi
-      INTEGER, DIMENSION(26,3) :: vit
+      !INTEGER, DIMENSION(26,3) :: vit
       ! ggrid, as usual
       REAL(q2), DIMENSION(3,3) :: ggrid
       ! one time use for neighbor positions
       INTEGER, DIMENSION(3) :: nbp
-      REAL(q2), DIMENSION(26) :: wi
+      !REAL(q2), DIMENSION(26) :: wi
       REAL(q2), DIMENSION(3,13) :: matwprime
  
       ! differences in gradient components
       REAL(q2), DIMENSION(13) :: deltadx, deltady, deltadz
       REAL(q2), DIMENSION(3,3) :: matm
-      REAL(q2), DIMENSION(3,3) :: outerproduct
+      !REAL(q2), DIMENSION(3,3) :: outerproduct
       REAL(q2) :: average
       INTEGER :: i, j, k
       DO i = 1, 26
         nbp = vi(:,i) + r0
         CALL pbc(nbp,chg%npts) ! nbps are fine
-        lsg_val(:,i) = lsg(nbp,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
+        !lsg_val(:,i) = lsg(nbp,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
+        lsg_val(:,i) = lsg(nbp,chg,matm,matwprime,vi,ggrid)
       END DO
       DO i = 1, 13
         ! matwprime matches with lsg
@@ -1475,6 +1497,7 @@
       RETURN
     END FUNCTION lsh
 
+    ! USED IN THIS MODULE
     FUNCTION makevi()
       INTEGER, DIMENSION(3,26) :: makevi
       makevi(:,1)=(/-1,-1,-1/)
@@ -1506,6 +1529,7 @@
       RETURN
     END FUNCTION
 
+    ! USED IN THIS MODULE
     FUNCTION makeggrid(chg,ions)
       TYPE(charge_obj) :: chg
       TYPE(ions_obj) :: ions
@@ -1531,8 +1555,11 @@
       RETURN
     END FUNCTION
 
-    FUNCTION ascension(ind,chg,matm,matwprime,wi,vi,vit, & 
-                       ggrid,outerproduct,opts,nnLayers,ions)
+    ! USED IN THIS MODULE
+    !FUNCTION ascension(ind,chg,matm,matwprime,wi,vi,vit, & 
+    !                   ggrid,outerproduct,opts,nnLayers,ions)
+    FUNCTION ascension(ind,chg,matm,matwprime,vi, &
+                       ggrid,opts,ions)
       ! this function finds nucleus critical points. 
       INTEGER, DIMENSION(3) :: ind
       TYPE(charge_obj) :: chg
@@ -1541,15 +1568,18 @@
       REAL(q2),DIMENSION(3) :: ascension, distance
       INTEGER, DIMENSION(:,:),ALLOCATABLE :: nnind
       REAL(q2), DIMENSION(8,3) :: nngrad
-      INTEGER :: j, stepcount, nnLayers
+      INTEGER :: j, stepcount
+      !INTEGER :: nnLayers
       REAL(q2), DIMENSION(3) :: tempr, rn, rnm1 ! rn minus 1
       REAL(q2), DIMENSION(3) :: grad, stepsize, gradnm1
       INTEGER, DIMENSION(3,26) :: vi, matw
-      INTEGER, DIMENSION(26,3) :: vit
+      !INTEGER, DIMENSION(26,3) :: vit
       REAL(q2), DIMENSION(3,3) :: ggrid
-      REAL(q2), DIMENSION(26) :: wi
+      !REAL(q2), DIMENSION(26) :: wi
       REAL(q2), DIMENSION(3,13) :: matwprime
-      REAL(q2), DIMENSION(3,3) :: matm, outerproduct
+      REAL(q2), DIMENSION(3,3) :: matm 
+      !REAL(q2), DIMENSION(3,3) :: outerproduct
+      
       stepcount = 0
       ALLOCATE(nnInd(8,3))
 !      ALLOCATE(nnInd((nnlayers*2+1)**3,3))
@@ -1562,7 +1592,8 @@
       stepsize(2) = 0.5
       stepsize(3) = 0.5
       IF (opts%leastSquare_flag) THEN
-        grad = lsg(ind,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
+        !grad = lsg(ind,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
+        grad = lsg(ind,chg,matm,matwprime,vi,ggrid)
       ELSE
         grad = cdgrad(ind,chg)
       END IF
@@ -1581,12 +1612,13 @@
         tempr(3) = stepsize(3) * tempr(3)
         rn = rn + tempr
         CALL pbc_r_lat(rn,chg%npts)
-        nnind = simpleNN(rn,chg)
+        nnind = SimpleNN(rn,chg)
         DO j = 1,8
           CALL pbc(nnind(j,:),chg%npts)
           !IF (opts%leastsquare_flag .EQV. .TRUE.) THEN
           IF ( opts%leastSquare_flag ) THEN
-            nngrad(j,:) = lsg(nnind(j,:),chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
+            !nngrad(j,:) = lsg(nnind(j,:),chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
+            nngrad(j,:) = lsg(nnind(j,:),chg,matm,matwprime,vi,ggrid)
           ELSE 
             nngrad(j,:) = cdgrad(nnind(j,:),chg)
           END IF
@@ -1632,6 +1664,7 @@
     END FUNCTION ascension
    
 
+    ! USED IN THIS MODULE
     SUBROUTINE RingAscension(cp,chg,ions, UniqueCPs)
       !Starting from a ring critical point, locates the positions of associated nuclei critical points
       REAL(q2), DIMENSION(3) :: ind
@@ -1720,6 +1753,7 @@
     END SUBROUTINE RingAscension
     
     !helper subroutine for RingAscension which takes an array of integers and returns an array of the unique elements of that array
+    ! USED IN THIS MODULE
     SUBROUTINE unique(vec,vec_unique)
       IMPLICIT NONE
       INTEGER,DIMENSION(:),INTENT(in) :: vec
@@ -1741,7 +1775,9 @@
       ALLOCATE(vec_unique(count(mask)) )
       vec_unique = pack(vec,mask)
     END SUBROUTINE unique
-   !removes the zero/NaN entries in a list of real-valued vectors 
+
+    ! removes the zero/NaN entries in a list of real-valued vectors 
+    ! USED IN THIS MODULE
     SUBROUTINE unique_realcoords(vec,vec_unique)
       IMPLICIT NONE
       REAL(q2), DIMENSION(:,:), INTENT(in) :: vec
@@ -1760,6 +1796,7 @@
       vec_unique =reshape( pack(vec,mask), (/count(mask)/3, 3 /) )
     END SUBROUTINE unique_realcoords
 
+    ! USED IN THIS MODULE
     FUNCTION DoubleAscension(cp,chg,ions)
       !cp is a selected critical point candidate (cpc) object
       !performs ascension starting from an input bond CP to find the array indices of the two associated nuclei CPs.
@@ -1771,12 +1808,13 @@
       TYPE(ions_obj) :: ions
       REAL(q2),DIMENSION(3) :: ascension, distance
       INTEGER, DIMENSION(:,:),ALLOCATABLE :: nnind
-      REAL(q2), DIMENSION(8,3) :: nngrad
-      INTEGER :: j, stepcount, nnLayers
+      !REAL(q2), DIMENSION(8,3) :: nngrad
+      INTEGER :: j, stepcount
+      ! INTEGER :: nnLayers
       REAL(q2), DIMENSION(3) :: tempr, rn, rnm1 ! rn minus 1
       REAL(q2), DIMENSION(3) :: grad, stepsize, gradnm1
-      REAL(q2), DIMENSION(26) :: wi
-      REAL(q2), DIMENSION(3) :: ind_plus, ind_minus
+      !REAL(q2), DIMENSION(26) :: wi
+      REAL(q2), DIMENSION(3) :: ind_plus, ind_minus, ini_ind_plus, ini_ind_minus
       TYPE(cpc) :: cp
       INTEGER :: vecnum, i
       INTEGER :: nuc1num, nuc2num
@@ -1826,13 +1864,24 @@
 
       END IF
 
+      !PRINT *, 'cartesian', MATMUL(ind, chg%lat2car)
+
       DoubleAscension(1) = nuc1num
+      !PRINT *, "nuc1num", nuc1num
+      !PRINT *, "initial ind_plus", MATMUL(ini_ind_plus, chg%lat2car)
+      !PRINT *, "final ind_plus", MATMUL(ind_plus, chg%lat2car)
+
       DoubleAscension(2) = nuc2num
+      !PRINT *, "nuc2num", nuc2num                  
+      !PRINT *, "initial ind_minus", MATMUL(ini_ind_minus, chg%lat2car)
+      !PRINT *, "final ind_minus", MATMUL(ind_minus, chg%lat2car)
+      !PRINT *, NEW_LINE('a')
     
       RETURN
 
     END FUNCTION DoubleAscension
 
+    ! USED IN THIS MODULE
     FUNCTION ascension_new(ind, chg, ions)
     !used by DoubleAscension  
     !performs gradient ascent on a real coordinate, returns list index of the first nuclei found within 0.5 units of position .  
@@ -1852,7 +1901,7 @@
       
       startpos = ind
 
-      nnInd = simpleNN(ind, chg)
+      nnInd = SimpleNN(ind, chg)
       DO j=1,8
         CALL pbc(nnInd(j,:),chg%npts)
         nngrad(j,:) = CDGrad(nnInd(j,:),chg)
@@ -1872,7 +1921,7 @@
        ! PRINT *, "ind", ind
         DO i=1,ions%nions
           ! PRINT *, ions%r_lat(i,:)
-          IF (Mag(ions%r_lat(i,:)-ind ) < 0.5 ) THEN
+          IF (Mag(MATMUL(ions%r_lat(i,:),chg%lat2car)-MATMUL(ind,chg%lat2car)) < 0.15 ) THEN
            ! PRINT *, "Found an atom within 0.5" 
             ascension_new = i
             foundAtom = .TRUE.
@@ -1892,7 +1941,7 @@
         oldgrad = grad
 
         CALL pbc_r_lat(ind, chg%npts)
-        nnInd = simpleNN(ind,chg)
+        nnInd = SimpleNN(ind,chg)
         DO j=1,8
           CALL pbc(nnInd(j,:),chg%npts)
           nngrad(j,:) = CDGrad(nnInd(j,:),chg)
@@ -1918,8 +1967,11 @@
 
 
 
-    FUNCTION descension(ind,chg,matm,matwprime,wi,vi,vit, & 
-                       ggrid,outerproduct,opts,nnLayers,ions)
+    ! USED IN THIS MODULE
+    !FUNCTION descension(ind,chg,matm,matwprime,wi,vi,vit, & 
+    !                   ggrid,outerproduct,opts,nnLayers,ions)
+    FUNCTION descension(ind,chg,matm,matwprime,vi, &
+                        ggrid,opts,ions)
       ! this function finds nucleus critical points. 
       INTEGER, DIMENSION(3) :: ind
       TYPE(charge_obj) :: chg
@@ -1928,15 +1980,17 @@
       REAL(q2),DIMENSION(3) :: descension, distance
       INTEGER, DIMENSION(:,:),ALLOCATABLE :: nnind
       REAL(q2), DIMENSION(8,3) :: nngrad
-      INTEGER :: j, stepcount, nnLayers
+      INTEGER :: j, stepcount
+      !INTEGER :: nnLayers
       REAL(q2), DIMENSION(3) :: tempr, rn, rnm1 ! rn minus 1
       REAL(q2), DIMENSION(3) :: grad, stepsize, gradnm1
       INTEGER, DIMENSION(3,26) :: vi, matw
-      INTEGER, DIMENSION(26,3) :: vit
+      !INTEGER, DIMENSION(26,3) :: vit
       REAL(q2), DIMENSION(3,3) :: ggrid
-      REAL(q2), DIMENSION(26) :: wi
+      !REAL(q2), DIMENSION(26) :: wi
       REAL(q2), DIMENSION(3,13) :: matwprime
-      REAL(q2), DIMENSION(3,3) :: matm, outerproduct
+      REAL(q2), DIMENSION(3,3) :: matm
+      !REAL(q2), DIMENSION(3,3) :: outerproduct
       stepcount = 0
       ALLOCATE(nnInd(8,3))
 !      ALLOCATE(nnInd((nnlayers*2+1)**3,3))
@@ -1949,7 +2003,8 @@
       stepsize(2) = 0.5
       stepsize(3) = 0.5
       IF (opts%leastsquare_flag) THEN
-        grad = lsg(ind,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
+        !grad = lsg(ind,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
+        grad = lsg(ind,chg,matm,matwprime,vi,ggrid)
       ELSE
         grad = cdgrad(ind,chg)
       END IF
@@ -1979,7 +2034,7 @@
         tempr(3) = stepsize(3) * tempr(3)
         rn = rn - tempr
         CALL pbc_r_lat(rn,chg%npts)
-        nnind = simpleNN(rn,chg)
+        nnind = SimpleNN(rn,chg)
         DO j = 1,8
           CALL pbc(nnind(j,:),chg%npts)
           !IF (opts%leastsquare_flag .EQV. .TRUE.) THEN
@@ -2016,15 +2071,19 @@
     END FUNCTION 
 
 
+    !SUBROUTINE minimasearch(chg,cptnum,cpl,bdr,matm,matwprime, &
+    !                      wi,vi,vit,ggrid,outerproduct,opts,uCageCount,&
+    !                      nnLayers, ions)
     SUBROUTINE minimasearch(chg,cptnum,cpl,bdr,matm,matwprime, &
-                          wi,vi,vit,ggrid,outerproduct,opts,uCageCount,&
-                          nnLayers, ions)
+                          vi,ggrid,opts,uCageCount,&
+                          ions)
       TYPE(charge_obj) :: chg
       TYPE(bader_obj) :: bdr
       TYPE(options_obj) :: opts
       TYPE(ions_obj) :: ions
       TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpl
-      INTEGER :: cptnum, uCageCount, nnLayers
+      INTEGER :: cptnum, uCageCount
+      !INTEGER :: nnLayers
       INTEGER :: n1,n2,n3,i, counter
       INTEGER :: bx,by,bz
       INTEGER, DIMENSION(26,3) :: nn
@@ -2032,11 +2091,12 @@
       INTEGER, DIMENSION(3) :: minpos
       REAL(q2), DIMENSION(3) :: minr
       INTEGER, DIMENSION(3,26) :: vi, matw
-      INTEGER, DIMENSION(26,3) :: vit
+      !INTEGER, DIMENSION(26,3) :: vit
       REAL(q2), DIMENSION(3,3) :: ggrid
-      REAL(q2), DIMENSION(26) :: wi
+      !REAL(q2), DIMENSION(26) :: wi
       REAL(q2), DIMENSION(3,13) :: matwprime
-      REAL(q2), DIMENSION(3,3) :: matm, outerproduct
+      REAL(q2), DIMENSION(3,3) :: matm
+      !REAL(q2), DIMENSION(3,3) :: outerproduct
       PRINT *, 'Performing initial search for minima'
       counter = 0
       bx = chg%npts(1)
@@ -2054,7 +2114,7 @@
 !              CYCLE
 !            END IF
 !            PRINT *, 'checking proxy'
-            IF ( ProxyToCPCandidate((/n1,n2,n3/),opts,cpl,cptnum,chg,nnLayers)) THEN
+            IF ( ProxyToCPCandidate((/n1,n2,n3/),opts,cpl,cptnum,chg)) THEN
               CYCLE
             END IF
 !            PRINT *, 'not proxy'
@@ -2074,8 +2134,10 @@
               cptnum = cptnum + 1
               uCageCount = uCageCount + 1
               minpos = (/n1,n2,n3/)
+              !minr = descension(minpos,chg,matm,matwprime, &
+              !            wi,vi,vit,ggrid,outerproduct,opts,nnLayers,ions)
               minr = descension(minpos,chg,matm,matwprime, &
-                          wi,vi,vit,ggrid,outerproduct,opts,nnLayers,ions)
+                                vi,ggrid,opts,ions)
               cpl(cptnum)%ind = (/n1,n2,n3/)
             END IF
           END DO
@@ -2086,8 +2148,10 @@
 
     ! follow the gradient down to a minimum of the squared gradient of the
     ! charge density
-    SUBROUTINE sqgradientdescend(r0,chg,matm,matwprime,wi,vi,vit, &
-                       ggrid,outerproduct,opts,rn,invac,bdr,nnLayers,ions)
+    !SUBROUTINE sqgradientdescend(r0,chg,matm,matwprime,wi,vi,vit, &
+    !                   ggrid,outerproduct,opts,rn,invac,bdr,nnLayers,ions)
+    SUBROUTINE sqgradientdescend(r0,chg,matm,matwprime,vi, &
+                       ggrid,opts,rn,invac,bdr,ions)
       ! this function should find all critical points
       TYPE(bader_obj) :: bdr
       TYPE(ions_obj) :: ions
@@ -2098,15 +2162,17 @@
       REAL(q2),DIMENSION(3) ::  distance
       INTEGER, DIMENSION(:,:),ALLOCATABLE :: nnInd
       REAL(q2), DIMENSION(8,3) :: nngrad
-      INTEGER :: i, j, stepcount, loopcount, nnLayers
+      INTEGER :: i, j, stepcount, loopcount
+      !INTEGER :: nnLayers
       REAL(q2), DIMENSION(3) :: tempr, rn, trn, rnm1 ! rn minus 1
       REAL(q2), DIMENSION(3) :: grad,  gradnm1, avgrn
       INTEGER, DIMENSION(3,26) :: vi, matw
-      INTEGER, DIMENSION(26,3) :: vit
+      !INTEGER, DIMENSION(26,3) :: vit
       REAL(q2), DIMENSION(3,3) :: ggrid
-      REAL(q2), DIMENSION(26) :: wi
+      !REAL(q2), DIMENSION(26) :: wi
       REAL(q2), DIMENSION(3,13) :: matwprime
-      REAL(q2), DIMENSION(3,3) :: matm, outerproduct
+      REAL(q2), DIMENSION(3,3) :: matm
+      !REAL(q2), DIMENSION(3,3) :: outerproduct
       REAL(q2), DIMENSION(3) :: p, pbccorrectionr ! keep track of how much is 
                                 ! added to the r to have it fall within the pbc
       REAL(q2), DIMENSION(3) :: stepsize
@@ -2122,7 +2188,8 @@
       crossings = 0
       CALL pbc(r0,chg%npts)
       ! this is the initial grad
-      grad = lsgsqlsg(r0,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
+      !grad = lsgsqlsg(r0,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
+      grad = lsgsqlsg(r0,chg,matm,matwprime,vi,ggrid)
       ! this gradient is in cartesian. 
       stepcount = 0
       ! initialize the process
@@ -2224,14 +2291,16 @@
             PRINT *, 'youve gone too far'
             EXIT
         END IF
-        nnind = simpleNN(rn,chg)
+        nnind = SimpleNN(rn,chg)
         DO j = 1,8
           CALL pbc(nnind(j,:),chg%npts)
           !IF (opts%leastsquare_flag .EQV. .TRUE.) THEN
           IF ( opts%leastSquare_flag ) THEN
             !nngrad(j,:) = lsg(nnind(j,:),chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
-            nngrad(j,:) =  lsgsqlsg(nnind(j,:),chg,matm,matwprime,wi &
-                           ,vi,vit,ggrid,outerproduct)
+            !nngrad(j,:) =  lsgsqlsg(nnind(j,:),chg,matm,matwprime,wi &
+            !               ,vi,vit,ggrid,outerproduct)
+            nngrad(j,:) =  lsgsqlsg(nnind(j,:),chg,matm,matwprime,&
+                                vi,ggrid)
           ELSE 
             nngrad(j,:) = CDGrad(nnind(j,:),chg)
           END IF
@@ -2275,20 +2344,23 @@
 
 
     ! this function gives the ls gradient of the squared ls gradient
-    FUNCTION lsgsqlsg(r0,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
+    ! USED IN THIS MODULE
+    !FUNCTION lsgsqlsg(r0,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
+    FUNCTION lsgsqlsg(r0,chg,matm,matwprime,vi,ggrid)
       TYPE(charge_obj) :: chg
       REAL(q2), DIMENSION(3,3) :: lsh
       INTEGER, DIMENSION(3) :: r0
       REAL(q2), DIMENSION(3,26) :: lsg_val
       INTEGER, DIMENSION(3,26) :: vi
-      INTEGER, DIMENSION(26,3) :: vit
+      !INTEGER, DIMENSION(26,3) :: vit
       REAL(q2), DIMENSION(3,3) :: ggrid
       INTEGER, DIMENSION(3) :: nbp
-      REAL(q2), DIMENSION(26) :: wi, totlsg_val
+      !REAL(q2), DIMENSION(26) :: wi, totlsg_val
+      REAL(q2), DIMENSION(26) :: totlsg_val
       REAL(q2), DIMENSION(3,13) :: matwprime
       REAL(q2), DIMENSION(13) :: deltadx, deltady, deltadz, delta
       REAL(q2), DIMENSION(3,3) :: matm
-      REAL(q2), DIMENSION(3,3) :: outerproduct
+      !REAL(q2), DIMENSION(3,3) :: outerproduct
       REAL(q2) :: average
       REAL(q2), DIMENSION(3) :: lsgsqlsg
       INTEGER :: i, j, k
@@ -2296,7 +2368,8 @@
       DO i = 1, 26
         nbp = vi(:,i) + r0
         CALL pbc(nbp,chg%npts) 
-        lsg_val(:,i) = lsg(nbp,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
+        !lsg_val(:,i) = lsg(nbp,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
+        lsg_val(:,i) = lsg(nbp,chg,matm,matwprime,vi,ggrid)
         ! square the gradient
         lsg_val(1,i) = lsg_val(1,i) ** 2 
         lsg_val(2,i) = lsg_val(2,i) ** 2
@@ -2328,21 +2401,22 @@
 
 
 
-      FUNCTION gradientfilter(p,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
+      !FUNCTION gradientfilter(p,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
+      FUNCTION gradientfilter(p,chg,matm,matwprime,vi,ggrid)
       TYPE(charge_obj) :: chg
       REAL(q2), DIMENSION(3,3) :: lsh
       INTEGER, DIMENSION(3) :: p
       REAL(q2), DIMENSION(3,26) :: lsg_val
       INTEGER, DIMENSION(3,26) :: vi, ps ! indexes of 26 neighbors
       REAL(q2), DIMENSION(3,26) ::  grads ! gradient of 26 neighbors
-      INTEGER, DIMENSION(26,3) :: vit
+      !INTEGER, DIMENSION(26,3) :: vit
       REAL(q2), DIMENSION(3,3) :: ggrid
       INTEGER, DIMENSION(3) :: nbp
-      REAL(q2), DIMENSION(26) :: wi
+      !REAL(q2), DIMENSION(26) :: wi
       REAL(q2), DIMENSION(3,13) :: matwprime
       REAL(q2), DIMENSION(13) :: deltadx, deltady, deltadz
       REAL(q2), DIMENSION(3,3) :: matm
-      REAL(q2), DIMENSION(3,3) :: outerproduct
+      !REAL(q2), DIMENSION(3,3) :: outerproduct
       REAL(q2) :: average
       REAL(q2), DIMENSION(3) :: grad
       INTEGER :: i, j, k
@@ -2351,7 +2425,8 @@
       DO i = 1, 26
         ps(:,i) = p + vi(:,i)
         CALL pbc(ps(:,i),chg%npts)
-        grads(:,i) = lsg(ps(:,i),chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
+        !grads(:,i) = lsg(ps(:,i),chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
+        grads(:,i) = lsg(ps(:,i),chg,matm,matwprime,vi,ggrid)
       END DO
       IF (grads(1,5)*grads(1,18) >= 0 &
           .OR. grads(2,11)*grads(2,24)>=0 &
@@ -2369,15 +2444,18 @@
     ! As a loose first round checking, it is OK that a few points near the PBC
     ! are permitted into the candidacy. 
     ! Just like the Democratic 2020 primary, not everyone has to be super
-    ! qualified to enter. 
-    FUNCTION ProxyToCPCandidate(p,opts,cpl,cptnum,chg,nnLayers)
+    ! qualified to enter.
+    ! USED IN THIS MODULE
+    !FUNCTION ProxyToCPCandidate(p,opts,cpl,cptnum,chg,nnLayers)
+    FUNCTION ProxyToCPCandidate(p,opts,cpl,cptnum,chg)
       LOGICAL :: ProxyToCPCandidate
       INTEGER :: i
       INTEGER, DIMENSION(3) :: p
       TYPE(options_obj) :: opts
       TYPE(cpc), ALLOCATABLE, DIMENSION(:) :: cpl
       TYPE(charge_obj) :: chg
-      INTEGER :: cptnum, nnLayers
+      INTEGER :: cptnum
+      !INTEGER :: nnLayers
       ProxyToCPCandidate = .FALSE.
       ! These are lattice based and do not take PBC into consideration
       DO i = 1, cptnum
@@ -2402,7 +2480,7 @@
       capnext = .FALSE.
       !temnormcap is all rounded cap designed to prevent overstepping.
       !temnormcap should not change at all
-      !temscale is direction sensitive. It gradually narrows in if tem changes
+      !temscaleois direction sensitive. It gradually narrows in if tem changes
       !sign a lot.
 
 
@@ -2484,6 +2562,7 @@
     END FUNCTION
 
     ! give the Magnitude of a 3d vector
+    ! USED IN THIS MODULE
     FUNCTION Mag(vec3d)
       REAL(q2), DIMENSION(3) :: vec3d
       REAL(q2) :: Mag
@@ -2492,6 +2571,7 @@
     END FUNCTION
 
     ! this function takes in the movement factor, modifies it as necessary
+    ! USED IN THIS MODULE
     FUNCTION TemMods(nexttem,temscale,temnormcap)
       REAL(q2), DIMENSION(3) :: TemMods, nexttem, temscale
       REAL(q2) :: temnormcap
@@ -2509,6 +2589,7 @@
     ! this function inspects if it is beneficial to reduce temscale
     ! right now it does nothing because I'm not sure if limiting it helps in any
     ! way at all
+    ! USED IN THIS MODULE
     FUNCTION scaleinspector( nexttem, previoustem, temScale)
       REAL(q2), DIMENSION(3) :: nexttem, previoustem, temScale, scaleinspector
       INTEGER :: i
@@ -2527,18 +2608,19 @@
     END FUNCTION
 
     ! if it is detected that the hessian 
-    FUNCTION unZeroHessian(truer,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
+    !FUNCTION unZeroHessian(truer,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
+    FUNCTION unZeroHessian(truer,chg,matm,matwprime,vi,ggrid)
       TYPE(charge_obj) :: chg
       REAL(q2), DIMENSION(3,3) :: unZeroHessian, lsd
       INTEGER, DIMENSION(3) :: truer
       INTEGER, DIMENSION(3,26) :: vi
-      INTEGER, DIMENSION(26,3) :: vit
+      !INTEGER, DIMENSION(26,3) :: vit
       REAL(q2), DIMENSION(3,3) :: ggrid
       INTEGER, DIMENSION(3) :: nbp
-      REAL(q2), DIMENSION(26) :: wi
+      !REAL(q2), DIMENSION(26) :: wi
       REAL(q2), DIMENSION(3,13) :: matwprime
       REAL(q2), DIMENSION(3,3) :: matm
-      REAL(q2), DIMENSION(3,3) :: outerproduct
+      !REAL(q2), DIMENSION(3,3) :: outerproduct
       INTEGER, DIMENSION(8,3) :: nnind
       REAL(q2) :: average, ran
       INTEGER :: i, j, k
@@ -2550,7 +2632,8 @@
       END DO
       ! second step is to find the new nearest neighbors
       PRINT *, truer
-      lsd = lsh(nnind(j,:),chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
+      !lsd = lsh(nnind(j,:),chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
+      lsd = lsh(nnind(j,:),chg,matm,matwprime,vi,ggrid)
       unZeroHessian = 0
       RETURN
     END FUNCTION 
@@ -2584,6 +2667,7 @@
     
     ! This subroutine checks if PH rule is satisfied given crystal/molecule
     ! inport or not
+    ! USED IN THIS MODULE
     SUBROUTINE PHRuleExam(maxCount,bondCount,ringCount,cageCount,opts,ions,&
       phmrCompliant)
       TYPE(options_obj) :: opts
@@ -2692,10 +2776,15 @@
         END IF
       END IF
     END SUBROUTINE 
+
     ! count the number of negative eigenvalues to characterize a critical point
-    SUBROUTINE RecordCP(p,chg,matm,matwprime,wi,vi,vit,ggrid &
-      ,outerproduct,cpl,ucptnum,eigvals,eigvecs, maxcount, uRingCount, &
+    !SUBROUTINE RecordCP(p,chg,matm,matwprime,wi,vi,vit,ggrid &
+    !  ,outerproduct,cpl,ucptnum,eigvals,eigvecs, maxcount, uRingCount, &
+    !  uBondCount, uCageCount,opts,LDM)
+    SUBROUTINE RecordCP(p,chg,matm,matwprime,vi,ggrid &
+      ,cpl,ucptnum,eigvals,eigvecs, maxcount, uRingCount, &
       uBondCount, uCageCount,opts,LDM)
+
       TYPE(charge_obj) :: chg
       TYPE(options_obj) :: opts
       TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpl
@@ -2703,23 +2792,29 @@
       REAL(q2), DIMENSION(3,3) :: eigvecs, hessianMatrix
       INTEGER, DIMENSION(3) :: p
       INTEGER, DIMENSION(3,26) :: vi
-      INTEGER, DIMENSION(26,3) :: vit
+      !INTEGER, DIMENSION(26,3) :: vit
       REAL(q2), DIMENSION(3,3) :: ggrid
-      REAL(q2), DIMENSION(26) :: wi
+      !REAL(q2), DIMENSION(26) :: wi
       REAL(q2), DIMENSION(3,13) :: matwprime
       REAL(q2), DIMENSION(3,3) :: matm
-      REAL(q2), DIMENSION(3,3) :: outerproduct
+      !REAL(q2), DIMENSION(3,3) :: outerproduct
       INTEGER :: i, j, k, ucptnum, negcount
       INTEGER :: maxcount, uRingCount, uBondCount, uCageCount
       INTEGER :: it_num, rot_num
       LOGICAL :: LDM
       IF (opts%leastSquare_flag) THEN
+        !grad = lsg( &
+        !  p,chg,matm,matwprime, &
+        !  wi,vi,vit,ggrid,outerproduct)
+        !hessianMatrix = lsh( &
+        !  p,chg,matm,matwprime, &
+        !  wi,vi,vit,ggrid,outerproduct)
         grad = lsg( &
           p,chg,matm,matwprime, &
-          wi,vi,vit,ggrid,outerproduct)
+          vi,ggrid)
         hessianMatrix = lsh( &
           p,chg,matm,matwprime, &
-          wi,vi,vit,ggrid,outerproduct)
+          vi,ggrid)
       ELSE
         grad = CDGrad(p,chg)
         hessianMatrix = CDHessian(p,chg)
@@ -2742,6 +2837,7 @@
 
 
     ! the version of the above subroutine where p is real not integer
+    ! USED IN THIS MODULE
     SUBROUTINE RecordCPR(p,chg,cpl,ucptnum,eigvals,eigvecs,connectedAtoms, maxcount, uRingCount, &
       uBondCount, uCageCount,opts,grad,hessianMatrix,ind,LDM)
       TYPE(charge_obj) :: chg
@@ -2752,12 +2848,12 @@
       INTEGER, DIMENSION(2) :: connectedAtoms
       REAL(q2), DIMENSION(3) :: p,realdump
       INTEGER, DIMENSION(3,26) :: vi
-      INTEGER, DIMENSION(26,3) :: vit
+      !INTEGER, DIMENSION(26,3) :: vit
       REAL(q2), DIMENSION(3,3) :: ggrid
-      REAL(q2), DIMENSION(26) :: wi
+      !REAL(q2), DIMENSION(26) :: wi
       REAL(q2), DIMENSION(3,13) :: matwprime
       REAL(q2), DIMENSION(3,3) :: matm
-      REAL(q2), DIMENSION(3,3) :: outerproduct
+      !REAL(q2), DIMENSION(3,3) :: outerproduct
       REAL(q2) :: rho
       INTEGER,DIMENSION(3) :: ind
       INTEGER :: i, j, k, ucptnum, negCount
@@ -2795,7 +2891,8 @@
         PRINT *, cpl(ucptnum)%negCount
       END IF
     END SUBROUTINE RecordCPR
-    
+   
+    ! USED IN THIS MODULE
     SUBROUTINE RecordCPRLight(p,chg,cpl,ucptnum, maxcount, uRingCount, &
       uBondCount, uCageCount,ind,LDM)
       TYPE(charge_obj) :: chg
@@ -2804,12 +2901,12 @@
       REAL(q2), DIMENSION(3,3) :: eigvecs, hessianMatrix
       REAL(q2), DIMENSION(3) :: p, realDump
       REAL(q2), DIMENSION(3,3) :: ggrid
-      REAL(q2), DIMENSION(26) :: wi
+      !REAL(q2), DIMENSION(26) :: wi
       REAL(q2), DIMENSION(3,13) :: matwprime
       REAL(q2), DIMENSION(3,3) :: matm
-      REAL(q2), DIMENSION(3,3) :: outerproduct
+      !REAL(q2), DIMENSION(3,3) :: outerproduct
       REAL(q2) :: rho
-      INTEGER, DIMENSION(26,3) :: vit
+      !INTEGER, DIMENSION(26,3) :: vit
       INTEGER, DIMENSION(3,26) :: vi
       INTEGER,DIMENSION(3) :: ind
       INTEGER :: i, j, k, ucptnum, negCount
@@ -2849,6 +2946,7 @@
       END IF
     END SUBROUTINE RecordCPRLight
 
+    ! USED IN THIS MODULE
     SUBROUTINE  OutputCP(cpl,opts,ucptnum,chg,setcount,uBondCount, &
       uRingCount,uCageCount, maxcount)
       TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpl
@@ -2945,6 +3043,7 @@
     END SUBROUTINE OutputCP
     
     !Outputs a list of connections in a file
+    ! USED IN THIS MODULE
     SUBROUTINE OutputNetwork(cpl,ucptnum,setcount)
       TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpl
       INTEGER :: ucptnum, i, setcount
@@ -2972,7 +3071,8 @@
       CLOSE(98)
 
     END SUBROUTINE OutputNetwork
-    
+   
+    ! USED IN THIS MODULE
     SUBROUTINE OutputCPRoster(cpRoster,setcount)
       REAL(q2), DIMENSION(:,:), ALLOCATABLE :: cpRoster
       CHARACTER(19) :: fileName
@@ -2986,7 +3086,8 @@
       END DO
       CLOSE(98)
     END SUBROUTINE OutputCPRoster
-
+   
+    ! USED IN THIS MODULE
     SUBROUTINE CPRosterAnalysis(cpl,ions, cproster, chg)
       TYPE(cpc), ALLOCATABLE,DIMENSION(:) :: cpl
       TYPE(charge_obj) :: chg
@@ -3163,6 +3264,7 @@
       END DO 
     END FUNCTION
 
+    ! USED IN THIS MODULE
     SUBROUTINE MakeCPRoster(cpr,cptnum,r)
       REAL(q2), DIMENSION(:,:), ALLOCATABLE :: cpr
       INTEGER :: cptnum
@@ -3171,6 +3273,7 @@
     END SUBROUTINE MakeCPRoster
     
     !Stores every coordinate converged to, even if nonunique
+    ! USED IN THIS MODULE
     SUBROUTINE MakeFullCPRoster(cpr,cptnum,r)
       REAL(q2), DIMENSION(:,:), ALLOCATABLE :: cpr
       INTEGER :: cptnum
@@ -3215,7 +3318,8 @@
       RETURN
     END FUNCTION R2GradInterpol
    
-    FUNCTION R2HesInterpol(nnInd,r,chg,nnLayers)
+    !FUNCTION R2HesInterpol(nnInd,r,chg,nnLayers)
+    FUNCTION R2HesInterpol(nnInd,r,chg)  
       TYPE(charge_obj) :: chg
       REAL(q2),DIMENSION(3,3) :: R2HesInterpol
       REAL(q2),DIMENSION(:),ALLOCATABLE :: weight
@@ -3251,7 +3355,8 @@
       RETURN
     END FUNCTION R2HesInterpol
 
-    FUNCTION R2RhoInterpol(nnInd,r,chg,nnLayers)
+    !FUNCTION R2RhoInterpol(nnInd,r,chg,nnLayers)
+    FUNCTION R2RhoInterpol(nnInd,r,chg)  
       TYPE(charge_obj) :: chg
       REAL(q2),DIMENSION(:),ALLOCATABLE :: weight
       REAL(q2),DIMENSION(3) :: r
@@ -3288,6 +3393,7 @@
     END FUNCTION R2RhoInterpol
   
     ! Counts the amount of negative modes in eigenvalues
+    ! USED IN THIS MODULE
     FUNCTION CountNegModes(eigvals)
       REAL(q2),DIMENSION(3) :: eigvals
       INTEGER :: CountNegModes,i
@@ -3296,9 +3402,10 @@
         IF (eigvals(i) < 0) CountNegModes = CountNegModes + 1
       END DO
       RETURN
-    END FUNCTION CountNegModes
+    END FUNCTION 
  
     ! updates the count on all types of CPs
+    ! USED IN THIS MODULE
     SUBROUTINE UpDateCounts(negCount,maxCount,bondCount,ringCount,cageCount)
       INTEGER :: negCount,maxCount,bondCount,ringCount,cageCount
       IF (negCount == 3) THEN
@@ -3316,14 +3423,15 @@
     ! locations of all CP candidates, and outputs them. Bond CP are marked as He,
     ! Ring CP are marked as Ne, cage CP are marked as Ar. Nucleus are written as
     ! normal
-    SUBROUTINE VisAllCP (cpcl,cptnum,chg,ions,opts,&
+    ! USED IN THIS MODULE
+    SUBROUTINE VisAllCP(cpcl,cptnum,chg,ions,opts,&
       ringCount,bondCount,cageCount)
       TYPE(charge_obj) :: chg
       TYPE(ions_obj) :: ions
       TYPE(options_obj) :: opts
       TYPE(cpc),DIMENSION(:),ALLOCATABLE :: cpcl
       REAL(q2),DIMENSION(8,3,3) :: nnHes
-      REAL(q2),DIMENSION(8,3) :: nnGrad
+      !REAL(q2),DIMENSION(8,3) :: nnGrad
       REAL(q2),DIMENSION(3,3) :: hessianMatrix,eigvecs
       REAL(q2),DIMENSION(3) :: grad,eigvals,distance, dir , r
       INTEGER,DIMENSION(8,3) :: nnInd
@@ -3404,7 +3512,8 @@
     ! identical to one taken before, it gives the location when repeat is
     ! detected 
     ! it could also give averaged location of the past
-    ! 10 steps in ther future, given treatments to PBC. 
+    ! 10 steps in ther future, given treatments to PBC.
+    ! USED IN THIS MODULE
     SUBROUTINE DetectCircling(stepCount,rList,temList,trueR,nextTem,averageR,LDM,ind)
       REAL(q2),DIMENSION(10,3) :: rList,temList
       REAL(q2),DIMENSION(3) :: trueR,nextTem,averageR
@@ -3463,7 +3572,8 @@
 
     ! This subroutine looks for critical points in the list that is too close to
     ! another, and averages the same types into one to remove duplicate critical
-    ! points. 
+    ! points.
+    ! USED IN THIS MODULE
     SUBROUTINE ReduceCP(cpl,opts,ucptnum,chg,uBondCount, &
         uRingCount,uCageCount,maxCount,isReduced,LDM_RecordCPRLight,LDM)
       TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpl,rcpl
@@ -3552,7 +3662,8 @@
       IF (LDM) PRINT *, 'The number of duplicate CP found is', dupcount
       DEALLOCATE(rcpl)
     END SUBROUTINE ReduceCP
-   
+  
+    ! USED IN THIS MODULE
     SUBROUTINE ReplaceCPL(replacee,replacer)
       TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: replacee,replacer
       INTEGER :: i
@@ -3562,7 +3673,8 @@
         replacee(i) = replacer(i)
       END DO
     END SUBROUTINE ReplaceCPL
- 
+
+    ! USED IN THIS MODULE
     SUBROUTINE ResizeCPL(cpl,newSize)
       TYPE(cpc),ALLOCATABLE,DIMENSION(:) ::cpl,newcpl
       INTEGER :: newSize, i, oldSize
@@ -3581,6 +3693,7 @@
  
     ! takes in coordinates, gives out interpolated Hessian using central
     ! difference
+    ! USED IN THIS MODULE
     FUNCTION CDHessianR(r,chg)
       TYPE(charge_obj) :: chg
       REAL(q2),DIMENSION(8,3,3) :: nnhes
@@ -3588,7 +3701,7 @@
       REAL(q2),DIMENSION(3) :: r, distance
       INTEGER,DIMENSION(8,3) :: nnind
       INTEGER :: i
-      nnind = simpleNN(r,chg)
+      nnind = SimpleNN(r,chg)
       distance = r - nnind(1,:)
       DO i = 1,8
         nnHes(i,:,:) = CDHessian(nnind(i,:),chg)
@@ -3604,6 +3717,7 @@
       RETURN
     END FUNCTION CDHessianR
 
+    ! USED IN THIS MODULE
     FUNCTION CDGradR(r,chg)
       TYPE(charge_obj) :: chg
       REAL(q2),DIMENSION(8,3) :: nnGrad
@@ -3611,7 +3725,7 @@
       REAL(q2),DIMENSION(3) :: r, distance
       INTEGER,DIMENSION(8,3) :: nnind
       INTEGER :: i
-      nnind = simpleNN(r,chg)
+      nnind = SimpleNN(r,chg)
       distance = r - nnind(1,:)
       DO i = 1,8
         nnGrad(i,:) = CDGrad(nnind(i,:),chg)
@@ -3670,7 +3784,7 @@
       WRITE (53,*) grad
       PRINT *, "cartesian grad from rho_grad is "
       PRINT *, grad 
-      nnind = simpleNN(p,chg)
+      nnind = SimpleNN(p,chg)
       distance = p - nnind(1,:)
       DO j = 1,8
         nngrad(j,:) = CDGrad(nnind(j,:),chg)
@@ -3736,6 +3850,7 @@
       END DO
     END SUBROUTINE
   
+    ! USED IN THIS MODULE
     SUBROUTINE DiagonalOnlyHes(hes)
       REAL(q2), DIMENSION(3,3) :: hes
       hes(1,2) = 0
@@ -3767,6 +3882,7 @@
 
 
     ! This function calculates TEM for a grid point
+    ! USED IN THIS MODULE
     FUNCTION CalcTEMGrid(p,chg,grad,hessianMatrix)
       TYPE(charge_obj) :: chg
       INTEGER,DIMENSION(3) :: p
@@ -3780,6 +3896,7 @@
     END FUNCTION CalcTEMGrid
  
     ! This function will not work if calculating TEM at a grid point.
+    ! USED IN THIS MODULE
     FUNCTION CalcTEMLat(trueR,chg,temScale,previousTEM,grad, &
       temNormCap,LDM)
       TYPE(charge_obj) :: chg
@@ -3855,7 +3972,7 @@
       RETURN
     END FUNCTION CalcTEMLat
 
-
+    ! USED IN THIS MODULE
     SUBROUTINE GetDebugFlags(opts,LDM,LDM_DetectCircling,&
       LDM_ReduceCP,LDM_DensityDescend,LDM_RecordCPRLight,&
       LDM_NRTFGP,LDM_CalcTEMLat,LDM_RecordCPR,LDM_GradMagGrad,LDM_RingAscend,LDM_Trajectories)
@@ -3938,6 +4055,7 @@
     ! Finishes a Newton Rhapson trajectory from point ind
     ! trueR is the output converged point
     ! isUnique shows if the trajectory converged
+    ! USED IN THIS MODULE
     SUBROUTINE NRTFGP(bdr,chg,opts,trueR,&
       LDM_detectCircling,isUnique,r,ind,stepMax,LDM)
       TYPE(bader_obj) :: bdr
@@ -3994,7 +4112,7 @@
           prevgrad = grad
         END IF
         CALL pbc_r_lat(truer,chg%npts)
-        nnind = simpleNN(truer,chg)
+        nnind = SimpleNN(truer,chg)
         distance = truer - nnind(1,:)
         nexttem = CalcTEMLat(trueR,chg,temScale,previousTEM,grad,temNormCap,&
           LDM)
@@ -4055,6 +4173,7 @@
       END IF 
     END SUBROUTINE NRTFGP 
 
+    ! USED IN THIS MODULE
     SUBROUTINE DensityDescend(chg,bdr,opts,p,cpl,UCPTnum, maxCount, uRingCount, &
         uBondCount, uCageCount,LDM,LDM_RecordCPRLight, &
         LDM_DetectCircling,LDM_NRTFGP)
@@ -4158,6 +4277,7 @@
       END IF
     END SUBROUTINE DensityDescend
 
+    ! USED IN THIS MODULE
     SUBROUTINE PrintNeighborCharges(p,chg)
     TYPE(charge_obj) :: chg
     INTEGER,DIMENSION(3) :: p
@@ -4332,6 +4452,7 @@
 
     ! This subroutine aims at reducing the bips and bumps in a CHGCAR by
     ! averaging it.
+    ! USED IN THIS MODULE
     SUBROUTINE SmoothenCHGCAR(chg,avgMode,ions,opts)
       TYPE(charge_obj) :: chg
       TYPE(ions_obj) :: ions
@@ -4458,7 +4579,8 @@
     ! And calculate the gradient of this modulus
     ! And descend the gradient of the modulus.
     ! It takes in only the starting point index, 
-    !and returns the converged point in lattice coordiantes.
+    ! and returns the converged point in lattice coordiantes.
+    ! USED IN THIS MODULE
     SUBROUTINE GradientDescend(bdr, chg, opts, rn, iniI,isUnique,stepMax,&
     LDM)
       INTEGER,DIMENSION(8,3) :: nnInd
@@ -4564,7 +4686,7 @@
 
          CALL pbc_r_lat(rn,chg%npts)
 
-         nnInd = simpleNN(rn,chg)
+         nnInd = SimpleNN(rn,chg)
          DO j = 1,8
             CALL pbc(nnind(j,:),chg%npts)
             nngrad(j,:) = CDGMCDG(nnInd(j,:),chg)
@@ -4639,6 +4761,7 @@
 
     ! Central Difference Gradient of Modulus of Charge Density Gradient
     ! Operates on grid points
+    ! USED IN THIS MODULE
     FUNCTION CDGMCDG(p,chg)
       TYPE(charge_obj) :: chg
       INTEGER,DIMENSION(8,3) :: nnInd
@@ -4709,12 +4832,14 @@
       RETURN
     END FUNCTION printinfo
 
+    ! USED IN THIS MODULE
     SUBROUTINE get_voxvol(chg,ions)
       TYPE(charge_obj) :: chg
       TYPE(ions_obj) :: ions
       voxvol = matrix_volume(ions%lattice)/ chg%nrho
     END SUBROUTINE
   
+    ! USED IN THIS MODULE
     FUNCTION GetHessianMag(hes)
       REAL(q2),DIMENSION(3,3) :: hes
       REAL(q2) :: GetHessianMag
