@@ -39,6 +39,7 @@
       LOGICAL :: gradMode
       !gradMode enables the gradient descend subroutine and disables the Newton's Method subroutine
       LOGICAL :: GD_magMode
+      LOGICAL :: autocp_flag
    END TYPE options_obj
 
     PRIVATE
@@ -101,6 +102,7 @@
       opts%stepsize = 0.0_q2
       opts%ref_flag = .FALSE.
       opts%find_critpoints_flag = .FALSE.
+      opts%autocp_flag = .FALSE.
       opts%leastsquare_flag = .FALSE.
       opts%noInterpolation_flag = .FALSE.
       opts%print_surfaces_atoms = .FALSE.
@@ -160,6 +162,8 @@
         ELSEIF (p(1:ip) == '-cp') THEN
           opts%find_critpoints_flag = .TRUE.
           opts%vac_flag = .TRUE. ! set this to be default
+        ELSEIF (p(1:ip) == '-autocp') THEN
+          opts%autocp_flag = .TRUE.
         ELSEIF (p(1:ip) == '-molecule') THEN
           PRINT *, 'This system is assigned as a molecule'
           opts%ismolecule = .TRUE.
