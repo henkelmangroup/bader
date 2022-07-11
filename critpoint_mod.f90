@@ -39,6 +39,18 @@
     REAL(q2) :: voxvol
     !INTEGER :: stat
     CONTAINS
+  
+    ! Counts the amount of negative modes in eigenvalues
+    ! USED IN THIS MODULE
+    FUNCTION CountNegModes(eigvals)
+      REAL(q2),DIMENSION(3) :: eigvals
+      INTEGER :: CountNegModes,i
+      CountNegModes = 0
+      DO i = 1,3
+        IF (eigvals(i) < 0) CountNegModes = CountNegModes + 1
+      END DO
+      RETURN
+    END FUNCTION 
 
 !-----------------------------------------------------------------------------------!
 !critpoint_find: find critical points on the edge of the Bader volumes
@@ -47,14 +59,12 @@
 !-----------------------------------------------------------------------------------!
   SUBROUTINE critpoint_find(bdr,chg,opts,ions,stat)
 ! These are for screening CP due to numerical error. 
-
-    
     !TYPE(hessian) :: hes
-    TYPE(bader_obj) :: bdr
-    TYPE(charge_obj) :: chg
-    TYPE(options_obj) :: opts
-    TYPE(ions_obj) :: ions
-    TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpcl, cpl, cpclt ! critical point list and a temporary
+    TYPE(bader_obj), INTENT(INOUT) :: bdr
+    TYPE(charge_obj), INTENT(INOUT) :: chg
+    TYPE(options_obj), INTENT(INOUT) :: opts
+    TYPE(ions_obj), INTENT(INOUT) :: ions
+    TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpcl, cpl, cpclt
     ! The above three are CP candidate list, CP list and CP list temp
 ! copy
 ! for points, 1 and 2 are +1, -1
@@ -118,14 +128,14 @@
 
     ! below are variables for least sqaures gradient
     stat = 0 ! 0 means nothing
-    !PRINT *, ''//achar(27)//'[31m Finding Critical points'//achar(27)//'[0m'
-    !PRINT *, ''//achar(27)//'[91m Interrogation of the soul:'//achar(27)//'[0m'
-    !PRINT *, ''//achar(27)//'[33m Did I turn on vacuum ?'//achar(27)//'[0m'
-    !PRINT *, ''//achar(27)//'[92m Did I tell if this is a crystall or molecule?'//achar(27)//'[0m'
-    !PRINT *, ''//achar(27)//'[36m Did I use the CHGCAR_sum ?'//achar(27)//'[0m'
-    !PRINT *, ''//achar(27)//'[34m Did I use reasonable values for parameters ? '//achar(27)//'[0m'
-    !PRINT *, ''//achar(27)//'[95m Critical point is like a box of chocolates. &
-    !          You never know what you are gonna get.'//achar(27)//'[0m'
+    PRINT *, ''//achar(27)//'[31m Finding Critical points'//achar(27)//'[0m'
+    PRINT *, ''//achar(27)//'[91m Interrogation of the soul:'//achar(27)//'[0m'
+    PRINT *, ''//achar(27)//'[33m Did I turn on vacuum ?'//achar(27)//'[0m'
+    PRINT *, ''//achar(27)//'[92m Did I tell if this is a crystall or molecule?'//achar(27)//'[0m'
+    PRINT *, ''//achar(27)//'[36m Did I use the CHGCAR_sum ?'//achar(27)//'[0m'
+    PRINT *, ''//achar(27)//'[34m Did I use reasonable values for parameters ? '//achar(27)//'[0m'
+    PRINT *, ''//achar(27)//'[95m Critical point is like a box of chocolates. &
+              You never know what you are gonna get.'//achar(27)//'[0m'
     !WRITE(*,'(A)')  'FINDING CRITICAL POINTS'
     CALL get_voxvol(chg,ions)
     IF (opts%enableCHGCARSmoothening) THEN
@@ -795,18 +805,245 @@
       END IF
       DEALLOCATE(cpRoster)
     END IF
+
+    CALL connectivity_check(bdr, chg, opts, ions, cpl)
+
     !PRINT *, 'stat', stat
     PRINT *, 'outputting debugging information to allcpPOSCAR'
 !    CALL VisAllCP(cpcl,cptnum,chg,ions,opts)
     CALL VisAllCP(cpl,ucptnum,chg,ions,opts,uringCount,ubondCount,ucageCount)
+
     DEALLOCATE (cpl)
     DEALLOCATE (cpcl)
 !    CLOSE(97)
 !    CLOSE(98)
     CLOSE(1)
     CLOSE(2)
-    END SUBROUTINE critpoint_find
+  END SUBROUTINE critpoint_find
 
+  SUBROUTINE connectivity_check(bdr, chg, opts, ions, cpl)
+    TYPE(bader_obj), INTENT(IN) :: bdr
+    TYPE(charge_obj), INTENT(IN) :: chg
+    TYPE(options_obj), INTENT(IN) :: opts
+    TYPE(ions_obj), INTENT(IN) :: ions
+    TYPE(cpc), ALLOCATABLE, DIMENSION(:), INTENT(IN) :: cpl
+
+    INTEGER :: i
+    INTEGER :: j
+    INTEGER :: k
+    INTEGER :: l
+    INTEGER, DIMENSION(3,2) :: current_loc
+    INTEGER, DIMENSION(3,2) :: initial_boost
+    INTEGER, DIMENSION(3,2) :: current_shift
+    INTEGER, DIMENSION(3,26) :: shifts_to_check
+    INTEGER :: num_pos_eigvals
+    INTEGER :: pos_eigval_index
+    REAL, DIMENSION(3) :: bond_eigvec
+    REAL :: bond_eigvec_norm
+    REAL :: current_rho
+    LOGICAL, DIMENSION(2) :: found_maximum
+    LOGICAL, DIMENSION(2) :: found_shift
+    INTEGER :: max_shift_index
+    REAL :: max_shift_rho
+    INTEGER :: initial_boost_size
+    INTEGER :: num_bond
+    !INTEGER :: hit_index
+    !INTEGER, ALLOCATABLE, DIMENSION(:,:) :: all_hits
+    INTEGER, ALLOCATABLE, DIMENSION(:) :: num_bonds
+    REAL :: min_fit
+    REAL :: tmp_fit
+    INTEGER :: min_fit_index
+
+    !print *, "kdebug connectivity check"
+    do i = 1,size(cpl)
+       print *, cpl(i)%truer
+    end do
+
+    allocate(num_bonds(ions%nions))
+    num_bonds(:) = 0
+
+    shifts_to_check(:,1) = [1,1,1]
+    shifts_to_check(:,2) = [0,1,1]
+    shifts_to_check(:,3) = [-1,1,1]
+    shifts_to_check(:,4) = [1,0,1]
+    shifts_to_check(:,5) = [0,0,1]
+    shifts_to_check(:,6) = [-1,0,1]    
+    shifts_to_check(:,7) = [1,1,1]
+    shifts_to_check(:,8) = [0,1,1]
+    shifts_to_check(:,9) = [-1,1,1]
+    shifts_to_check(:,10) = [1,1,0]
+    shifts_to_check(:,11) = [0,1,0]
+    shifts_to_check(:,12) = [-1,1,0]
+    shifts_to_check(:,13) = [1,0,0]
+    shifts_to_check(:,14) = [-1,0,0]
+    shifts_to_check(:,15) = [1,-1,0]
+    shifts_to_check(:,16) = [0,-1,0]
+    shifts_to_check(:,17) = [-1,-1,0]
+    shifts_to_check(:,18) = [1,1,-1]
+    shifts_to_check(:,19) = [0,1,-1]
+    shifts_to_check(:,20) = [-1,1,-1]
+    shifts_to_check(:,21) = [1,0,-1]
+    shifts_to_check(:,22) = [0,0,-1]
+    shifts_to_check(:,23) = [-1,0,-1]
+    shifts_to_check(:,24) = [1,-1,-1]
+    shifts_to_check(:,25) = [0,-1,-1]
+    shifts_to_check(:,26) = [-1,-1,-1]
+
+    initial_boost_size = 2
+    !num_bond = 0
+    !hit_index = 1
+
+    !count_bonds: do i=1,size(cpl)
+       !print *, "iteration of count_bonds"
+       !num_pos_eigvals = 0
+       !do j=1,3
+          !if (cpl(i)%eigvals(j) > 0) then
+             !num_pos_eigvals = num_pos_eigvals + 1
+          !end if
+       !end do
+       !if (num_pos_eigvals .eq. 1) then
+          !print *, "incrementing num_bond"
+          !num_bond = num_bond + 1
+       !end if
+    !end do count_bonds
+
+    !print *, "num_bond", num_bond
+    !allocate(all_hits(3, num_bond * 2))
+
+    loop_over_points: do i = 1, size(cpl) ! do concurrent (i = 1:size(cpl))
+       ! step 0: is this a bond critical point? if not, go to the next
+       ! step 1: follow the eigenvector of the one positive eigenvalue in a sphere with radius 2 [a 2x2x2 cube tbh] in the positive and negative directions
+       ! step 2: follow that point to another one nearby with bigger charge!
+
+       ! step 0
+       num_pos_eigvals = 0
+       do j = 1,3
+          if (cpl(i)%eigvals(j) > 0) then
+             num_pos_eigvals = num_pos_eigvals + 1
+             pos_eigval_index = j ! cpi(i)%eigvals(j)
+             if (num_pos_eigvals > 1) then
+                cycle loop_over_points
+             end if
+          end if
+       end do
+
+       if (num_pos_eigvals .eq. 0) then
+          cycle loop_over_points
+       end if
+       
+       ! step 1
+       current_loc(:,1) = nint(cpl(i)%truer)
+       current_loc(:,2) = current_loc(:,1)
+       bond_eigvec = cpl(i)%eigvecs(:,pos_eigval_index)
+       bond_eigvec_norm = (bond_eigvec(1)**2 + bond_eigvec(2)**2 + bond_eigvec(3)**2)**0.5
+       do concurrent (j = 1:3)
+          initial_boost(j,1) = nint(bond_eigvec(j) * initial_boost_size / bond_eigvec_norm)
+          initial_boost(j,2) = - initial_boost(j,1)
+       end do
+       
+       do concurrent (j = 1:2)
+          current_loc(:,j) = current_loc(:,j) + initial_boost(:,j)
+       end do
+
+       found_maximum = [.false., .false.]
+
+       ! step 2
+       ! print *, "examining new bond critical point at ", cpl(i)%ind
+
+       do while (.not. found_maximum(1) .or. .not. found_maximum(2))
+          do j=1,2
+             if (found_maximum(j)) then
+                cycle
+             end if
+             
+             !print *, "trying to find shift for", j
+
+             current_rho = chg%rho(current_loc(1,j), current_loc(2,j), current_loc(3,j))
+             found_shift(j) = .false.
+
+             !print *, j, current_loc(:,j), current_rho
+             
+             max_shift_index = 1
+             max_shift_rho = current_rho
+             examine_shift: do k = 1,26
+                current_shift(:,j) = current_loc(:,j) + shifts_to_check(:,k)
+                call pbc(current_shift(:,j), chg%npts)
+                
+                if (k .eq. 63) then
+                   cycle examine_shift
+                end if
+
+                !do l = 1,3
+                   !if (current_shift(l,j) < 1 .or. current_shift(l,j) > chg%npts(l)) then
+                      !print *, "reached boundary"
+                      !cycle examine_shift
+                   !end if
+                !end do
+
+                !print *, "shift=", current_shift(:,j)
+                !print *, "chg@shift=", chg%rho(current_shift(1,j), current_shift(2,j), current_shift(3,j))
+
+                if (chg%rho(current_shift(1,j), current_shift(2,j), current_shift(3,j)) > max_shift_rho) then
+                   max_shift_index = k
+                   max_shift_rho = chg%rho(current_shift(1,j), current_shift(2,j), current_shift(3,j))
+                   !print *, "found shift for", j
+                   found_shift(j) = .true.
+                end if
+             end do examine_shift
+
+             if (.not. found_shift(j)) then
+                !print *, "no shift -> found maximum for", j, "at", current_loc(:,j)
+                found_maximum(j) = .true.
+                !all_hits(:,hit_index) = current_loc(:,j)
+                !hit_index = hit_index + 1
+
+                min_fit_index = 0
+                min_fit = 1000
+                do k=1,ions%nions
+                   !print *, "checking fit between", current_loc(:,j), "and", ions%r_lat(k,:), "aka", nint(ions%r_lat(k,:))
+                   tmp_fit = 0
+                   do l=1,3
+                      tmp_fit = tmp_fit + abs(ions%r_lat(k,l) - current_loc(l,j))
+                   end do
+                   if (tmp_fit < min_fit) then
+                      min_fit_index = k
+                      min_fit = tmp_fit
+                   end if
+                end do
+                !print *, "orig_pos=", nint(cpl(i)%truer), "j=", j, "current_loc=", current_loc(:,j), "match w", min_fit_index
+                if (min_fit_index > 0) then
+                   num_bonds(min_fit_index) = num_bonds(min_fit_index) + 1
+                end if
+             else
+                current_loc(:,j) = current_loc(:,j) + shifts_to_check(:,max_shift_index)
+                call pbc(current_loc(:,j), chg%npts)
+             end if
+          end do
+          ! !print *, found_shift
+          !print *, found_maximum
+       end do
+
+       if (all(current_loc(:,1) .eq. current_loc(:,2))) then
+          !print *, "yikes! for bonding critical point", cpl(i)%ind, "both directions converge to", current_loc(:,1)
+       end if
+    end do loop_over_points
+
+    print *, "finished connectivity check! results [also written to connectivity.dat]:"
+
+    open(15360,FILE='connectivity.dat',STATUS='REPLACE',ACTION='WRITE')
+    do i=1,ions%nions
+       write(15360,*) num_bonds(i)
+    end do
+
+    print *, num_bonds
+    !do i = 1, size(all_hits(1,:))
+       !print *, all_hits(:,i)
+    !end do
+
+    !print *, "num_bond", num_bond
+    !print *, "num_cpl", size(cpl)
+  END SUBROUTINE connectivity_check
+  
     ! this function determins when looking for nn, how many layers to search
     ! within. It looks for the smallest vector sum of lattice vectors, and the
     ! largest vector
@@ -2835,7 +3072,6 @@
       cpl(ucptnum)%negCount = negCount
     END SUBROUTINE RecordCP
 
-
     ! the version of the above subroutine where p is real not integer
     ! USED IN THIS MODULE
     SUBROUTINE RecordCPR(p,chg,cpl,ucptnum,eigvals,eigvecs,connectedAtoms, maxcount, uRingCount, &
@@ -3391,18 +3627,6 @@
       DEALLOCATE(weight)
       RETURN
     END FUNCTION R2RhoInterpol
-  
-    ! Counts the amount of negative modes in eigenvalues
-    ! USED IN THIS MODULE
-    FUNCTION CountNegModes(eigvals)
-      REAL(q2),DIMENSION(3) :: eigvals
-      INTEGER :: CountNegModes,i
-      CountNegModes = 0
-      DO i = 1,3
-        IF (eigvals(i) < 0) CountNegModes = CountNegModes + 1
-      END DO
-      RETURN
-    END FUNCTION 
  
     ! updates the count on all types of CPs
     ! USED IN THIS MODULE
@@ -4815,7 +5039,6 @@
    
       RETURN
     END FUNCTION CDGMCDG
-
     
     FUNCTION printinfo(grid,chg)
       TYPE(charge_obj) :: chg

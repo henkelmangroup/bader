@@ -20,10 +20,11 @@
       TYPE (options_obj) :: opts
       INTEGER :: stat
       LOGICAL :: isExhausted
+
       !stat 1 means pass 0 means fail
       isExhausted = .FALSE.
       DO WHILE ( .NOT. isExhausted .AND. stat /= 1) 
-        !PRINT *, "Calling critpoint_find"
+        PRINT *, "kdebug Calling critpoint_find"
         CALL critpoint_find(bdr,chg,opts,ions,stat)
         !CALL critpoint_find(bdr,chg,opts,ions)
         !PRINT *, "Stat came back as ", stat

@@ -20,7 +20,7 @@ MODULE ions_mod
 
   PRIVATE
   PUBLIC :: ions_obj
-
 !-----------------------------------------------------------------------------------!
 
 END MODULE ions_mod
+

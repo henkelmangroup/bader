@@ -70,6 +70,7 @@
      LOGICAL, DIMENSION(3)  :: scell_dir
      INTEGER, ALLOCATABLE :: sc_atom_map(:)
      INTEGER :: stat
+
     ! Write the version number
      WRITE(*,'(/,2X,A)') 'GRID BASED BADER ANALYSIS  (Version 1.04 02/08/20)'
 
