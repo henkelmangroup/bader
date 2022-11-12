@@ -100,7 +100,7 @@
     REAL(q2), DIMENSION(8,3) :: nngrad
     REAL(q2), DIMENSION(8,3,3) :: nnhes !hessian of 8 nn
     INTEGER, DIMENSION(:,:),ALLOCATABLE :: descendPoints, ringPoints
-    INTEGER, DIMENSION(:,:),ALLOCATABLE :: nnind
+    INTEGER, DIMENSION(:,:),ALLOCATABLE :: nnind, atom_connectivity
     REAL(q2), DIMENSION(3,3) :: interpolHessian
     REAL(q2), DIMENSION(3) :: nexttem, previoustem, averager, temcap, temscale
     INTEGER :: averagecount, repeatcount
@@ -128,6 +128,8 @@
 
     ! below are variables for least sqaures gradient
     stat = 0 ! 0 means nothing
+    ALLOCATE(atom_connectivity(ions%nions,ions%nions))
+    atom_connectivity = 0
     PRINT *, ''//achar(27)//'[31m Finding Critical points'//achar(27)//'[0m'
     PRINT *, ''//achar(27)//'[91m Interrogation of the soul:'//achar(27)//'[0m'
     PRINT *, ''//achar(27)//'[33m Did I turn on vacuum ?'//achar(27)//'[0m'
@@ -780,7 +782,11 @@
       !Runs DoubleAscension and RingAscension on all detected critical points
       DO ij = 1,ucptnum
         !Saves pairs of connected atoms in connectedAtoms
-        cpl(ij)%connectedAtoms = DoubleAscension(cpl(ij),chg,ions)
+        IF (cpl(ij)%negcount == 2) THEN
+          cpl(ij)%connectedAtoms = DoubleAscension(cpl(ij),chg,ions)
+          atom_connectivity(cpl(ij)%connectedAtoms(1),cpl(ij)%connectedAtoms(2))=1
+          atom_connectivity(cpl(ij)%connectedAtoms(2),cpl(ij)%connectedAtoms(1))=1
+        END IF
        
         IF (LDM_RingAscend) THEN
            !Prints Rings
@@ -791,8 +797,13 @@
       CALL OutputCP(cpl,opts,ucptnum,chg,setcount, uBondCount, &
         uRingCount, uCageCount, maxcount)
       !Output the found list of connectivity pairs to file 
-      CALL OutputNetwork(cpl,ucptnum,setcount)
-      
+      CALL OutputNetwork(cpl,ucptnum,setcount,atom_connectivity)
+      IF (stat == 1 .AND. CheckIsolatedAtom(atom_connectivity)) THEN
+        PRINT *, 'The CPs are self-consistent but isolated atoms are detected.'
+        PRINT *, 'Declaring this a false positive.'
+        stat = 0
+      END IF      
+
       IF (LDM_Trajectories) THEN
         !Performs statistical analysis (standard deviation) on the CP Roster 
         CALL CPRosterAnalysis(cpl,ions,fullcpRoster,chg)
@@ -813,8 +824,9 @@
 !    CALL VisAllCP(cpcl,cptnum,chg,ions,opts)
     CALL VisAllCP(cpl,ucptnum,chg,ions,opts,uringCount,ubondCount,ucageCount)
 
-    DEALLOCATE (cpl)
-    DEALLOCATE (cpcl)
+    DEALLOCATE(cpl)
+    DEALLOCATE(cpcl)
+    DEALLOCATE(atom_connectivity)
 !    CLOSE(97)
 !    CLOSE(98)
     CLOSE(1)
@@ -828,22 +840,13 @@
     TYPE(ions_obj), INTENT(IN) :: ions
     TYPE(cpc), ALLOCATABLE, DIMENSION(:), INTENT(IN) :: cpl
 
-    INTEGER :: i
-    INTEGER :: j
-    INTEGER :: k
-    INTEGER :: l
-    INTEGER, DIMENSION(3,2) :: current_loc
-    INTEGER, DIMENSION(3,2) :: initial_boost
-    INTEGER, DIMENSION(3,2) :: current_shift
+    INTEGER :: i,j,k,l
+    INTEGER, DIMENSION(3,2) :: current_loc,initial_boost,current_shift
     INTEGER, DIMENSION(3,26) :: shifts_to_check
-    INTEGER :: num_pos_eigvals
-    INTEGER :: pos_eigval_index
+    INTEGER :: num_pos_eigvals,pos_eigval_index,max_shift_index
     REAL, DIMENSION(3) :: bond_eigvec
-    REAL :: bond_eigvec_norm
-    REAL :: current_rho
-    LOGICAL, DIMENSION(2) :: found_maximum
-    LOGICAL, DIMENSION(2) :: found_shift
-    INTEGER :: max_shift_index
+    REAL :: bond_eigvec_norm,current_rho
+    LOGICAL, DIMENSION(2) :: found_maximum,found_shift
     REAL :: max_shift_rho
     INTEGER :: initial_boost_size
     INTEGER :: num_bond
@@ -855,9 +858,9 @@
     INTEGER :: min_fit_index
 
     !print *, "kdebug connectivity check"
-    do i = 1,size(cpl)
-       print *, cpl(i)%truer
-    end do
+    !do i = 1,size(cpl)
+    !   print *, cpl(i)%truer
+    !end do
 
     allocate(num_bonds(ions%nions))
     num_bonds(:) = 0
@@ -1028,14 +1031,13 @@
        end if
     end do loop_over_points
 
-    print *, "finished connectivity check! results [also written to connectivity.dat]:"
 
     open(15360,FILE='connectivity.dat',STATUS='REPLACE',ACTION='WRITE')
     do i=1,ions%nions
        write(15360,*) num_bonds(i)
     end do
 
-    print *, num_bonds
+    !print *, num_bonds
     !do i = 1, size(all_hits(1,:))
        !print *, all_hits(:,i)
     !end do
@@ -3280,21 +3282,21 @@
     
     !Outputs a list of connections in a file
     ! USED IN THIS MODULE
-    SUBROUTINE OutputNetwork(cpl,ucptnum,setcount)
+    SUBROUTINE OutputNetwork(cpl,ucptnum,setcount,atom_connectivity)
       TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpl
       INTEGER :: ucptnum, i, setcount
       CHARACTER(10) :: fileName
       INTEGER, DIMENSION(2) :: pair
+      INTEGER, DIMENSION(:,:) :: atom_connectivity
       WRITE(fileName,fmt='(a,i2.2,a)') TRIM('LINK'),setcount, TRIM('.dat')
       PRINT *, "Network Graph is written in file: ", fileName
       OPEN(98,FILE=fileName,STATUS='REPLACE',ACTION='WRITE')
-      
       !WRITE(98,*) size(ions%atomic_num)
       !DO i=1,size(ions%atomic_num)
       !  WRITE (98,*) ions%atomic_num(i)  
       !END DO
-
      ! WRITE(98,*) ucptnum
+      WRITE(98,*) "Connection 1 , ", " CP # , "," Connection 2"
       DO i=1,ucptnum
         pair = cpl(i)%connectedAtoms
         IF (pair(1) == 0 .AND. pair(2) == 0 ) THEN
@@ -3302,11 +3304,32 @@
         ELSE
           WRITE(98,*) pair(1),' ', i, ' ', pair(2)
         END IF
-        
+      END DO
+
+      WRITE(98,*) ""
+      WRITE(98,*) "The connectivity matrix is"
+      DO i = 1,size(atom_connectivity,1)
+        WRITE(98,*) atom_connectivity(i,:)
       END DO
       CLOSE(98)
-
     END SUBROUTINE OutputNetwork
+
+    FUNCTION CheckIsolatedAtom(atom_connectivity)
+      INTEGER,DIMENSION(:,:) :: atom_connectivity
+      INTEGER :: i,j,con_sum
+      LOGICAL :: CheckIsolatedAtom
+      
+
+      DO i=1,SIZE(atom_connectivity,1)
+        con_sum = SUM(atom_connectivity(i,:))
+        IF (con_sum == 0) THEN
+          CheckIsolatedAtom = .TRUE.
+          RETURN 
+        END IF    
+      END DO
+      CheckIsolatedAtom = .FALSE.
+      RETURN 
+    END FUNCTION CheckIsolatedAtom
    
     ! USED IN THIS MODULE
     SUBROUTINE OutputCPRoster(cpRoster,setcount)
