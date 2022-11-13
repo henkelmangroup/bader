@@ -817,7 +817,7 @@
       DEALLOCATE(cpRoster)
     END IF
 
-    CALL connectivity_check(bdr, chg, opts, ions, cpl)
+    !CALL connectivity_check(bdr, chg, opts, ions, cpl)
 
     !PRINT *, 'stat', stat
     PRINT *, 'outputting debugging information to allcpPOSCAR'
