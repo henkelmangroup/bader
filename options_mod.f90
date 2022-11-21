@@ -37,9 +37,9 @@
       LOGICAL :: dohes
       LOGICAL :: enableDensityDescend,enableCHGCARSmoothening
       LOGICAL :: gradMode
-      !gradMode enables the gradient descend subroutine and disables the Newton's Method subroutine
-      LOGICAL :: GD_magMode
-      LOGICAL :: autocp_flag
+      !gradMode enables the gradient descend subroutine to replace the Newton's Method subroutine
+      LOGICAL :: GD_magMode 
+      LOGICAL :: autocp_flag ! Turns on heuristic features
    END TYPE options_obj
 
     PRIVATE
@@ -64,7 +64,7 @@
 
 ! Default values
       opts%par_tem = 0
-      opts%par_sr = 2
+      opts%par_sr = 3
       opts%par_distance = 1
       ! par_distance is the criteria for determine if two points are identical
       ! due to spacial proximity. This is in lattice units.
@@ -108,7 +108,7 @@
       opts%print_surfaces_atoms = .FALSE.
       opts%enableDensityDescend = .FALSE.
       opts%enableCHGCARSmoothening = .FALSE.
-      opts%gradMode = .FALSE.
+      opts%gradMode = .FALSE. 
       opts%GD_magMode = .TRUE.
 !      n=IARGC()
       n=COMMAND_ARGUMENT_COUNT()
@@ -177,11 +177,13 @@
           PRINT *, 'Entering debug mode.'
           PRINT *, 'Reading debugConfig for instructions'
           opts%debugMode = .TRUE.  
-        ELSEIF (p(1:ip) == '-gradmode') THEN
+        ELSEIF (p(1:ip) == '-gradMode') THEN
           PRINT *, 'Prioritizing gradient descent as default heuristic.'
           opts%gradMode = .TRUE.
         ELSEIF (p(1:ip) == '-smoothenCHGCAR') THEN
           opts%enableCHGCARSmoothening = .TRUE.  
+        ELSEIF (p(1:ip) == '-DensityDescend') THEN
+          opts%enableDensityDescend = .TRUE.  
         ELSEIF (p(1:ip) == '-partem') THEN
           m = m + 1
           CALL GET_COMMAND_ARGUMENT(m,inc)

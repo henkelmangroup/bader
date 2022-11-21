@@ -54,7 +54,12 @@
             ! In case parameters has been unnecessarily strict, reset everything
             opts%par_newtonr = 0.0001
             opts%par_gradfloor = 0.0001
-            opts%par_sr = 2
+            opts%par_sr = 3
+          ELSE IF (.NOT. opts%gradMode ) THEN
+            opts%gradMode = .TRUE.
+            opts%par_newtonr = 0.0001
+            opts%par_gradfloor = 0.0001
+            opts%par_sr = 3
           ELSE IF (.NOT. opts%enableCHGCARSmoothening ) THEN
             PRINT *, "Enabling CHGCAR Smoothening"
             !PRINT *, "WARNING :: This function is only designed to work with &
@@ -63,11 +68,12 @@
             opts%enableCHGCARSmoothening = .TRUE.
             opts%par_newtonr = 0.0001
             opts%par_gradfloor = 0.0001
-            opts%par_sr = 2
+            opts%par_sr = 3
           END IF
 
         END IF
       ELSE 
+         PRINT *, "Heuristic features not turned on. Exiting"
         CheckExhaustion = .TRUE.
       END IF
       RETURN 
@@ -90,5 +96,11 @@
       PRINT *, "pargradfloor is now ", opts%par_gradfloor
       PRINT *, "parsr is now ", opts%par_sr
     END SUBROUTINE AdjustParameters
- 
+
+    ! Output the last set of parameters used. If a calculationo is restarted, it
+    ! doesn't go through the heuristic searching process again.
+    SUBROUTINE OutputParameters()
+     
+    END SUBROUTINE OutPutParameters
+
   END MODULE
