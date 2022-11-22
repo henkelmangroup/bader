@@ -60,15 +60,17 @@
             opts%par_newtonr = 0.0001
             opts%par_gradfloor = 0.0001
             opts%par_sr = 3
-          ELSE IF (.NOT. opts%enableCHGCARSmoothening ) THEN
-            PRINT *, "Enabling CHGCAR Smoothening"
-            !PRINT *, "WARNING :: This function is only designed to work with &
-            !  AFLOW"
-            PRINT *, "Setting other parameters back to default values"
-            opts%enableCHGCARSmoothening = .TRUE.
-            opts%par_newtonr = 0.0001
-            opts%par_gradfloor = 0.0001
-            opts%par_sr = 3
+          ! Smoothening seems to be not worth the effort. Someone is doing it
+          ! better than us.
+          !ELSE IF (.NOT. opts%enableCHGCARSmoothening ) THEN
+          !  PRINT *, "Enabling CHGCAR Smoothening"
+          !  !PRINT *, "WARNING :: This function is only designed to work with &
+          !  !  AFLOW"
+          !  PRINT *, "Setting other parameters back to default values"
+          !  opts%enableCHGCARSmoothening = .TRUE.
+          !  opts%par_newtonr = 0.0001
+          !  opts%par_gradfloor = 0.0001
+          !  opts%par_sr = 3
           END IF
 
         END IF
