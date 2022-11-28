@@ -84,10 +84,10 @@
     SUBROUTINE AdjustParameters(opts)
       TYPE (options_obj) :: opts
       IF (opts%par_newtonr > 0.000000001) THEN
-        opts%par_newtonr = opts%par_newtonr * 0.1
+        opts%par_newtonr = opts%par_newtonr * 0.01
       END IF
       IF ( opts%par_gradfloor > 0.000000001) THEN
-        opts%par_gradfloor = opts%par_gradfloor * 0.1
+        opts%par_gradfloor = opts%par_gradfloor * 0.01
       END IF
       IF ( opts%par_gradfloor <= 0.000000001 .AND. &
            opts%par_newtonr <= 0.000000001 .AND. opts%par_sr > 2) THEN
