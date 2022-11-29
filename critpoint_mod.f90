@@ -68,63 +68,40 @@
     ! The above three are CP candidate list, CP list and CP list temp
 ! copy
 ! for points, 1 and 2 are +1, -1
-    INTEGER :: setcount, counter
-    INTEGER :: stat
-    INTEGER, DIMENSION(3) :: p
-    INTEGER, DIMENSION(3) :: tempr
-    INTEGER :: n1, n2, n3, cptnum, ucptnum, i, j, k, debugnum,ij, trajcount, trajtotal
-    INTEGER :: negcount, bondcount, ringcount, maxcount, cagecount
-    INTEGER :: uBondCount, uRingCount, umaxcount, uCageCount
-    REAL(q2), DIMENSION(3) :: truer, grad, prevgrad, temprealr
-    ! to be used in newton method in finding unique critical points.
-    REAL(q2), DIMENSION(3,3) ::  hessianMatrix
-    ! these are vectors orthogonal to eigenvectors
-    REAL(q2), DIMENSION(3) :: tem, eigvals
-    REAL(q2), DIMENSION(3,3) :: eigvecs, inverseHessian
-    INTEGER, DIMENSION(2) :: connectedAtoms
-    ! linearized approximated derivatives for proxy critical screening
-    REAL(q2) :: stepsize, temnormcap, iS
-    REAL(q2), DIMENSION(3) :: distance ! vector to 000 in trilinear
-    REAL(q2), DIMENSION(3) :: iP,fP,pr
-    !the following is for gradient descend unit testing
-    INTEGER, DIMENSION(20,3) :: iniIList
-    INTEGER :: axisnum
-    REAL (q2), DIMENSION (8,3) :: finRList
-    REAL (q2), DIMENSION(3) :: finR
-    INTEGER, DIMENSION(8,3) :: nn ! alternative trilinear approx.
-    REAL(q2), DIMENSION(8) :: vals
-    ! points
-    LOGICAL :: invac ! this point is in vacuum
-    LOGICAL :: isReduced, phmrCompliant
-    ! The followings are for finding unique critical points
-    REAL(q2), DIMENSION(8,3) :: nngrad
-    REAL(q2), DIMENSION(8,3,3) :: nnhes !hessian of 8 nn
-    INTEGER, DIMENSION(:,:),ALLOCATABLE :: descendPoints, ringPoints
-    INTEGER, DIMENSION(:,:),ALLOCATABLE :: nnind, atom_connectivity
-    REAL(q2), DIMENSION(3,3) :: interpolHessian
-    REAL(q2), DIMENSION(3) :: nexttem, previoustem, averager, temcap, temscale
-    INTEGER :: averagecount, repeatcount
-    INTEGER, DIMENSION(:,:), ALLOCATABLE :: nucleiInd
+
     REAL(q2), DIMENSION(:,:), ALLOCATABLE :: cpRoster, fullcpRoster, reducedcpRoster
-    INTEGER :: stepcount, nnlayers
-    ! The following are for least square calculations
-    INTEGER, DIMENSION(3,26) :: vi, matw
-    INTEGER, DIMENSION(26,3) :: vit
-    REAL(q2), DIMENSION(3,3) :: ggrid
-    REAL(q2), DIMENSION(26) :: wi
+    REAL(q2), DIMENSION(8,3,3) :: nnhes !hessian of 8 nn
+    REAL(q2), DIMENSION(10,3) :: rList,temList
+    REAL(q2), DIMENSION(8,3) :: finRList, nngrad  
     REAL(q2), DIMENSION(3,13) :: matwprime
-    REAL(q2), DIMENSION(3,3) :: matm, outerproduct
-    REAL(q2),DIMENSION(10,3) :: rList,temList
-    INTEGER :: xmin,xmax,ymin,ymax,zmin,zmax,ios
-    INTEGER :: avgMode
-    CHARACTER(128) :: string,debugFlags,smoothenedCHGCAR
-    LOGICAL :: HCF,LDM ! has config file, local debug mode
-    LOGICAL :: LDM_DetectCircling, LDM_ReduceCP
-    LOGICAL :: LDM_DensityDescend,LDM_RecordCPRLight
-    LOGICAL :: LDM_NRTFGP,LDM_CalcTEMLat,LDM_RecordCPR, LDM_GradMagGrad, LDM_RingAscend, LDM_Trajectories
-    LOGICAL :: isUniqueTest
-    INTEGER, DIMENSION(2) :: doubleascend_test
+    REAL(q2), DIMENSION(3,3) :: hessianMatrix, eigvecs, inverseHessian, interpolHessian, &
+      ggrid, matm, outerproduct
+    REAL(q2), DIMENSION(26) :: wi
+    REAL(q2), DIMENSION(8) :: vals
+    REAL(q2), DIMENSION(3) :: tem, eigvals, truer, grad, prevgrad, temprealr, &
+      distance, & ! vector to 000 in trilinear 
+      iP, fP, pr, finR, nexttem, previoustem, averager, temcap, temscale
+    REAL(q2) :: stepsize, temnormcap, iS
+
+    INTEGER, DIMENSION(:,:), ALLOCATABLE :: descendPoints, ringPoints, nnind, &
+      atom_connectivity, nucleiInd 
     INTEGER, DIMENSION(:), ALLOCATABLE :: RingList
+    INTEGER, DIMENSION(26,3) :: vit
+    INTEGER, DIMENSION(20,3) :: iniIList
+    INTEGER, DIMENSION(8,3) :: nn ! alternative trilinear approx.
+    INTEGER, DIMENSION(3,26) :: vi, matw
+    INTEGER, DIMENSION(3) :: p, tempr
+    INTEGER, DIMENSION(2) :: connectedAtoms, doubleascend_test
+    INTEGER :: n1, n2, n3, cptnum, ucptnum, i, j, k, debugnum,ij, trajcount, trajtotal, &
+      negcount, bondcount, ringcount, maxcount, cagecount, uBondCount, uRingCount, & 
+      umaxcount, uCageCount, setcount, counter, stat, axisnum, xmin,xmax,ymin,ymax, &
+      zmin,zmax,ios, avgMode, stepcount, nnlayers, averagecount, repeatcount
+
+    CHARACTER(128) :: string,debugFlags,smoothenedCHGCAR
+
+    LOGICAL :: HCF, LDM, LDM_DetectCircling, LDM_ReduceCP, LDM_DensityDescend,LDM_RecordCPRLight, &
+      LDM_NRTFGP,LDM_CalcTEMLat,LDM_RecordCPR, LDM_GradMagGrad, LDM_RingAscend, LDM_Trajectories, &
+      isUniqueTest, invac, isReduced, phmrCompliant
 
     ! below are variables for least sqaures gradient
     stat = 0 ! 0 means nothing
@@ -1913,8 +1890,8 @@
       TYPE(cpc) :: cp
       REAL(q2),DIMENSION(3) :: descension, distance
       INTEGER, DIMENSION(:,:),ALLOCATABLE :: nnind
-      INTEGER,DIMENSION(:),ALLOCATABLE :: UniqueCPs
-      INTEGER,DIMENSION(:), ALLOCATABLE :: CPsFound1
+      INTEGER, DIMENSION(:), ALLOCATABLE :: UniqueCPs
+      INTEGER, DIMENSION(:), ALLOCATABLE :: CPsFound1
       INTEGER, DIMENSION(:), ALLOCATABLE :: CPsFound2
       INTEGER :: i, divs, divs2
       LOGICAL :: foundring
