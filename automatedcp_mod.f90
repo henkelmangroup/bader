@@ -46,7 +46,7 @@
         IF (opts%par_sr<=2 .AND. opts%par_newtonr <= 0.000000001 .AND. &
             opts%par_gradfloor <= 0.000000001) THEN
           IF (opts%enableDensityDescend  .AND. &
-              opts%enableCHGCARSmoothening ) THEN
+              opts%gradMode ) THEN
             CheckExhaustion = .TRUE.
             PRINT *, "The strictest setting has been used."
           ELSE IF (.NOT. opts%enableDensityDescend ) THEN
@@ -75,7 +75,7 @@
 
         END IF
       ELSE 
-         PRINT *, "Heuristic features not turned on. Exiting"
+        PRINT *, "Heuristic features not turned on. Exiting"
         CheckExhaustion = .TRUE.
       END IF
       RETURN 
