@@ -69,7 +69,8 @@
 ! copy
 ! for points, 1 and 2 are +1, -1
 
-    REAL(q2), DIMENSION(:,:), ALLOCATABLE :: cpRoster, fullcpRoster, reducedcpRoster
+    REAL(q2), DIMENSION(:,:), ALLOCATABLE :: cpRoster, fullcpRoster, reducedcpRoster, &
+      static_search
     REAL(q2), DIMENSION(8,3,3) :: nnhes !hessian of 8 nn
     REAL(q2), DIMENSION(10,3) :: rList,temList
     REAL(q2), DIMENSION(8,3) :: finRList, nngrad  
@@ -232,12 +233,6 @@
     !gradient descent unit test with arbitrary initial point
     !iniI and finR were defined in the main critpoint_fnd method for lack of a better place to define them.
     IF (LDM_GradMagGrad) THEN
-  
-     !this list is intended to be near a critical point of cyclohexane 
-     ! iniIList(1,:) = (/45,46,50/)
-     ! iniIList(2,:) = (/47,47,54/)
-     ! iniIList(3,:) = (/49,48,50/)
-      
       iniIList(6,:) = (/47,47,52/)
       axisnum = 3
       DO ij=1,11
@@ -259,10 +254,7 @@
          ! isUniqueTest = printinfo(iniIList(ij,:),chg)
           PRINT *, " "
       END DO
-      
-
     END IF
-
 
     IF (LDM) PRINT *, 'Finding maxima'
     DO n1 = 1, ions%nions
@@ -317,10 +309,21 @@
     !PRINT *, 'after adjustments, CP counts are'
     !PRINT *, maxcount, uBondCount, uRingCount, uCageCount
 
-    IF (.NOT. opts%noInterpolation_flag) THEN
+    IF  (opts%noInterpolation_flag) THEN
       !CALL minimasearch(chg,cptnum,cpl,bdr,matm,matwprime, &
       !                      wi,vi,vit,ggrid,outerproduct,opts,uCageCount,&
       !                      nnLayers,ions)
+    ELSE IF (opts%static_search) THEN
+      PRINT *, "starting static search"
+      static_search = ReadStatic()
+      PRINT *, static_search
+
+      CONTINUE
+
+
+
+    ELSE 
+      PRINT *, "entering main loop"
       DO n1 = 1,chg%npts(1)
         DO n2 = 1,chg%npts(2)
           DO n3 = 1,chg%npts(3)
@@ -5054,6 +5057,16 @@
       PRINT *, Mag(CDGrad(grid,chg))
       RETURN
     END FUNCTION printinfo
+
+    FUNCTION ReadStatic()
+      REAL(q2), ALLOCATABLE, DIMENSION(:,:) :: ReadStatic
+      INTEGER :: nSearches,ios
+      OPEN(150,FILE="static_search",STATUS='old',ACTION='read',BLANK='null',PAD='yes',IOSTAT=ios)
+      READ (150,*) nSearches   
+      CLOSE(150)
+      ALLOCATE(ReadStatic(nSearches,3))
+      RETURN
+    END FUNCTION ReadStatic
 
     ! USED IN THIS MODULE
     SUBROUTINE get_voxvol(chg,ions)

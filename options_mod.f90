@@ -40,6 +40,7 @@
       !gradMode enables the gradient descend subroutine to replace the Newton's Method subroutine
       LOGICAL :: GD_magMode 
       LOGICAL :: autocp_flag ! Turns on heuristic features
+      LOGICAL :: static_search ! Only initiate searches from coordinates read
    END TYPE options_obj
 
     PRIVATE
@@ -110,6 +111,7 @@
       opts%enableCHGCARSmoothening = .FALSE.
       opts%gradMode = .FALSE. 
       opts%GD_magMode = .TRUE.
+      opts%static_search = .FALSE.
 !      n=IARGC()
       n=COMMAND_ARGUMENT_COUNT()
       IF (n == 0) THEN
@@ -164,6 +166,8 @@
           opts%vac_flag = .TRUE. ! set this to be default
         ELSEIF (p(1:ip) == '-autocp') THEN
           opts%autocp_flag = .TRUE.
+        ELSEIF (p(1:ip) == '-static_search') THEN
+          opts%static_search = .TRUE.
         ELSEIF (p(1:ip) == '-molecule') THEN
           PRINT *, 'This system is assigned as a molecule'
           opts%ismolecule = .TRUE.
