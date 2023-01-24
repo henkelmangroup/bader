@@ -27,7 +27,7 @@ OBJS = kind_mod.o       \
 
 
 %.o %.mod : %.f90
-	$(FC) $(FFLAGS) -c $*.f90
+	$(FC) $(FFLAGS) -c -Wunused  $*.f90
 
 bader: $(OBJS) main.o
 	rm -f bader 

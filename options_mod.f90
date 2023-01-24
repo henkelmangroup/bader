@@ -25,14 +25,12 @@
       LOGICAL :: print_sum_bader, print_sum_atom
       LOGICAL :: print_bader_index, print_atom_index
       LOGICAL :: verbose_flag, ref_flag, find_critpoints_flag
-      LOGICAL :: leastsquare_flag
       LOGICAL :: print_surfaces_atoms
       REAL(q2) :: par_tem, par_gradfloor
       REAL(q2) :: par_distance
       REAL(q2) :: par_newtonr, par_sr
       LOGICAL :: ismolecule
       LOGICAL :: iscrystal
-      LOGICAL :: noInterpolation_flag
       LOGICAL :: debugMode
       LOGICAL :: dohes
       LOGICAL :: enableDensityDescend,enableCHGCARSmoothening
@@ -104,8 +102,6 @@
       opts%ref_flag = .FALSE.
       opts%find_critpoints_flag = .FALSE.
       opts%autocp_flag = .FALSE.
-      opts%leastsquare_flag = .FALSE.
-      opts%noInterpolation_flag = .FALSE.
       opts%print_surfaces_atoms = .FALSE.
       opts%enableDensityDescend = .FALSE.
       opts%enableCHGCARSmoothening = .FALSE.
@@ -150,13 +146,6 @@
         ELSEIF (p(1:ip) == '-h') THEN
           CALL write_help()
           STOP
-        ! Use least square methods for finding gradient and curvature for crit
-        ! point
-        ELSEIF (p(1:ip) == '-ls') THEN
-          opts%leastsquare_flag = .TRUE.
-        ! Find critical points without any interpolation
-        ELSEIF (p(1:ip) == '-ni') THEN 
-          opts%noInterpolation_flag = .TRUE.
         ! Verbose
         ELSEIF (p(1:ip) == '-v') THEN
           opts%verbose_flag = .TRUE.

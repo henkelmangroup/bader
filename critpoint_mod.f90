@@ -17,15 +17,6 @@
     PRIVATE 
     PUBLIC :: critpoint_find
 
-    !TYPE hessian
-
-    !  ! du dv dw are derivatives of the three original lattice vectors read from
-    !  ! CHGCAR
-    !  REAL(q2), DIMENSION(3) ::  du, dv, dw
-    !  REAL(q2) :: dudu, dvdv, dwdw, dudv, dudw, dvdw
-    !  ! eigval and eigvec are eigenvalues and eigvectors of hessian matrix
-    !END TYPE
-
     TYPE cpc ! stands for critical point candidate
       INTEGER, DIMENSION(3) :: ind  ! these are the indices of the cp
       REAL(q2), DIMENSION(3) :: trueind,truer,grad,eigvals,r
@@ -37,7 +28,6 @@
       LOGICAL :: hasProxy, isunique
     END TYPE
     REAL(q2) :: voxvol
-    !INTEGER :: stat
     CONTAINS
   
     ! Counts the amount of negative modes in eigenvalues
@@ -73,16 +63,15 @@
       static_search
     REAL(q2), DIMENSION(8,3,3) :: nnhes !hessian of 8 nn
     REAL(q2), DIMENSION(10,3) :: rList,temList
-    REAL(q2), DIMENSION(8,3) :: finRList, nngrad  
+    REAL(q2), DIMENSION(8,3) :: nngrad  
     REAL(q2), DIMENSION(3,13) :: matwprime
     REAL(q2), DIMENSION(3,3) :: hessianMatrix, eigvecs, inverseHessian, interpolHessian, &
       ggrid, matm, outerproduct
     REAL(q2), DIMENSION(26) :: wi
-    REAL(q2), DIMENSION(8) :: vals
     REAL(q2), DIMENSION(3) :: tem, eigvals, truer, grad, prevgrad, temprealr, &
       distance, & ! vector to 000 in trilinear 
-      iP, fP, pr, finR, nexttem, previoustem, averager, temcap, temscale
-    REAL(q2) :: stepsize, temnormcap, iS
+      iP,finR, nexttem, previoustem, averager, temcap, temscale
+    REAL(q2) :: temnormcap
 
     INTEGER, DIMENSION(:,:), ALLOCATABLE :: descendPoints, ringPoints, nnind, &
       atom_connectivity, nucleiInd 
@@ -90,19 +79,19 @@
     INTEGER, DIMENSION(26,3) :: vit
     INTEGER, DIMENSION(20,3) :: iniIList
     INTEGER, DIMENSION(8,3) :: nn ! alternative trilinear approx.
-    INTEGER, DIMENSION(3,26) :: vi, matw
+    INTEGER, DIMENSION(3,26) :: vi
     INTEGER, DIMENSION(3) :: p, tempr
-    INTEGER, DIMENSION(2) :: connectedAtoms, doubleascend_test
-    INTEGER :: n1, n2, n3, cptnum, ucptnum, i, j, k, debugnum,ij, trajcount, trajtotal, &
+    INTEGER, DIMENSION(2) :: connectedAtoms
+    INTEGER :: n1, n2, n3, cptnum, ucptnum, i, j, k, debugnum,ij, &
       negcount, bondcount, ringcount, maxcount, cagecount, uBondCount, uRingCount, & 
-      umaxcount, uCageCount, setcount, counter, stat, axisnum, xmin,xmax,ymin,ymax, &
-      zmin,zmax,ios, avgMode, stepcount, nnlayers, averagecount, repeatcount
+      uCageCount, setcount, stat, axisnum,&
+      avgMode, stepcount, nnlayers, averagecount
 
-    CHARACTER(128) :: string,debugFlags,smoothenedCHGCAR
+    CHARACTER(128) :: smoothenedCHGCAR
 
     LOGICAL :: HCF, LDM, LDM_DetectCircling, LDM_ReduceCP, LDM_DensityDescend,LDM_RecordCPRLight, &
       LDM_NRTFGP,LDM_CalcTEMLat,LDM_RecordCPR, LDM_GradMagGrad, LDM_RingAscend, LDM_Trajectories, &
-      isUniqueTest, invac, isReduced, phmrCompliant
+      isUniqueTest, isReduced, phmrCompliant
 
     ! below are variables for least sqaures gradient
     stat = 0 ! 0 means nothing
@@ -133,11 +122,6 @@
       CALL read_charge_chgcar(ions,chg,smoothenedCHGCAR,opts)
     END IF
     !STOP
-    IF (opts%leastsquare_flag .EQV. .TRUE. ) THEN
-      PRINT *, 'Using least square gradient'
-      PRINT *, "This function is broken right now."
-      STOP
-    END IF
     HCF = .FALSE.
     LDM = .FALSE.
     IF (opts%debugMode) THEN
@@ -180,44 +164,11 @@
     cagecount = 0
     ucptnum = 0
     cptnum = 0
-   ! !********** Debug part*********
-   ! iP = (/0.,0.,6.216/)
-   ! fP = (/1.234,-0.712,6.216/)
-   ! iS = 0.01
-   ! xmin = 8
-   ! xmax = 11
-   ! ymin = 3
-   ! ymax = 6
-   ! zmin = 70
-   ! zmax = 73
-   ! CALL DebugLine(iP,fP,iS,chg)   
-   ! CALL DebugRGHLat(xmin,xmax,ymin,ymax,zmin,zmax,chg)
-
-   ! STOP
-   ! ! ********* End Debuging *******
     OPEN(1,FILE='GRAD.dat',STATUS='REPLACE',ACTION='WRITE')
     WRITE(1,*) 'norm      ','| del a      | ','    del b     |','    del c'
     OPEN(2,FILE='HES.dat',STATUS='REPLACE',ACTION='WRITE')
     debugnum = 0
 
-    IF ( opts%leastsquare_flag .EQV. .TRUE. )THEN
-      vi = makevi()
-      vit = TRANSPOSE(vi)
-      ggrid = makeggrid(chg,ions)
-      matm = 0.0_q2
-      DO i = 1, 26
-        outerproduct(1,1)= vi(1,i) * vit(i,1)
-        outerproduct(1,2)= vi(1,i) * vit(i,2)
-        outerproduct(1,3)= vi(1,i) * vit(i,3)
-        outerproduct(2,1)= vi(2,i) * vit(i,1)
-        outerproduct(2,2)= vi(2,i) * vit(i,2)
-        outerproduct(2,3)= vi(2,i) * vit(i,3)
-        outerproduct(3,1)= vi(3,i) * vit(i,1)
-        outerproduct(3,2)= vi(3,i) * vit(i,2)
-        outerproduct(3,3)= vi(3,i) * vit(i,3)
-        matm = matm + wi(i) * outerproduct
-      END DO
-    END IF
     nnlayers = findnnlayers(ions)
     nnind = findnn(truer,nnlayers,chg,ions)
 
@@ -282,15 +233,6 @@
         PRINT *, "location is "
         PRINT *, temprealr
       END IF
-      IF (opts%noInterpolation_flag) THEN
-        maxcount = ucptnum
-        uRingCount = 0
-        uBondCount = 0
-        uCageCount = 0
-        cpl(ucptnum)%grad = 0
-        cpl(ucptnum)%hessianMatrix = 0
-        cpl(ucptnum)%negcount = 3
-      END IF
     END DO
     ! ascension results may not give the best hessian. so the types are set
     ! manually.
@@ -309,19 +251,12 @@
     !PRINT *, 'after adjustments, CP counts are'
     !PRINT *, maxcount, uBondCount, uRingCount, uCageCount
 
-    IF  (opts%noInterpolation_flag) THEN
-      !CALL minimasearch(chg,cptnum,cpl,bdr,matm,matwprime, &
-      !                      wi,vi,vit,ggrid,outerproduct,opts,uCageCount,&
-      !                      nnLayers,ions)
-    ELSE IF (opts%static_search) THEN
+    IF (opts%static_search) THEN
       PRINT *, "starting static search"
       static_search = ReadStatic()
       PRINT *, static_search
 
       CONTINUE
-
-
-
     ELSE 
       PRINT *, "entering main loop"
       DO n1 = 1,chg%npts(1)
@@ -336,51 +271,36 @@
             ! but that has been shown to be not reliable, as critical points are
             ! missed commonly. 
             p = (/n1,n2,n3/)
-            IF (opts%leastsquare_flag .EQV. .TRUE.) THEN
-              !grad = lsg(p,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
-              grad = lsg(p,chg,matm,matwprime,vi,ggrid)
-              !hessianMatrix = &
-                !lsh(p,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
-              hessianMatrix = &
-                lsh(p,chg,matm,matwprime,vi,ggrid)
+            ! use central difference
+            trueR(1) = REAL(n1,q2)
+            trueR(2) = REAL(n2,q2)
+            trueR(3) = REAL(n3,q2)
+            IF (LDM) THEN
+              PRINT *,  "Finding NRT initiation point at "
+              PRINT *, p
+              PRINT *, "Calculating tem"
+            END IF
+            tem = CalcTEMGrid(p,chg,grad,hessianMatrix)
+            !tem = CalcTEMLat(trueR,chg,&
+            !  temScale,previousTEM,grad,LDM_CalcTEMLat)
+            IF (LDM) THEN
+              tempRealR = tem
+              grad = CDGrad(p,chg)
+              hessianMatrix = CDHessian(p,chg)
               IF (opts%dohes) THEN
                 CALL DiagonalOnlyHes(hessianMatrix)
               END IF
               tem = - MATMUL(INVERSE(hessianMatrix),grad)
-              ! tem is now in cartesian. convert it back to lattice
+              ! this tem is in cartesian. Transform it to lattice 
               tem = MATMUL(chg%car2lat,tem)
-            ELSE 
-              ! use central difference
-              trueR(1) = REAL(n1,q2)
-              trueR(2) = REAL(n2,q2)
-              trueR(3) = REAL(n3,q2)
-              IF (LDM) THEN
-                PRINT *,  "Finding NRT initiation point at "
-                PRINT *, p
-                PRINT *, "Calculating tem"
-              END IF
-              tem = CalcTEMGrid(p,chg,grad,hessianMatrix)
-              !tem = CalcTEMLat(trueR,chg,&
-              !  temScale,previousTEM,grad,LDM_CalcTEMLat)
-              IF (LDM) THEN
-                tempRealR = tem
-                grad = CDGrad(p,chg)
-                hessianMatrix = CDHessian(p,chg)
-                IF (opts%dohes) THEN
-                  CALL DiagonalOnlyHes(hessianMatrix)
-                END IF
-                tem = - MATMUL(INVERSE(hessianMatrix),grad)
-                ! this tem is in cartesian. Transform it to lattice 
-                tem = MATMUL(chg%car2lat,tem)
-                IF ( (tem(1) /= tempRealR(1)) .OR. &
-                     (tem(2) /= tempRealR(2)) .OR. &
-                     (tem(3) /= tempRealR(3))) THEN
-                 PRINT *, "ERROR!  DIfferent tem obtained!"
-                 PRINT *, "CalcTEMGrid produced"
-                 PRINT *, tempRealR
-                 PRINT *, "Direct calculation produced"
-                 PRINT *, tem
-                END IF
+              IF ( (tem(1) /= tempRealR(1)) .OR. &
+                   (tem(2) /= tempRealR(2)) .OR. &
+                   (tem(3) /= tempRealR(3))) THEN
+               PRINT *, "ERROR!  DIfferent tem obtained!"
+               PRINT *, "CalcTEMGrid produced"
+               PRINT *, tempRealR
+               PRINT *, "Direct calculation produced"
+               PRINT *, tem
               END IF
             END IF
             IF ( (ABS(tem(1)) <= 1.5 + opts%par_tem .AND. &
@@ -505,26 +425,12 @@
                   ! Below contains the unit test for CalcTEMLat
                   PRINT *, "Starting debug output for CalcTEMLat"
                   DO j = 1,8
-                    IF (opts%leastsquare_flag .EQV. .true.) THEN
-                      !nngrad(j,:) = lsg(nnind(j,:),chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
-                      !hessianmatrix = lsh(nnind(j,:),chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
-                      nngrad(j,:) = lsg(nnind(j,:),chg,matm,matwprime,vi,ggrid)
-                      hessianmatrix = lsh(nnind(j,:),chg,matm,matwprime,vi,ggrid)
-                      IF (opts%dohes) THEN
-                        CALL DiagonalOnlyHes(hessianMatrix)
-                      END IF
-                      inversehessian = inverse(hessianmatrix)
-                      nnhes(j,1,:) = hessianmatrix(1,:)
-                      nnhes(j,2,:) = hessianmatrix(2,:)
-                      nnhes(j,3,:) = hessianmatrix(3,:)
-                    ELSE 
-                      nngrad(j,:) = CDGrad(nnind(j,:),chg)
-                      hessianMatrix = CDHessian(nnind(j,:),chg)
-                      !IF (opts%dohes) THEN
-                      !  CALL DiagonalOnlyHes(hessianMatrix)
-                      !END IF
-                      nnhes(j,:,:) = hessianMatrix
-                    END IF
+                    nngrad(j,:) = CDGrad(nnind(j,:),chg)
+                    hessianMatrix = CDHessian(nnind(j,:),chg)
+                    !IF (opts%dohes) THEN
+                    !  CALL DiagonalOnlyHes(hessianMatrix)
+                    !END IF
+                    nnhes(j,:,:) = hessianMatrix
                   END DO
                    !row find the nearest neighbors at this new locaiton
                    !first update critical point location
@@ -813,219 +719,6 @@
     CLOSE(2)
   END SUBROUTINE critpoint_find
 
-  SUBROUTINE connectivity_check(bdr, chg, opts, ions, cpl)
-    TYPE(bader_obj), INTENT(IN) :: bdr
-    TYPE(charge_obj), INTENT(IN) :: chg
-    TYPE(options_obj), INTENT(IN) :: opts
-    TYPE(ions_obj), INTENT(IN) :: ions
-    TYPE(cpc), ALLOCATABLE, DIMENSION(:), INTENT(IN) :: cpl
-
-    INTEGER :: i,j,k,l
-    INTEGER, DIMENSION(3,2) :: current_loc,initial_boost,current_shift
-    INTEGER, DIMENSION(3,26) :: shifts_to_check
-    INTEGER :: num_pos_eigvals,pos_eigval_index,max_shift_index
-    REAL, DIMENSION(3) :: bond_eigvec
-    REAL :: bond_eigvec_norm,current_rho
-    LOGICAL, DIMENSION(2) :: found_maximum,found_shift
-    REAL :: max_shift_rho
-    INTEGER :: initial_boost_size
-    INTEGER :: num_bond
-    !INTEGER :: hit_index
-    !INTEGER, ALLOCATABLE, DIMENSION(:,:) :: all_hits
-    INTEGER, ALLOCATABLE, DIMENSION(:) :: num_bonds
-    REAL :: min_fit
-    REAL :: tmp_fit
-    INTEGER :: min_fit_index
-
-    !print *, "kdebug connectivity check"
-    !do i = 1,size(cpl)
-    !   print *, cpl(i)%truer
-    !end do
-
-    allocate(num_bonds(ions%nions))
-    num_bonds(:) = 0
-
-    shifts_to_check(:,1) = [1,1,1]
-    shifts_to_check(:,2) = [0,1,1]
-    shifts_to_check(:,3) = [-1,1,1]
-    shifts_to_check(:,4) = [1,0,1]
-    shifts_to_check(:,5) = [0,0,1]
-    shifts_to_check(:,6) = [-1,0,1]    
-    shifts_to_check(:,7) = [1,1,1]
-    shifts_to_check(:,8) = [0,1,1]
-    shifts_to_check(:,9) = [-1,1,1]
-    shifts_to_check(:,10) = [1,1,0]
-    shifts_to_check(:,11) = [0,1,0]
-    shifts_to_check(:,12) = [-1,1,0]
-    shifts_to_check(:,13) = [1,0,0]
-    shifts_to_check(:,14) = [-1,0,0]
-    shifts_to_check(:,15) = [1,-1,0]
-    shifts_to_check(:,16) = [0,-1,0]
-    shifts_to_check(:,17) = [-1,-1,0]
-    shifts_to_check(:,18) = [1,1,-1]
-    shifts_to_check(:,19) = [0,1,-1]
-    shifts_to_check(:,20) = [-1,1,-1]
-    shifts_to_check(:,21) = [1,0,-1]
-    shifts_to_check(:,22) = [0,0,-1]
-    shifts_to_check(:,23) = [-1,0,-1]
-    shifts_to_check(:,24) = [1,-1,-1]
-    shifts_to_check(:,25) = [0,-1,-1]
-    shifts_to_check(:,26) = [-1,-1,-1]
-
-    initial_boost_size = 2
-    !num_bond = 0
-    !hit_index = 1
-
-    !count_bonds: do i=1,size(cpl)
-       !print *, "iteration of count_bonds"
-       !num_pos_eigvals = 0
-       !do j=1,3
-          !if (cpl(i)%eigvals(j) > 0) then
-             !num_pos_eigvals = num_pos_eigvals + 1
-          !end if
-       !end do
-       !if (num_pos_eigvals .eq. 1) then
-          !print *, "incrementing num_bond"
-          !num_bond = num_bond + 1
-       !end if
-    !end do count_bonds
-
-    !print *, "num_bond", num_bond
-    !allocate(all_hits(3, num_bond * 2))
-
-    loop_over_points: do i = 1, size(cpl) ! do concurrent (i = 1:size(cpl))
-       ! step 0: is this a bond critical point? if not, go to the next
-       ! step 1: follow the eigenvector of the one positive eigenvalue in a sphere with radius 2 [a 2x2x2 cube tbh] in the positive and negative directions
-       ! step 2: follow that point to another one nearby with bigger charge!
-
-       ! step 0
-       num_pos_eigvals = 0
-       do j = 1,3
-          if (cpl(i)%eigvals(j) > 0) then
-             num_pos_eigvals = num_pos_eigvals + 1
-             pos_eigval_index = j ! cpi(i)%eigvals(j)
-             if (num_pos_eigvals > 1) then
-                cycle loop_over_points
-             end if
-          end if
-       end do
-
-       if (num_pos_eigvals .eq. 0) then
-          cycle loop_over_points
-       end if
-       
-       ! step 1
-       current_loc(:,1) = nint(cpl(i)%truer)
-       current_loc(:,2) = current_loc(:,1)
-       bond_eigvec = cpl(i)%eigvecs(:,pos_eigval_index)
-       bond_eigvec_norm = (bond_eigvec(1)**2 + bond_eigvec(2)**2 + bond_eigvec(3)**2)**0.5
-       do concurrent (j = 1:3)
-          initial_boost(j,1) = nint(bond_eigvec(j) * initial_boost_size / bond_eigvec_norm)
-          initial_boost(j,2) = - initial_boost(j,1)
-       end do
-       
-       do concurrent (j = 1:2)
-          current_loc(:,j) = current_loc(:,j) + initial_boost(:,j)
-       end do
-
-       found_maximum = [.false., .false.]
-
-       ! step 2
-       ! print *, "examining new bond critical point at ", cpl(i)%ind
-
-       do while (.not. found_maximum(1) .or. .not. found_maximum(2))
-          do j=1,2
-             if (found_maximum(j)) then
-                cycle
-             end if
-             
-             !print *, "trying to find shift for", j
-
-             current_rho = chg%rho(current_loc(1,j), current_loc(2,j), current_loc(3,j))
-             found_shift(j) = .false.
-
-             !print *, j, current_loc(:,j), current_rho
-             
-             max_shift_index = 1
-             max_shift_rho = current_rho
-             examine_shift: do k = 1,26
-                current_shift(:,j) = current_loc(:,j) + shifts_to_check(:,k)
-                call pbc(current_shift(:,j), chg%npts)
-                
-                if (k .eq. 63) then
-                   cycle examine_shift
-                end if
-
-                !do l = 1,3
-                   !if (current_shift(l,j) < 1 .or. current_shift(l,j) > chg%npts(l)) then
-                      !print *, "reached boundary"
-                      !cycle examine_shift
-                   !end if
-                !end do
-
-                !print *, "shift=", current_shift(:,j)
-                !print *, "chg@shift=", chg%rho(current_shift(1,j), current_shift(2,j), current_shift(3,j))
-
-                if (chg%rho(current_shift(1,j), current_shift(2,j), current_shift(3,j)) > max_shift_rho) then
-                   max_shift_index = k
-                   max_shift_rho = chg%rho(current_shift(1,j), current_shift(2,j), current_shift(3,j))
-                   !print *, "found shift for", j
-                   found_shift(j) = .true.
-                end if
-             end do examine_shift
-
-             if (.not. found_shift(j)) then
-                !print *, "no shift -> found maximum for", j, "at", current_loc(:,j)
-                found_maximum(j) = .true.
-                !all_hits(:,hit_index) = current_loc(:,j)
-                !hit_index = hit_index + 1
-
-                min_fit_index = 0
-                min_fit = 1000
-                do k=1,ions%nions
-                   !print *, "checking fit between", current_loc(:,j), "and", ions%r_lat(k,:), "aka", nint(ions%r_lat(k,:))
-                   tmp_fit = 0
-                   do l=1,3
-                      tmp_fit = tmp_fit + abs(ions%r_lat(k,l) - current_loc(l,j))
-                   end do
-                   if (tmp_fit < min_fit) then
-                      min_fit_index = k
-                      min_fit = tmp_fit
-                   end if
-                end do
-                !print *, "orig_pos=", nint(cpl(i)%truer), "j=", j, "current_loc=", current_loc(:,j), "match w", min_fit_index
-                if (min_fit_index > 0) then
-                   num_bonds(min_fit_index) = num_bonds(min_fit_index) + 1
-                end if
-             else
-                current_loc(:,j) = current_loc(:,j) + shifts_to_check(:,max_shift_index)
-                call pbc(current_loc(:,j), chg%npts)
-             end if
-          end do
-          ! !print *, found_shift
-          !print *, found_maximum
-       end do
-
-       if (all(current_loc(:,1) .eq. current_loc(:,2))) then
-          !print *, "yikes! for bonding critical point", cpl(i)%ind, "both directions converge to", current_loc(:,1)
-       end if
-    end do loop_over_points
-
-
-    open(15360,FILE='connectivity.dat',STATUS='REPLACE',ACTION='WRITE')
-    do i=1,ions%nions
-       write(15360,*) num_bonds(i)
-    end do
-
-    !print *, num_bonds
-    !do i = 1, size(all_hits(1,:))
-       !print *, all_hits(:,i)
-    !end do
-
-    !print *, "num_bond", num_bond
-    !print *, "num_cpl", size(cpl)
-  END SUBROUTINE connectivity_check
-  
     ! this function determins when looking for nn, how many layers to search
     ! within. It looks for the smallest vector sum of lattice vectors, and the
     ! largest vector
@@ -1070,7 +763,6 @@
       REAL(q2), DIMENSION(3) :: p
       TYPE(charge_obj) :: chg
       INTEGER, DIMENSION(8,3) :: SimpleNN
-      INTEGER :: i
       SimpleNN(1,:) = (/FLOOR(p(1)),FLOOR(p(2)),FLOOR(p(3))/)
       SimpleNN(2,:) = (/CEILING(p(1)),FLOOR(p(2)),FLOOR(p(3))/)
       SimpleNN(3,:) = (/FLOOR(p(1)),CEILING(p(2)),FLOOR(p(3))/)
@@ -1096,17 +788,12 @@
       TYPE(weight_obj), ALLOCATABLE, DIMENSION(:) :: nndist 
       ! instead of storing weight, this is used to
       ! store distances so that they can be sorted
-      INTEGER,DIMENSION(:,:),ALLOCATABLE :: FindNN,tfindnn
-      REAL(q2),DIMENSION(3) :: intcart,pcart
-      INTEGER,DIMENSION(3) :: p,maxs
-      REAL(q2), DIMENSION(3) :: truer, truecart
+      INTEGER,DIMENSION(:,:),ALLOCATABLE :: FindNN
+      REAL(q2),DIMENSION(3) :: pcart
+      REAL(q2), DIMENSION(3) :: truer,truecart
       INTEGER,DIMENSION(3) :: baseind
       INTEGER, ALLOCATABLE, DIMENSION(:) :: rank
-      REAL(q2),DIMENSION(27) :: dist
-      INTEGER,DIMENSION(27) :: scores
-      INTEGER,DIMENSION(27,3) :: p2
       INTEGER :: i,j,k,counter, nnlayers
-      INTEGER, DIMENSION(8,3) :: corners, tempcorners
       ! since only closest neigherbos of current grid point
       ! will be used for interpolation
       counter = 0
@@ -1218,8 +905,7 @@
       REAL(q2),DIMENSION(8,3) :: vals
       !REAL(q2) :: rho000, rho001, rho010, rho100, rho011, rho101, rho110, rho111
       REAL(q2),DIMENSION(3) :: val00_, val01_, val10_, val11_
-      REAL(q2),DIMENSION(3) :: val0__, val1__, val_0_, val_1_, val__0, val__1
-      REAL(q2),DIMENSION(3) :: val_00, val_01, val_10, val_11
+      REAL(q2),DIMENSION(3) :: val0__, val1__
  
       p1 = FLOOR(r(1))
       p2 = FLOOR(r(2))
@@ -1251,9 +937,9 @@
       REAL(q2) :: f1, f2, f3, g1, g2, g3
       REAL(q2),DIMENSION(8) :: vals
       !REAL(q2) :: rho000, rho001, rho010, rho100, rho011, rho101, rho110, rho111
-      REAL(q2) :: val00_, val01_, val10_, val11_
-      REAL(q2) :: val0__, val1__, val_0_, val_1_, val__0, val__1
-      REAL(q2) :: val_00, val_01, val_10, val_11
+      REAL(q2) :: val01_, val10_, val11_
+      REAL(q2) :: val0__, val1__
+      REAL(q2) :: val00_
  
       p1 = FLOOR(r(1))
       p2 = FLOOR(r(2))
@@ -1314,8 +1000,7 @@
       !REAL(q2) :: rho000, rho001, rho010, rho100, rho011, rho101, rho110,
       !rho111
       REAL(q2),DIMENSION(3,3) :: val00_, val01_, val10_, val11_
-      REAL(q2),DIMENSION(3,3) :: val0__, val1__, val_0_, val_1_, val__0, val__1
-      REAL(q2),DIMENSION(3,3) :: val_00, val_01, val_10, val_11
+      REAL(q2),DIMENSION(3,3) :: val0__, val1__
 
       p1 = FLOOR(r(1))
       p2 = FLOOR(r(2))
@@ -1504,8 +1189,7 @@
     FUNCTION findstepsize(r)
       REAL(q2) :: findstepsize    
       REAL(q2),DIMENSION(3) :: r
-      REAL(q2) :: f1,f2,f3,c1,c2,c3
-      
+      REAL(q2) :: f1,f2,f3
       f1 = MIN(ABS(r(1)),ABS(0.5-ABS(r(1)))) 
       f2 = MIN(ABS(r(2)),ABS(0.5-ABS(r(2))))
       f3 = MIN(ABS(r(3)),ABS(0.5-ABS(r(3))))
@@ -1542,11 +1226,9 @@
     !FUNCTION lsg(r0,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct) 
       TYPE(charge_obj) :: chg
       REAL(q2), DIMENSION(3) :: lsg
-      !INTEGER, DIMENSION(3) :: p
       ! input may either be integers or not. May need to change later on.
       INTEGER, DIMENSION(3) :: r0
       ! r0 is the position of the current grid point
-      !INTEGER, DIMENSION(26,3) :: vi , nbp
       INTEGER,DIMENSION(3,26) :: vi, nbp
       ! v is a column of coordinates. 
       ! nbp is indecies of neighbors, to be used for pbc
@@ -1554,24 +1236,14 @@
       ! vit is the transpose of vi
       ! vi are the vectors from point r0 to ri, where ri are all neighbors of r0
       REAL(q2), DIMENSION(3) :: frakturavi
-      REAL(q2), DIMENSION(26) :: w, di 
-      REAL(q2), DIMENSION(3,26) :: matw
-      !REAL(q2), DIMENSION(26,3) :: matw
       REAL(q2), DIMENSION(3,13) :: matwprime
-      !REAL(q2), DIMENSION(13,3) :: matwprime
       REAL(q2), DIMENSION(3,3) ::  matm
-      !REAL(q2), DIMENSION(26) :: wi
       ! wi are the weights of each neighbor
-      REAL(q2), DIMENSION(3,26) :: bi
-      ! bi is weight times direction times difference towards each neighbor
-      REAL(q2), DIMENSION(3) :: vecb
       REAL(q2), DIMENSION(13) :: deltarho
       ! deltarho is the difference between +ri and -ri
       REAL(q2), DIMENSION(3,3) :: ggrid
       ! ggrid is the metric tensor, from grid basis to dual basis
-      INTEGER :: i, j, k
-      REAL(q2), DIMENSION(3,3) :: testermatrix
-      !REAL(q2), DIMENSION(3,3) :: outerproduct
+      INTEGER :: i
       ! get the value differences to all neighbors
       PRINT *, 'position is'
       PRINT *, r0
@@ -1810,12 +1482,7 @@
       stepsize(1) = 0.5
       stepsize(2) = 0.5
       stepsize(3) = 0.5
-      IF (opts%leastSquare_flag) THEN
-        !grad = lsg(ind,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
-        grad = lsg(ind,chg,matm,matwprime,vi,ggrid)
-      ELSE
-        grad = cdgrad(ind,chg)
-      END IF
+      grad = cdgrad(ind,chg)
       ! this gradient is in cartesian. convert it to lattice
       grad = MATMUL(chg%lat2car,grad)
       DO WHILE (stepsize(1) >= 0.01 .AND. &
@@ -1834,13 +1501,7 @@
         nnind = SimpleNN(rn,chg)
         DO j = 1,8
           CALL pbc(nnind(j,:),chg%npts)
-          !IF (opts%leastsquare_flag .EQV. .TRUE.) THEN
-          IF ( opts%leastSquare_flag ) THEN
-            !nngrad(j,:) = lsg(nnind(j,:),chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
-            nngrad(j,:) = lsg(nnind(j,:),chg,matm,matwprime,vi,ggrid)
-          ELSE 
-            nngrad(j,:) = cdgrad(nnind(j,:),chg)
-          END IF
+          nngrad(j,:) = cdgrad(nnind(j,:),chg)
         END DO
         distance = rn - nnind(1,:)
          !Row find the nearest neighbors at this new locaiton
@@ -2221,12 +1882,7 @@
       stepsize(1) = 0.5
       stepsize(2) = 0.5
       stepsize(3) = 0.5
-      IF (opts%leastsquare_flag) THEN
-        !grad = lsg(ind,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
-        grad = lsg(ind,chg,matm,matwprime,vi,ggrid)
-      ELSE
-        grad = cdgrad(ind,chg)
-      END IF
+      grad = cdgrad(ind,chg)
 !      PRINT *, 'initial grad is'
 !      PRINT *, grad
       ! this gradient is in cartesian. convert it to lattice
@@ -2256,12 +1912,7 @@
         nnind = SimpleNN(rn,chg)
         DO j = 1,8
           CALL pbc(nnind(j,:),chg%npts)
-          !IF (opts%leastsquare_flag .EQV. .TRUE.) THEN
-          IF ( .TRUE. ) THEN
-            !nngrad(j,:) = lsg(nnind(j,:),chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
-            nngrad(j,:) = cdgrad(nnind(j,:),chg)
-          ELSE 
-          END IF
+          nngrad(j,:) = cdgrad(nnind(j,:),chg)
         END DO
         distance = rn - nnind(1,:)
         grad = trilinear_interpol_grad(nngrad,distance) ! val r interpol
@@ -2288,278 +1939,6 @@
       descension = rn
       RETURN 
     END FUNCTION 
-
-
-    !SUBROUTINE minimasearch(chg,cptnum,cpl,bdr,matm,matwprime, &
-    !                      wi,vi,vit,ggrid,outerproduct,opts,uCageCount,&
-    !                      nnLayers, ions)
-    SUBROUTINE minimasearch(chg,cptnum,cpl,bdr,matm,matwprime, &
-                          vi,ggrid,opts,uCageCount,&
-                          ions)
-      TYPE(charge_obj) :: chg
-      TYPE(bader_obj) :: bdr
-      TYPE(options_obj) :: opts
-      TYPE(ions_obj) :: ions
-      TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpl
-      INTEGER :: cptnum, uCageCount
-      !INTEGER :: nnLayers
-      INTEGER :: n1,n2,n3,i, counter
-      INTEGER :: bx,by,bz
-      INTEGER, DIMENSION(26,3) :: nn
-      LOGICAL :: isminimum
-      INTEGER, DIMENSION(3) :: minpos
-      REAL(q2), DIMENSION(3) :: minr
-      INTEGER, DIMENSION(3,26) :: vi, matw
-      !INTEGER, DIMENSION(26,3) :: vit
-      REAL(q2), DIMENSION(3,3) :: ggrid
-      !REAL(q2), DIMENSION(26) :: wi
-      REAL(q2), DIMENSION(3,13) :: matwprime
-      REAL(q2), DIMENSION(3,3) :: matm
-      !REAL(q2), DIMENSION(3,3) :: outerproduct
-      PRINT *, 'Performing initial search for minima'
-      counter = 0
-      bx = chg%npts(1)
-      by = chg%npts(2)
-      bz = chg%npts(3)
-      DO n1 = 1 , chg%npts(1)  
-!        PRINT *, n1
-        DO n2 = 1 , chg%npts(2)
-          DO n3 = 1 , chg%npts(3)
-            ! do not search in vacuum
-            IF (bdr%volnum(n1,n2,n3) == bdr%bnum + 1) THEN
-              CYCLE
-            END IF
-!            IF ( .NOT. is_vol_edge(bdr,chg,(/n1,n2,n3/))) THEN
-!              CYCLE
-!            END IF
-!            PRINT *, 'checking proxy'
-            IF ( ProxyToCPCandidate((/n1,n2,n3/),opts,cpl,cptnum,chg)) THEN
-              CYCLE
-            END IF
-!            PRINT *, 'not proxy'
-            isminimum = .TRUE.
-            DO i = 1,26
-              nn(i,:) = (/n1,n2,n3/) + vi(:,i)
-            END DO
-            DO i = 1, 26
-              CALL pbc(nn(i,:),chg%npts)
-              IF (rho_val(chg,n1,n2,n3) >= rho_val(chg,nn(i,1),nn(i,2),nn(i,3))) THEN
-                isminimum = .FALSE.
-                !EXIT
-              END IF
-            END DO
-!            PRINT *,'finished comparing values'
-            IF ( isminimum .EQV. .TRUE.  ) THEN
-              cptnum = cptnum + 1
-              uCageCount = uCageCount + 1
-              minpos = (/n1,n2,n3/)
-              !minr = descension(minpos,chg,matm,matwprime, &
-              !            wi,vi,vit,ggrid,outerproduct,opts,nnLayers,ions)
-              minr = descension(minpos,chg,matm,matwprime, &
-                                vi,ggrid,opts,ions)
-              cpl(cptnum)%ind = (/n1,n2,n3/)
-            END IF
-          END DO
-        END DO
-      END DO
-      PRINT *, 'minima search completed'
-    END SUBROUTINE
-
-    ! follow the gradient down to a minimum of the squared gradient of the
-    ! charge density
-    !SUBROUTINE sqgradientdescend(r0,chg,matm,matwprime,wi,vi,vit, &
-    !                   ggrid,outerproduct,opts,rn,invac,bdr,nnLayers,ions)
-    SUBROUTINE sqgradientdescend(r0,chg,matm,matwprime,vi, &
-                       ggrid,opts,rn,invac,bdr,ions)
-      ! this function should find all critical points
-      TYPE(bader_obj) :: bdr
-      TYPE(ions_obj) :: ions
-      INTEGER, DIMENSION(3) :: r0, rt
-      INTEGER, DIMENSION(3) :: crossings ! count how many times pbc crossed
-      TYPE(charge_obj) :: chg
-      TYPE(options_obj) :: opts
-      REAL(q2),DIMENSION(3) ::  distance
-      INTEGER, DIMENSION(:,:),ALLOCATABLE :: nnInd
-      REAL(q2), DIMENSION(8,3) :: nngrad
-      INTEGER :: i, j, stepcount, loopcount
-      !INTEGER :: nnLayers
-      REAL(q2), DIMENSION(3) :: tempr, rn, trn, rnm1 ! rn minus 1
-      REAL(q2), DIMENSION(3) :: grad,  gradnm1, avgrn
-      INTEGER, DIMENSION(3,26) :: vi, matw
-      !INTEGER, DIMENSION(26,3) :: vit
-      REAL(q2), DIMENSION(3,3) :: ggrid
-      !REAL(q2), DIMENSION(26) :: wi
-      REAL(q2), DIMENSION(3,13) :: matwprime
-      REAL(q2), DIMENSION(3,3) :: matm
-      !REAL(q2), DIMENSION(3,3) :: outerproduct
-      REAL(q2), DIMENSION(3) :: p, pbccorrectionr ! keep track of how much is 
-                                ! added to the r to have it fall within the pbc
-      REAL(q2), DIMENSION(3) :: stepsize
-      LOGICAL :: invac, isaveraging
-      ALLOCATE(nnInd(8,3))
-!      ALLOCATE(nnInd((nnlayers*2+1)**3,3))
-      loopcount = 0
-      pbccorrectionr = 0
-      PRINT *, 'r0 is'
-      PRINT *, r0
-      invac = .FALSE.
-      isaveraging = .FALSE.
-      crossings = 0
-      CALL pbc(r0,chg%npts)
-      ! this is the initial grad
-      !grad = lsgsqlsg(r0,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
-      grad = lsgsqlsg(r0,chg,matm,matwprime,vi,ggrid)
-      ! this gradient is in cartesian. 
-      stepcount = 0
-      ! initialize the process
-      rn(1) = REAL(r0(1),q2)
-      rn(2) = REAL(r0(2),q2)
-      rn(3) = REAL(r0(3),q2)
-      stepsize = (/0.5,0.5,0.5/)
-      DO WHILE (stepsize(1) >= 0.01 .OR. &
-                stepsize(2) >= 0.01 .OR. &
-                stepsize(3) >= 0.01)
-        loopcount = loopcount + 1
-        ! the gradient is in cartesian. 
-        gradnm1 = grad
-        rnm1 = rn
-        ! determine where to go, a unit vector
-        IF (ABS(grad(1)) < 0.001 &
-            .AND. ABS(grad(2)) <= 0.001 &
-            .AND. ABS(grad(3)) <= 0.001)  THEN
-          ! we are at a critical point!
-          isaveraging = .FALSE.
-          EXIT
-        END IF
-        tempr = grad / SQRT(SUM(grad*grad))
-        tempr(1) = MIN(stepsize(1), ABS(grad(1))) *  tempr(1)
-        tempr(2) = MIN(stepsize(2), ABS(grad(2))) *  tempr(2)
-        tempr(3) = MIN(stepsize(3), ABS(grad(3))) *  tempr(3)
-        rn = rn - tempr
-        trn = rn
-        CALL pbc_r_lat(rn,chg%npts)
-        pbccorrectionr = pbccorrectionr + rn - trn
-        IF (isaveraging) THEN
-          stepcount = stepcount + 1
-          ! if rn is hopping back and forth at the boundry
-          IF (trn(1) > rn(1) ) THEN
-            crossings(1) = crossings(1) + 1
-          ELSE IF (trn(1) < rn(1)) THEN
-            crossings(1) = crossings(1) - 1
-          END IF
-          IF (trn(2) > rn(2) ) THEN
-            crossings(2) = crossings(2) + 1
-          ELSE IF (trn(2) < rn(2)) THEN
-            crossings(2) = crossings(2) - 1
-          END IF
-          IF (trn(3) > rn(3) ) THEN
-            crossings(3) = crossings(3) + 1
-          ELSE IF (trn(3) < rn(3)) THEN
-            crossings(3) = crossings(3) - 1
-          END IF
-          IF (crossings(1) > 0) THEN
-            avgrn(1) = avgrn(1) + rn(1) + chg%npts(1)
-            PRINT *, 'compensating for leftward PBC'
-          ELSE IF (crossings(1) < 0) THEN
-            avgrn(1) = avgrn(1) + rn(1) - chg%npts(1)
-            PRINT *, 'compensating for rightward PBC'
-          ELSE 
-            avgrn(1) = avgrn(1) + rn(1)
-          END IF
-          IF (crossings(2) > 0) THEN
-            avgrn(2) = avgrn(2) + rn(2) + chg%npts(2)
-            PRINT *, 'compensating for leftward PBC'
-          ELSE IF (crossings(2) < 0) THEN
-            avgrn(2) = avgrn(2) + rn(2) - chg%npts(2)
-            PRINT *, 'compensating for rightward PBC'
-          ELSE 
-            avgrn(2) = avgrn(2) + rn(2)
-          END IF
-          IF (crossings(3) > 0) THEN
-            avgrn(3) = avgrn(3) + rn(3) + chg%npts(3)
-            PRINT *, 'compensating for leftward PBC'
-          ELSE IF (crossings(3) < 0) THEN
-            avgrn(3) = avgrn(3) + rn(3) - chg%npts(3)
-            PRINT *, 'compensating for rightward PBC'
-          ELSE 
-            PRINT *, 'new sum'
-            avgrn = avgrn + rn
-            PRINT *, avgrn
-          END IF
-        END IF
-        ! if the point is in vacuum, stop the descend
-        rt(1) = NINT(rn(1))
-        rt(2) = NINT(rn(2))
-        rt(3) = NINT(rn(3))
-        CALL pbc(rt,chg%npts)
-        IF (bdr%volnum(rt(1),rt(2),rt(3)) == bdr%bnum + 1) THEN
-          rn = (/-1.,-1.,-1./)
-          invac = .TRUE.
-          PRINT *, 'legacy of the void'
-          EXIT 
-        END IF
-        ! if traveled too far, stop the descend
-        PRINT *, 'total distance travelled'
-        PRINT *, ABS(rn(1) - REAL(r0(1),q2) - pbccorrectionr(1)), & 
-                 ABS(rn(2) - REAL(r0(2),q2) - pbccorrectionr(2)), &
-                 ABS(rn(3) - REAL(r0(3),q2) - pbccorrectionr(3))
-        IF (ABS(rn(1) - REAL(r0(1),q2) - pbccorrectionr(1)) >= 3 + opts%par_tem * 3 .OR. &
-            ABS(rn(2) - REAL(r0(2),q2) - pbccorrectionr(2)) >= 3 + opts%par_tem * 3 .OR. &
-            ABS(rn(3) - REAL(r0(3),q2) - pbccorrectionr(3)) >= 3 + opts%par_tem * 3 ) THEN
-            rn = (/-1.,-1.,-1./)
-            PRINT *, 'youve gone too far'
-            EXIT
-        END IF
-        nnind = SimpleNN(rn,chg)
-        DO j = 1,8
-          CALL pbc(nnind(j,:),chg%npts)
-          !IF (opts%leastsquare_flag .EQV. .TRUE.) THEN
-          IF ( opts%leastSquare_flag ) THEN
-            !nngrad(j,:) = lsg(nnind(j,:),chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
-            !nngrad(j,:) =  lsgsqlsg(nnind(j,:),chg,matm,matwprime,wi &
-            !               ,vi,vit,ggrid,outerproduct)
-            nngrad(j,:) =  lsgsqlsg(nnind(j,:),chg,matm,matwprime,&
-                                vi,ggrid)
-          ELSE 
-            nngrad(j,:) = CDGrad(nnind(j,:),chg)
-          END IF
-        END DO
-        distance = rn - nnind(1,:)
-        grad = trilinear_interpol_grad(nngrad,distance) ! val r interpol
-        !nnind = FindNN(rn,nnLayers,chg,ions)
-        !grad = R2GradInterpol(nnind,rn,chg,nnLayers)
-                ! this grad is in cartesian. convert it to lattice
-        ! if grad points backwards, reduce stepsize
-!        IF (grad(1) * gradnm1(1) <= 0 .OR. &
-!            grad(2) * gradnm1(2) <= 0 .OR. & 
-!            grad(3) * gradnm1(3) <= 0 ) THEN
-!            stepsize = stepsize * 0.5
-!            isaveraging = .TRUE.
-!        END IF        
-        IF (grad(1) * gradnm1(1) <= 0 ) THEN
-          stepsize(1) = stepsize(1) * 0.5
-        END IF
-        IF (grad(2) * gradnm1(2) <= 0 ) THEN
-          stepsize(2) = stepsize(2) * 0.5
-        END IF
-        IF (grad(3) * gradnm1(3) <= 0 ) THEN
-          stepsize(3) = stepsize(3) * 0.5
-        END IF
-      END DO 
-      PRINT *, 'finished looping, rn is'
-      PRINT *, rn
-      PRINT *, 'final stepsize is'
-      PRINT *, stepsize
-      IF (isaveraging) THEN
-        rn(1) = avgrn(1) / stepcount
-        rn(2) = avgrn(2) / stepcount
-        rn(3) = avgrn(3) / stepcount
-        CALL pbc_r_lat(rn,chg%npts)
-        PRINT *, 'rn is averaged to be'
-        PRINT *, rn
-      END IF
-    END SUBROUTINE sqgradientdescend
-
 
 
     ! this function gives the ls gradient of the squared ls gradient
@@ -3000,59 +2379,6 @@
     !SUBROUTINE RecordCP(p,chg,matm,matwprime,wi,vi,vit,ggrid &
     !  ,outerproduct,cpl,ucptnum,eigvals,eigvecs, maxcount, uRingCount, &
     !  uBondCount, uCageCount,opts,LDM)
-    SUBROUTINE RecordCP(p,chg,matm,matwprime,vi,ggrid &
-      ,cpl,ucptnum,eigvals,eigvecs, maxcount, uRingCount, &
-      uBondCount, uCageCount,opts,LDM)
-
-      TYPE(charge_obj) :: chg
-      TYPE(options_obj) :: opts
-      TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpl
-      REAL(q2), DIMENSION(3) :: eigvals, grad
-      REAL(q2), DIMENSION(3,3) :: eigvecs, hessianMatrix
-      INTEGER, DIMENSION(3) :: p
-      INTEGER, DIMENSION(3,26) :: vi
-      !INTEGER, DIMENSION(26,3) :: vit
-      REAL(q2), DIMENSION(3,3) :: ggrid
-      !REAL(q2), DIMENSION(26) :: wi
-      REAL(q2), DIMENSION(3,13) :: matwprime
-      REAL(q2), DIMENSION(3,3) :: matm
-      !REAL(q2), DIMENSION(3,3) :: outerproduct
-      INTEGER :: i, j, k, ucptnum, negcount
-      INTEGER :: maxcount, uRingCount, uBondCount, uCageCount
-      INTEGER :: it_num, rot_num
-      LOGICAL :: LDM
-      IF (opts%leastSquare_flag) THEN
-        !grad = lsg( &
-        !  p,chg,matm,matwprime, &
-        !  wi,vi,vit,ggrid,outerproduct)
-        !hessianMatrix = lsh( &
-        !  p,chg,matm,matwprime, &
-        !  wi,vi,vit,ggrid,outerproduct)
-        grad = lsg( &
-          p,chg,matm,matwprime, &
-          vi,ggrid)
-        hessianMatrix = lsh( &
-          p,chg,matm,matwprime, &
-          vi,ggrid)
-      ELSE
-        grad = CDGrad(p,chg)
-        hessianMatrix = CDHessian(p,chg)
-      END IF
-      !CALL DSYEVJ3(hessianMatrix,eigvecs,eigvals)
-      negCount = CountNegModes(eigvals)
-      CALL jacobi_eigenvalue(3,hessianMatrix,9999,eigvecs,eigvals,&
-        it_num, rot_num )
-      CALL UpDateCounts(negCount,maxCount,uBondCount,uRingCount,uCageCount)
-      cpl(ucptnum)%ind = p
-      cpl(ucptnum)%truer(1) = REAL(p(1),q2)
-      cpl(ucptnum)%truer(2) = REAL(p(2),q2)
-      cpl(ucptnum)%truer(3) = REAL(p(3),q2)
-      cpl(ucptnum)%grad = grad
-      cpl(ucptnum)%hessianMatrix = hessianMatrix
-      cpl(ucptnum)%eigvecs = eigvecs
-      cpl(ucptnum)%eigvals = eigvals
-      cpl(ucptnum)%negCount = negCount
-    END SUBROUTINE RecordCP
 
     ! the version of the above subroutine where p is real not integer
     ! USED IN THIS MODULE
@@ -3194,27 +2520,13 @@
         WRITE (98,*) '_______________________________________'
         WRITE (98,*) 'Unique CP # : ', i
         WRITE (98,*) 'Critical point is found at indices'
-        IF (opts%noInterpolation_flag) THEN
-          WRITE (98,*) cpl(i)%ind
-        ELSE 
-          WRITE (98,*) cpl(i)%truer
-        END IF
+        WRITE (98,*) cpl(i)%truer
         WRITE (98,*) 'Coordinates in cartesian are'
-        IF (opts%noInterpolation_flag) THEN
-          WRITE (98,*) MATMUL(chg%lat2car,cpl(i)%ind)
-        ELSE 
-          WRITE (98,*) MATMUL(chg%lat2car,cpl(i)%truer)
-        END IF
+        WRITE (98,*) MATMUL(chg%lat2car,cpl(i)%truer)
         WRITE (98,*) 'Direct coordinates are'
-        IF (opts%noInterpolation_flag) THEN
-          WRITE (98,*) cpl(i)%ind(1)/chg%npts(1), &
-            cpl(i)%ind(2)/chg%npts(2), &
-            cpl(i)%ind(3)/chg%npts(3)
-        ELSE 
-          WRITE (98,*) cpl(i)%truer(1)/chg%npts(1), &
-            cpl(i)%truer(2)/chg%npts(2), &
-            cpl(i)%truer(3)/chg%npts(3)
-        END IF
+        WRITE (98,*) cpl(i)%truer(1)/chg%npts(1), &
+          cpl(i)%truer(2)/chg%npts(2), &
+          cpl(i)%truer(3)/chg%npts(3)
         WRITE (98,*) "Charge density is"
         ! It appears rho_val values are densities indeed. Volume is already
         ! factored in.
@@ -3660,7 +2972,7 @@
       REAL(q2),DIMENSION(8,3,3) :: nnHes
       !REAL(q2),DIMENSION(8,3) :: nnGrad
       REAL(q2),DIMENSION(3,3) :: hessianMatrix,eigvecs
-      REAL(q2),DIMENSION(3) :: grad,eigvals,distance, dir , r
+      REAL(q2),DIMENSION(3) :: grad,r
       INTEGER,DIMENSION(8,3) :: nnInd
       INTEGER :: cptnum,i,n1,negCount, j
       INTEGER :: maxCount,bondCount,ringCount,cageCount
@@ -3808,7 +3120,7 @@
       TYPE(options_obj) :: opts
       REAL(q2),DIMENSION(3) :: avgR
       INTEGER :: uCPTNum, uBondCount,uRingCount,uCageCount,maxCount
-      INTEGER :: rCPTNum, rBondCount,rRingCount,rCageCount,rmaxCount
+      INTEGER :: rBondCount,rRingCount,rCageCount,rmaxCount
       INTEGER :: i,j, nUCPTNum, weight, dupCount
       LOGICAL :: isReduced,LDM_RecordCPRLight,LDM
       IF (LDM) PRINT *, 'Checking for duplicate CP'
@@ -3965,16 +3277,6 @@
       RETURN
     END FUNCTION CDGradR
 
-    SUBROUTINE PBCPerformanceTest(chg)
-      TYPE(charge_obj) :: chg
-      INTEGER :: i
-      INTEGER, DIMENSION(3) :: it
-      it = (/1,1,1/)
-      DO i = 1, 10000000
-        CALL pbc(it,chg%npts)
-      END DO
-
-    END SUBROUTINE
 
     ! This subroutine takes in two cartesian coordinates, draw a line in between
     ! with given interval, output charge density, gradient, hessian, tem into
@@ -4046,7 +3348,7 @@
     SUBROUTINE DebugRGHLat(xmin,xmax,ymin,ymax,zmin,zmax,chg)
       TYPE(charge_obj) :: chg
       REAL(q2),DIMENSION(3,3) :: hes
-      REAL(q2),DIMENSION(3) :: rlat,rcart,grad
+      REAL(q2),DIMENSION(3) :: grad
       INTEGER,DIMENSION(3) :: lat
       INTEGER :: xmin,xmax,ymin,ymax,zmin,zmax,i,j,k
       DO i = xmin,xmax
@@ -4089,23 +3391,6 @@
     END SUBROUTINE
 
     ! This subroutine finds out which point leads to finding of a critical point
-    SUBROUTINE CPTracer(rt,chg,cpl,ucptnum)
-      TYPE(charge_obj) :: chg
-      TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpl
-      REAL(q2),DIMENSION(3) :: rt ! This is the target cart location.
-      REAL(q2),DIMENSION(3) :: rc ! This is current cart location.
-      INTEGER,DIMENSION(3) :: ind
-      INTEGER :: i, ucptnum
-      DO i = 1, ucptnum
-        rc = MATMUL(chg%lat2car,cpl(i)%truer)
-        IF (ABS(rc(1) - rt(1)) .le. 0.001 .AND. &
-            ABS(rc(2) - rt(2)) .le. 0.001 .AND. &
-            ABS(rc(3) - rt(3)) .le. 0.001 ) THEN
-          PRINT *, "De Bugger: The given CP is found by trajectory starting at"
-          PRINT *, cpl(i)%ind
-        END IF
-      END DO
-    END SUBROUTINE CPTracer
 
 
     ! This function calculates TEM for a grid point
@@ -4289,15 +3574,11 @@
       TYPE(charge_obj) :: chg
       TYPE(options_obj) :: opts
       INTEGER,DIMENSION(8,3) :: nnInd
-      INTEGER,DIMENSION(3) :: gp,tempR,ind
-      INTEGER :: stepCount,AverageCount,&
-        i,j,k,stepMax
-      REAL(q2),DIMENSION(8,3,3) :: nnHes
+      INTEGER,DIMENSION(3) :: tempR,ind
+      INTEGER :: stepCount,AverageCount,i,j,stepMax
       REAL(q2),DIMENSION(10,3) :: temList,rList
       REAL(q2),DIMENSION(8,3) :: nnGrad
-      REAL(q2),DIMENSION(3,3) :: hessianMatrix,interpolHessian&
-        ,inverseHessian
-      REAL(q2),DIMENSION(3) :: grad,tem,averageR,trueR,nexttem,previoustem,&
+      REAL(q2),DIMENSION(3) :: grad,averageR,trueR,nexttem,previoustem,&
         prevGrad,distance,temScale,temCap,r,indR
       REAL(q2) :: temNormCap
       LOGICAL :: isUnique
@@ -4523,94 +3804,7 @@
     END DO
     END SUBROUTINE PrintNeighborCharges
 
-    ! Below is a check on all core functions
-    ! Functions being checked: eigenvalues and eigenvectors
-    SUBROUTINE CoreFunctionsCheck(chg)
-      TYPE(charge_obj) :: chg
-      REAL(q2),DIMENSION(3,3) :: hessianMatrix,eigvecs
-      REAL(q2),DIMENSION(3) :: eigvals
-      INTEGER :: it_num, rot_num 
-      !This following test is not working well
-      !hessianMatrix(1,1) = 0.3987508399038720
-      !hessianMatrix(1,2) = 0.4997246160218287 
-      !hessianMatrix(1,3) = 0.7752726241455388
-      !hessianMatrix(2,1) = 0.5993296708147727
-      !hessianMatrix(2,2) = 0.6510026529797813
-      !hessianMatrix(2,3) = 0.7907512182895509
-      !hessianMatrix(3,1) = 0.2018206933392253
-      !hessianMatrix(3,2) = 0.7068772764652435
-      !hessianMatrix(3,3) = 0.05810136673621315
-      !---------------------------------------
-      hessianMatrix(1,1) = 4570.188002120697
-      hessianMatrix(1,2) = 852.1787784831047
-      hessianMatrix(1,3) = 835.9831203358196
-      hessianMatrix(2,1) = 852.1787784831047
-      hessianMatrix(2,2) = 7811.922523438933
-      hessianMatrix(2,3) = 846.7252769646717
-      hessianMatrix(3,1) = 835.9831203358196
-      hessianMatrix(3,2) = 846.7252769646717
-      hessianMatrix(3,3) = 4260.374867575962
-      CALL DSYEVJ3(hessianMatrix,eigvecs,eigvals)
-      PRINT *, "DSYEVJ3 Produces"
-      PRINT *, "eigvec 1"
-      PRINT  *, eigvecs(1,:)
-      PRINT *, "eigvec 2"
-      PRINT  *, eigvecs(2,:)
-      PRINT *, "eigvec 3"
-      PRINT  *, eigvecs(3,:)
-      PRINT *, "eigvals are"
-      PRINT *, eigvals
-      hessianMatrix(1,1) = 4570.188002120697
-      hessianMatrix(1,2) = 852.1787784831047
-      hessianMatrix(1,3) = 835.9831203358196
-      hessianMatrix(2,1) = 852.1787784831047
-      hessianMatrix(2,2) = 7811.922523438933
-      hessianMatrix(2,3) = 846.7252769646717
-      hessianMatrix(3,1) = 835.9831203358196
-      hessianMatrix(3,2) = 846.7252769646717
-      hessianMatrix(3,3) = 4260.374867575962
-      CALL jacobi_eigenvalue(3,hessianMatrix,9999,eigvecs,eigvals,&
-        it_num, rot_num )
-      PRINT *, "jacobi Produces"
-      PRINT *, "eigvec 1"
-      PRINT  *, eigvecs(1,:)
-      PRINT *, "eigvec 2"
-      PRINT  *, eigvecs(2,:)
-      PRINT *, "eigvec 3"
-      PRINT  *, eigvecs(3,:)
-      PRINT *, "eigvals are"
-      PRINT *, eigvals
-      PRINT *, "EigvalCharPoly produces"
-      hessianMatrix(1,1) = 4570.188002120697
-      hessianMatrix(1,2) = 852.1787784831047
-      hessianMatrix(1,3) = 835.9831203358196
-      hessianMatrix(2,1) = 852.1787784831047
-      hessianMatrix(2,2) = 7811.922523438933
-      hessianMatrix(2,3) = 846.7252769646717
-      hessianMatrix(3,1) = 835.9831203358196
-      hessianMatrix(3,2) = 846.7252769646717
-      hessianMatrix(3,3) = 4260.374867575962
-      CALL EigvalCharPoly(hessianMatrix,eigvals,eigvecs)
-      IF (eigvecs(1,1) /= -0.5694273336689270 .OR. &
-          eigvecs(1,2) /= -0.7140883142791939 .OR. & 
-          eigvecs(1,3) /= -0.4072227781946826 .OR. &
-          eigvecs(2,1) /= -0.6717960446248690 .OR. &
-          eigvecs(2,2) /= -0.1747987305973604 .OR. &
-          eigvecs(2,3) /= 0.7198162808716766 .OR. & 
-          eigvecs(3,1) /= -0.7198162808716766 .OR. &
-          eigvecs(3,2) /= 0.05039746667582087 .OR. &
-          eigvecs(3,3) /= 0.5695024751675655) THEN
-        PRINT *, "Eigenvalues produced are not consistent with Mathematica!"
-        PRINT *, "eigvec 1"
-        PRINT  *, eigvecs(1,:)
-        PRINT *, "eigvec 2"
-        PRINT  *, eigvecs(2,:)
-        PRINT *, "eigvec 3"
-        PRINT  *, eigvecs(3,:)
-        PRINT *, "eigvals are"
-        PRINT *, eigvals
-      END IF
-    END SUBROUTINE CoreFunctionsCheck
+
 
     FUNCTION trace(mat3x3)
       REAL(q2) :: trace
@@ -4799,7 +3993,6 @@
       CLOSE(56)
     END SUBROUTINE SmoothenCHGCAR
 
-    ! This subroutine writes a debug CHGCAR
 
     ! This subroutine is used when NR trajectories fail to converge.
     ! It calculates the modulus of the charge density gradient
@@ -4811,56 +4004,39 @@
     SUBROUTINE GradientDescend(bdr, chg, opts, rn, iniI,isUnique,stepMax,&
     LDM)
       INTEGER,DIMENSION(8,3) :: nnInd
-      INTEGER,DIMENSION(3) :: iniI,  nearestint, tempint
+      INTEGER,DIMENSION(3) :: iniI, tempint
       REAL(q2),DIMENSION(3) :: tempr
       REAL(q2),DIMENSION(3):: distance
       REAL(q2),DIMENSION(3) :: gMCDG, oldgMCDG 
       ! gradient of modulus of charge density gradient
       REAL(q2),DIMENSION(3) :: maxstepsize
       REAL(q2) :: maxstepsize_mag
-      INTEGER, DIMENSION(3) :: crossings ! count how many times pbc crossed
-      
       !magMode uses the overall magnitude of the gradient vector for criteria. When off, it checks separately along each axis.
       LOGICAL :: magMode 
-      
-
       TYPE(charge_obj) :: chg
       TYPE(options_obj) :: opts
       TYPE(bader_obj) :: bdr
-     
-
-      
       LOGICAL :: isUnique
-
       INTEGER ::j, stepcount, loopcount, stepMax
       REAL(q2), DIMENSION(3)::rn 
       REAL(q2), DIMENSION(8,3) :: nngrad
       LOGICAL :: LDM
-      
       magMode = opts%GD_magMode
-      
       !maximum step size
       maxstepsize =(/0.5,0.5,0.5/)
       maxstepsize_mag = 0.5
       gMCDG = CDGMCDG(iniI,chg)
-      
-
       rn(1) = REAL(iniI(1),q2)
       rn(2) = REAL(iniI(2),q2)
       rn(3) = REAL(iniI(3),q2)
-
-
       oldgMCDG(1) = 0
       oldgMCDG(2) = 0
       oldgMCDG(3) = 0
-
       stepcount=0
       loopcount=0
       !The main gradient descent iteration loop
       DO WHILE (loopcount<stepMax)
          loopcount = loopcount + 1
-          
-
          !checks if the gradient is close enough to zero which implies it is a critical point
          !par_GDgradfloor
          IF (Mag(gMCDG)<= 0.00001 )  THEN
@@ -4869,7 +4045,6 @@
             IF (LDM)  PRINT *, 'Critical point found!'
             EXIT
          END IF
-
          !checks if maxstepsize is too small
          IF (magMode) THEN
             IF (maxstepsize_mag <= 0.001) THEN
@@ -4885,34 +4060,23 @@
               EXIT
             END IF
          END IF
-
-
-        !tempr is the gradient vector with minimum step size condition included.
-        
+         !tempr is the gradient vector with minimum step size condition included.
          tempr = gMCDG
          !adjusts the magnitude of each tempr coordinate to be the minimum of its normed magnitude and the max stepsize value.
          !ensures while the magnitudes are constrained, the directions are still correct.
-         
          IF (magMode) THEN
            tempr = MIN(Mag(tempr),maxstepsize_mag) * tempr/Mag(tempr)
-
          ELSE
-         
            tempr(1) =  MIN(ABS(tempr(1)), maxstepsize(1))* tempr(1)/ABS(tempr(1))
            tempr(2) =  MIN(ABS(tempr(2)), maxstepsize(2))* tempr(2)/ABS(tempr(2))
            tempr(3) =  MIN(ABS(tempr(3)), maxstepsize(3))* tempr(3)/ABS(tempr(3))
-         
          END IF
          !gradient position update
-
          IF (tempr(1) /= tempr(1) ) tempr(1) = 0
          IF (tempr(2) /= tempr(2) ) tempr(2) = 0
          IF (tempr(3) /= tempr(3) ) tempr(3) = 0
-      
          rn = rn - tempr
-
          CALL pbc_r_lat(rn,chg%npts)
-
          nnInd = SimpleNN(rn,chg)
          DO j = 1,8
             CALL pbc(nnind(j,:),chg%npts)
@@ -4966,8 +4130,6 @@
         ! IF (SUM(gMCDG*oldgMCDG) .LT. 0) THEN
         !    maxstepsize = 0.5 *maxstepsize
         ! END IF
-
-
      END DO     
 
     IF (LDM) THEN
@@ -4982,25 +4144,19 @@
       PRINT *, ' final loopcount is'
       PRINT *, loopcount
     END IF
-
     END SUBROUTINE GradientDescend
-
 
     ! Central Difference Gradient of Modulus of Charge Density Gradient
     ! Operates on grid points
     ! USED IN THIS MODULE
     FUNCTION CDGMCDG(p,chg)
       TYPE(charge_obj) :: chg
-      INTEGER,DIMENSION(8,3) :: nnInd
       INTEGER,DIMENSION(3) :: p
       INTEGER, DIMENSION(3) :: pzm,pzp,pxm,pxp,pym,pyp
       REAL(q2) :: gradz,gradx,grady
-      REAL(q2), DIMENSION(3) :: gradxyz
-      REAL(q2), DIMENSION(8) :: nnM
       REAL(q2), DIMENSION(3) :: CDGMCDG
       REAL(q2):: mCDGpzm,mCDGpzp,mCDGpxm,&
         mCDGpxp,mCDGpym,mCDGpyp
-
       ! First get get the Magnitude of all neary by charge density gradient
       pzm = p + (/0,0,-1/)
       pzp = p + (/0,0,1/)
@@ -5014,49 +4170,20 @@
       CALL pbc(pxp,chg%npts)
       CALL pbc(pyp,chg%npts)
       CALL pbc(pzp,chg%npts)
-
-
-
       mCDGpzm = Mag(MATMUL(chg%lat2car,CDGrad(pzm,chg)))
       mCDGpzp = Mag(MATMUL(chg%lat2car,CDGrad(pzp,chg)))
       mCDGpxm = Mag(MATMUL(chg%lat2car,CDGrad(pxm,chg)))
       mCDGpxp = Mag(MATMUL(chg%lat2car,CDGrad(pxp,chg)))
       mCDGpym = Mag(MATMUL(chg%lat2car,CDGrad(pym,chg)))
       mCDGpyp = Mag(MATMUL(chg%lat2car,CDGrad(pyp,chg)))
-
       gradz = 0.5*(MCDGpzp-MCDGpzm)
       gradx = 0.5*(MCDGpxp-MCDGpxm)
       grady = 0.5*(MCDGpyp-MCDGpym)
       CDGMCDG(1) = REAL(gradx,q2)
       CDGMCDG(2) = REAL(grady,q2)
       CDGMCDG(3) = REAL(gradz,q2)
-     ! gradmag = Mag(gradxyz)
-     !  Calculate the gradient of modulus.
-     ! CDGrad(3) = 0.5*(rho_val(chg,pzp(1),pzp(2),pzp(3)) - &
-     !             rho_val(chg,pzm(1),pzm(2),pzm(3)))
-     ! CDGrad(2) = 0.5*(rho_val(chg,pyp(1),pyp(2),pyp(3)) - &
-     !             rho_val(chg,pym(1),pym(2),pym(3)))
-     ! CDGrad(1) = 0.5*(rho_val(chg,pxp(1),pxp(2),pxp(3)) - &
-     !             rho_val(chg,pxm(1),pxm(2),pxm(3)))
-     ! CDGrad = MATMUL(CDGrad,chg%car2lat)
-   
       RETURN
     END FUNCTION CDGMCDG
-    
-    FUNCTION printinfo(grid,chg)
-      TYPE(charge_obj) :: chg
-      INTEGER, DIMENSION(3) :: grid
-      LOGICAL :: printinfo
-      PRINT *, 'grid point is'
-      PRINT *, grid
-     ! PRINT *, 'CDGMCDG:'
-     ! PRINT *, CDGMCDG(grid,chg)
-     ! PRINT *, 'grad:'
-     ! PRINT *, CDGrad(grid,chg)
-      PRINT *, 'mag(grad:'
-      PRINT *, Mag(CDGrad(grid,chg))
-      RETURN
-    END FUNCTION printinfo
 
     FUNCTION ReadStatic()
       REAL(q2), ALLOCATABLE, DIMENSION(:,:) :: ReadStatic
@@ -5088,8 +4215,7 @@
       END DO
     END FUNCTION GetHessianMag
 
-
-    SUBROUTINE GetRhoAround(p,chg,ions)
+    SUBROUTINE DebugGetRhoAround(p,chg,ions)
       TYPE(charge_obj) :: chg
       TYPE(ions_obj) :: ions
       INTEGER,DIMENSION(3) :: p
@@ -5104,51 +4230,124 @@
         / chg%npts(2)
       PRINT *, "z: ", SQRT(ions%lattice(3,1)**2 +ions%lattice(3,2)**2 +ions%lattice(3,3)**2) &
         / chg%npts(3)
+    END SUBROUTINE DebugGetRhoAround
 
-    END SUBROUTINE GetRhoAround
+    SUBROUTINE DebugGetInfo(grid,chg)
+      TYPE(charge_obj) :: chg
+      INTEGER, DIMENSION(3) :: grid
+      LOGICAL :: printinfo
+      PRINT *, 'grid point is'
+      PRINT *, grid
+      PRINT *, 'mag(grad:'
+      PRINT *, Mag(CDGrad(grid,chg))
+    END SUBROUTINE DebugGetInfo
 
+    SUBROUTINE DebugCPTracer(rt,chg,cpl,ucptnum)
+      TYPE(charge_obj) :: chg
+      TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpl
+      REAL(q2),DIMENSION(3) :: rt ! This is the target cart location.
+      REAL(q2),DIMENSION(3) :: rc ! This is current cart location.
+      INTEGER :: i, ucptnum
+      DO i = 1, ucptnum
+        rc = MATMUL(chg%lat2car,cpl(i)%truer)
+        IF (ABS(rc(1) - rt(1)) .le. 0.001 .AND. &
+            ABS(rc(2) - rt(2)) .le. 0.001 .AND. &
+            ABS(rc(3) - rt(3)) .le. 0.001 ) THEN
+          PRINT *, "De Bugger: The given CP is found by trajectory starting at"
+          PRINT *, cpl(i)%ind
+        END IF
+      END DO
+    END SUBROUTINE DebugCPTracer
 
-    ! The following code is potentially useful for gradient descend
-          ! This determins if validation is done with gradient descend
-          !    PRINT *, 'looking at critical point candidate # ', i
-          !    PRINT *, 'indices are '
-          !   p = cpcl(i)%ind
-          !    PRINT *, p
-          !   cpcl(i)%trueind = 0.
-          !    PRINT *, 'starting sqgradientdescend'
-          !   CALL sqgradientdescend(p,chg,matm,matwprime,wi,vi,vit, &
-          !                      ggrid,outerproduct,opts,cpcl(i)%trueind,invac,bdr,nnLayers,ions)
-          !    PRINT *, 'ending sqgradientdescend'
-          !    PRINT *, 'after descend trueind is'
-          !    PRINT *, cpcl(i)%trueind
-          !   IF (cpcl(i)%trueind(1) == -1.) THEN
-          !     cpcl(i)%isunique = .FALSE.
-          !     PRINT *, 'set to be not unique'
-          !     CYCLE
-          !   END IF
-          !   truer = cpcl(i)%trueind
-          !   cpcl(i)%isunique = .TRUE.
-          !   nnind = simpleNN(truer,chg)
-          !   distance = truer - nnind(1,:)
-          !   DO j = 1,8
-          !     IF (opts%leastsquare_flag .EQV. .true.) THEN
-          !       nngrad(j,:) = lsg(nnind(j,:),chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
-          !       hessianmatrix = lsh(nnind(j,:),chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
-          !       inversehessian = inverse(hessianmatrix)
-          !       nnhes(j,1,:) = hessianmatrix(1,:)
-          !       nnhes(j,2,:) = hessianmatrix(2,:)
-          !       nnhes(j,3,:) = hessianmatrix(3,:)
-          !     ELSE 
-          !       nngrad(j,:) = CDGrad(p,chg)
-          !       hessianMatrix = CDHessian(p,chg)
-          !       nnhes(j,:,:) = hessianMatrix(:,:)
-          !     END IF
-          !   END DO
-          !   interpolgrad = trilinear_interpol_grad(nngrad,distance) ! val r interpol
-          !   interpolHessian = trilinear_interpol_hes(nnhes,distance)
-          !   !nnind = FindNN(truer,nnlayers,chg,ions)
-          !   !interpolGrad = R2GradInterpol(nnind,truer,chg,nnlayers)
-          !   !interpolHessian = R2HesInterpol(nnind,truer,chg,nnlayers)
+    ! Below is a check on all core functions
+    ! Functions being checked: eigenvalues and eigenvectors
+    SUBROUTINE DebugCoreFunctionsCheck(chg)
+      TYPE(charge_obj) :: chg
+      REAL(q2),DIMENSION(3,3) :: hessianMatrix,eigvecs
+      REAL(q2),DIMENSION(3) :: eigvals
+      INTEGER :: it_num, rot_num 
+      !This following test is not working well
+      !hessianMatrix(1,1) = 0.3987508399038720
+      !hessianMatrix(1,2) = 0.4997246160218287 
+      !hessianMatrix(1,3) = 0.7752726241455388
+      !hessianMatrix(2,1) = 0.5993296708147727
+      !hessianMatrix(2,2) = 0.6510026529797813
+      !hessianMatrix(2,3) = 0.7907512182895509
+      !hessianMatrix(3,1) = 0.2018206933392253
+      !hessianMatrix(3,2) = 0.7068772764652435
+      !hessianMatrix(3,3) = 0.05810136673621315
+      !---------------------------------------
+      hessianMatrix(1,1) = 4570.188002120697
+      hessianMatrix(1,2) = 852.1787784831047
+      hessianMatrix(1,3) = 835.9831203358196
+      hessianMatrix(2,1) = 852.1787784831047
+      hessianMatrix(2,2) = 7811.922523438933
+      hessianMatrix(2,3) = 846.7252769646717
+      hessianMatrix(3,1) = 835.9831203358196
+      hessianMatrix(3,2) = 846.7252769646717
+      hessianMatrix(3,3) = 4260.374867575962
+      CALL DSYEVJ3(hessianMatrix,eigvecs,eigvals)
+      PRINT *, "DSYEVJ3 Produces"
+      PRINT *, "eigvec 1"
+      PRINT  *, eigvecs(1,:)
+      PRINT *, "eigvec 2"
+      PRINT  *, eigvecs(2,:)
+      PRINT *, "eigvec 3"
+      PRINT  *, eigvecs(3,:)
+      PRINT *, "eigvals are"
+      PRINT *, eigvals
+      hessianMatrix(1,1) = 4570.188002120697
+      hessianMatrix(1,2) = 852.1787784831047
+      hessianMatrix(1,3) = 835.9831203358196
+      hessianMatrix(2,1) = 852.1787784831047
+      hessianMatrix(2,2) = 7811.922523438933
+      hessianMatrix(2,3) = 846.7252769646717
+      hessianMatrix(3,1) = 835.9831203358196
+      hessianMatrix(3,2) = 846.7252769646717
+      hessianMatrix(3,3) = 4260.374867575962
+      CALL jacobi_eigenvalue(3,hessianMatrix,9999,eigvecs,eigvals,&
+        it_num, rot_num )
+      PRINT *, "jacobi Produces"
+      PRINT *, "eigvec 1"
+      PRINT  *, eigvecs(1,:)
+      PRINT *, "eigvec 2"
+      PRINT  *, eigvecs(2,:)
+      PRINT *, "eigvec 3"
+      PRINT  *, eigvecs(3,:)
+      PRINT *, "eigvals are"
+      PRINT *, eigvals
+      PRINT *, "EigvalCharPoly produces"
+      hessianMatrix(1,1) = 4570.188002120697
+      hessianMatrix(1,2) = 852.1787784831047
+      hessianMatrix(1,3) = 835.9831203358196
+      hessianMatrix(2,1) = 852.1787784831047
+      hessianMatrix(2,2) = 7811.922523438933
+      hessianMatrix(2,3) = 846.7252769646717
+      hessianMatrix(3,1) = 835.9831203358196
+      hessianMatrix(3,2) = 846.7252769646717
+      hessianMatrix(3,3) = 4260.374867575962
+      CALL EigvalCharPoly(hessianMatrix,eigvals,eigvecs)
+      IF (eigvecs(1,1) /= -0.5694273336689270 .OR. &
+          eigvecs(1,2) /= -0.7140883142791939 .OR. & 
+          eigvecs(1,3) /= -0.4072227781946826 .OR. &
+          eigvecs(2,1) /= -0.6717960446248690 .OR. &
+          eigvecs(2,2) /= -0.1747987305973604 .OR. &
+          eigvecs(2,3) /= 0.7198162808716766 .OR. & 
+          eigvecs(3,1) /= -0.7198162808716766 .OR. &
+          eigvecs(3,2) /= 0.05039746667582087 .OR. &
+          eigvecs(3,3) /= 0.5695024751675655) THEN
+        PRINT *, "Eigenvalues produced are not consistent with Mathematica!"
+        PRINT *, "eigvec 1"
+        PRINT  *, eigvecs(1,:)
+        PRINT *, "eigvec 2"
+        PRINT  *, eigvecs(2,:)
+        PRINT *, "eigvec 3"
+        PRINT  *, eigvecs(3,:)
+        PRINT *, "eigvals are"
+        PRINT *, eigvals
+      END IF
+    END SUBROUTINE DebugCoreFunctionsCheck
+
   END MODULE
 
 
