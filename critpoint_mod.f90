@@ -47,6 +47,127 @@
 !NOTE: this subroutine should be called after refine_edge
 !      in order to restrict the calculation to edge points
 !-----------------------------------------------------------------------------------!
+
+  SUBROUTINE GetCPCL(bdr,chg,cpcl,opts,cptnum)
+    TYPE(bader_obj) :: bdr
+    TYPE(charge_obj) :: chg
+    TYPE(options_obj) :: opts
+    TYPE(cpc), ALLOCATABLE, DIMENSION(:) :: cpcl,cpclt
+
+    REAL(q2), DIMENSION(3,3) :: hessianMatrix
+    REAL(q2), DIMENSION(3) :: tem,trueR,grad
+
+    INTEGER, DIMENSION(3) :: p
+    INTEGER :: n1,n2,n3,cptnum,i
+ 
+
+    DO n1 = 1,chg%npts(1)
+      DO n2 = 1,chg%npts(2)
+        DO n3 = 1,chg%npts(3)
+            ! check to see if this point is in the vacuum
+          IF (bdr%volnum(n1,n2,n3) == bdr%bnum + 1) THEN
+            CYCLE
+          END IF
+          ! We can only work with points that are on edge as defined by bader
+          ! but that has been shown to be not reliable, as critical points are
+          ! missed commonly. 
+          p = (/n1,n2,n3/)
+          trueR = (/REAL(n1,q2),REAL(n2,q2),REAL(n3,q2)/)
+          tem = CalcTEMGrid(p,chg,grad,hessianMatrix)
+          !IF ( (ABS(tem(1)) <= 1.5 + opts%par_tem .AND. &
+          !     ABS(tem(2)) <= 1.5 + opts%par_tem .AND. &
+          !     ABS(tem(3)) <= 1.5 + opts%par_tem )) THEN
+          IF (ALL(tem <= 1.5 + opts%par_tem )) THEN
+              ! ABS(tem(3)) <= 0.5 + opts%par_tem) .OR. &
+              !(SUM(grad*grad) <= (0.1*opts%par_gradfloor)**2 )) THEN              
+            ! finding proximity could potentially be costly
+            IF (ProxyToCPCandidate(p,opts,cpcl,cptnum,chg)) THEN
+              CYCLE
+            END IF
+            cptnum = cptnum + 1
+            ! Check if the candidate list needs to be expanded.
+            IF (cptnum < SIZE(cpcl) - 1 ) THEN
+              cpcl(cptnum)%ind = (/n1,n2,n3/)
+              cpcl(cptnum)%grad = grad
+              cpcl(cptnum)%hasProxy = .FALSE.
+              cpcl(cptnum)%r = tem
+            ELSE 
+              PRINT *, 'expanding cpcl size'
+              ALLOCATE(cpclt(cptnum + 1))
+              DO i = 1, cptnum - 1
+                cpclt(i) = cpcl(i)
+              END DO
+              DEALLOCATE(cpcl)
+              ALLOCATE(cpcl(cptnum*2))
+              PRINT *, 'cpcl size now is', SIZE(cpcl)
+              DO i = 1, cptnum - 1
+                cpcl(i)=cpclt(i)
+              END DO
+              DEALLOCATE(cpclt)
+              cpcl(cptnum)%ind = (/n1,n2,n3/)
+              cpcl(cptnum)%grad = grad
+              cpcl(cptnum)%hasProxy = .FALSE.
+              cpcl(cptnum)%r = tem
+            END IF
+          END IF
+        END DO
+      END DO
+    END DO
+  END SUBROUTINE GetCPCL
+
+  SUBROUTINE SearchWithCPCL(bdr,chg,cpcl,cpl,cptnum,ucptnum,ucpCounts)
+    TYPE(bader_obj) :: bdr
+    TYPE(charge_obj) :: chg
+    TYPE(cpc), ALLOCATABLE, DIMENSION(:) :: cpcl,cpl
+    TYPE(options_obj) :: opts
+
+    REAL(q2), DIMENSION(8,3,3) :: nnHes
+    REAL(q2), DIMENSION(3,3) :: interpolHessian
+    REAL(q2),DIMENSION(3) :: temcap,temscale,trueR,distance
+    REAL(q2) :: temnormcap
+
+    INTEGER, DIMENSION(4) :: ucpCounts
+    INTEGER, DIMENSION(2) :: connectedAtoms
+    INTEGER :: i,cptnum,ucptnum       
+    DO i = 1, cptnum
+      cpcl(i)%isunique = .FALSE.
+      temcap = (/1.,1.,1./)
+      temscale = (/1.,1.,1./)
+      temnormcap = 1.
+      IF (opts%gradMode) THEN
+         !uses GradientDescend instead of NRTFGP          
+         CALL GradientDescend(bdr,chg,opts,trueR,cpcl(i)%ind,&
+         cpcl(i)%isUnique,3000)
+         IF (.TRUE.) THEN
+           IF (ABS(trueR(1))>200 .OR. ABS(trueR(2))>200 .OR. ABS(trueR(3))>200) THEN
+              PRINT *, "Way out of bounds!"
+              EXIT
+           END IF
+         END IF
+      ELSE
+         ! Begins newton raphson validation process
+         CALL NRTFGP(bdr,chg,opts,trueR,&
+         cpcl(i)%isUnique,cpcl(i)%r,cpcl(i)%ind,&
+         1000)
+      END IF
+      IF (cpcl(i)%isUnique ) THEN
+        !CALL MakeCPRoster(cpRoster,i,truer) !not sure what this does
+        cpcl(i)%trueind = trueR
+        interpolHessian = trilinear_interpol_hes(nnHes,distance)
+        ucptnum = ucptnum + 1
+        interpolHessian = CDHessianR(truer,chg)
+        CALL RecordCPR(truer,chg,cpl,ucptnum,connectedAtoms, ucpCounts, &
+          opts, interpolHessian, &
+          cpcl(i)%ind)
+        CYCLE
+      ELSE
+        CYCLE
+      END IF
+      CALL pbc_r_lat(trueR,chg%npts)
+    ! moving on to the next critical pint candidate
+    END DO
+  END SUBROUTINE SearchWithCPCL
+
   SUBROUTINE critpoint_find(bdr,chg,opts,ions,stat)
 ! These are for screening CP due to numerical error. 
     !TYPE(hessian) :: hes
@@ -80,8 +201,7 @@
     INTEGER, DIMENSION(3) :: p, tempr
     INTEGER, DIMENSION(2) :: connectedAtoms
     INTEGER :: n1, n2, n3, cptnum, ucptnum, i, j, k, debugnum,ij, &
-      bondcount, ringcount, maxcount, cagecount, uBondCount, uRingCount, & 
-      uCageCount, setcount, stat, axisnum,&
+      setcount, stat, axisnum,&
       avgMode, stepcount, nnlayers, averagecount
 
     CHARACTER(128) :: smoothenedCHGCAR
@@ -170,7 +290,7 @@
       DO ij=1,13
          ! PRINT *, "Segfault check loop",ij
           isUniqueTest = .TRUE.
-          CALL GradientDescend(bdr,chg,opts,finR,iniIList(ij,:), isUniqueTest ,3000,LDM_GradMagGrad)
+          CALL GradientDescend(bdr,chg,opts,finR,iniIList(ij,:), isUniqueTest ,3000)
           PRINT *, finR
           PRINT *, " "
       END DO
@@ -190,11 +310,10 @@
       ucptnum = ucptnum + 1
       cpl(ucptnum)%trueind = temprealr
       ! these points are to stay in the list so cpl is used instead of cpcl
-      p(1) = NINT(cpl(ucptnum)%trueind(1))
-      p(2) = NINT(cpl(ucptnum)%trueind(2))
-      p(3) = NINT(cpl(ucptnum)%trueind(3))
-      CALL RecordCPR(temprealr,chg,cpl,ucptnum,eigvals,eigvecs,connectedAtoms, ucpCounts, &
-        opts,grad,hessianMatrix, p,LDM_RecordCPR)
+      p = (/NINT(cpl(ucptnum)%trueind(1)),NINT(cpl(ucptnum)%trueind(2)), &
+        NINT(cpl(ucptnum)%trueind(3))/)
+      CALL RecordCPR(temprealr,chg,cpl,ucptnum,connectedAtoms, ucpCounts, &
+        opts,hessianMatrix, p)
       IF (LDM) THEN
         PRINT *, "recording CP to cpl, this is number ", ucptnum
         PRINT *, "location is "
@@ -221,93 +340,9 @@
       CONTINUE
     ELSE 
       PRINT *, "entering main loop"
-      DO n1 = 1,chg%npts(1)
-        DO n2 = 1,chg%npts(2)
-          DO n3 = 1,chg%npts(3)
-              ! check to see if this point is in the vacuum
-            IF (bdr%volnum(n1,n2,n3) == bdr%bnum + 1) THEN
-              debugnum = debugnum + 1
-              CYCLE
-            END IF
-            ! We can only work with points that are on edge as defined by bader
-            ! but that has been shown to be not reliable, as critical points are
-            ! missed commonly. 
-            p = (/n1,n2,n3/)
-            ! use central difference
-            trueR(1) = REAL(n1,q2)
-            trueR(2) = REAL(n2,q2)
-            trueR(3) = REAL(n3,q2)
-            IF (LDM) THEN
-              PRINT *,  "Finding NRT initiation point at "
-              PRINT *, p
-              PRINT *, "Calculating tem"
-            END IF
-            tem = CalcTEMGrid(p,chg,grad,hessianMatrix)
-            !tem = CalcTEMLat(trueR,chg,&
-            !  temScale,previousTEM,grad,LDM_CalcTEMLat)
-            IF (LDM) THEN
-              tempRealR = tem
-              grad = CDGrad(p,chg)
-              hessianMatrix = CDHessian(p,chg)
-              IF (opts%dohes) THEN
-                CALL DiagonalOnlyHes(hessianMatrix)
-              END IF
-              tem = - MATMUL(INVERSE(hessianMatrix),grad)
-              ! this tem is in cartesian. Transform it to lattice 
-              tem = MATMUL(chg%car2lat,tem)
-              IF ( (tem(1) /= tempRealR(1)) .OR. &
-                   (tem(2) /= tempRealR(2)) .OR. &
-                   (tem(3) /= tempRealR(3))) THEN
-               PRINT *, "ERROR!  DIfferent tem obtained!"
-               PRINT *, "CalcTEMGrid produced"
-               PRINT *, tempRealR
-               PRINT *, "Direct calculation produced"
-               PRINT *, tem
-              END IF
-            END IF
-            IF ( (ABS(tem(1)) <= 1.5 + opts%par_tem .AND. &
-                 ABS(tem(2)) <= 1.5 + opts%par_tem .AND. &
-                 ABS(tem(3)) <= 1.5 + opts%par_tem )) THEN
-                ! ABS(tem(3)) <= 0.5 + opts%par_tem) .OR. &
-                !(SUM(grad*grad) <= (0.1*opts%par_gradfloor)**2 )) THEN              
-              ! finding proximity could potentially be costly
-              IF (ProxyToCPCandidate(p,opts,cpcl,cptnum,chg)) THEN
-                CYCLE
-              END IF
-              cptnum = cptnum + 1
-              ! Check if the candidate list needs to be expanded.
-              IF (cptnum < SIZE(cpcl) - 1 ) THEN
-                cpcl(cptnum)%ind(1) = n1
-                cpcl(cptnum)%ind(2) = n2
-                cpcl(cptnum)%ind(3) = n3
-                cpcl(cptnum)%grad = grad
-                cpcl(cptnum)%hasProxy = .FALSE.
-                cpcl(cptnum)%r = tem
-                !cpcl(cptnum)%tempcart = MATMUL(chg%car2lat,tem + p)
-              ELSE 
-                PRINT *, 'expanding cpcl size'
-                ALLOCATE(cpclt(cptnum + 1))
-                DO i = 1, cptnum - 1
-                  cpclt(i) = cpcl(i)
-                END DO
-                DEALLOCATE(cpcl)
-                ALLOCATE(cpcl(cptnum*2))
-                PRINT *, 'cpcl size now is', SIZE(cpcl)
-                DO i = 1, cptnum - 1
-                  cpcl(i)=cpclt(i)
-                END DO
-                DEALLOCATE(cpclt)
-                cpcl(cptnum)%ind(1) = n1
-                cpcl(cptnum)%ind(2) = n2
-                cpcl(cptnum)%ind(3) = n3
-                cpcl(cptnum)%grad = grad
-                cpcl(cptnum)%hasProxy = .FALSE.
-                cpcl(cptnum)%r = tem
-              END IF
-            END IF
-          END DO
-        END DO
-      END DO
+      ! Loop through every grid point once and collect a list of points to start
+      ! CP searching trajectories into cpcl, the CP candidate list.
+      CALL GetCPCL(bdr,chg,cpcl,opts,cptnum)
       PRINT *, "Number of Newton Rhapson trajectory needed: ", cptnum 
 !!**  *****************************************************************
       ! To find critical points (unique), start with a cell that contains a
@@ -319,199 +354,8 @@
       ! point is within half lattice to another, do not record this new point.
       ALLOCATE(cpRoster(cptnum,3))
       IF (LDM_Trajectories) ALLOCATE(fullcpRoster(cptnum,3))
-      DO i = 1, cptnum
-        cpcl(i)%isunique = .FALSE.
-        temcap = (/1.,1.,1./)
-        temscale = (/1.,1.,1./)
-        temnormcap = 1.
-        IF (.FALSE.) THEN
-          CYCLE
-        ELSE
-          IF (opts%gradMode) THEN
-             !uses GradientDescend instead of NRTFGP          
-             IF (LDM) PRINT *, "Gradient Mode Activated"
-             CALL GradientDescend(bdr,chg,opts,trueR,cpcl(i)%ind,&
-             cpcl(i)%isUnique,3000,LDM_GradMagGrad)
-             IF (.TRUE.) THEN
-               IF (ABS(trueR(1))>200 .OR. ABS(trueR(2))>200 .OR. ABS(trueR(3))>200) THEN
-                  PRINT *, "Way out of bounds!"
-                  EXIT
-               END IF
-             END IF
-          ELSE
-             ! Begins newton raphson validation process
-             CALL NRTFGP(bdr,chg,opts,trueR,&
-             LDM_detectCircling,cpcl(i)%isUnique,cpcl(i)%r,cpcl(i)%ind,&
-             1000,LDM_NRTFGP)
-          END IF
-          IF (LDM) THEN
-            PRINT *, "NRTFGP converged at point "
-            PRINT *, trueR
-            PRINT *, "Direct calculation starting from point "
-            PRINT *, cpcl(i)%ind
-            PRINT *, "recorded r is "
-            PRINT *, cpcl(i)%r
-            stepcount = 1
-            averagecount = 0
-            averageR = (/-1.,-1.,-1./)
-            ! Now start newton method iterations
-            truer =  cpcl(i)%ind + cpcl(i)%r
-            previoustem = cpcl(i)%r
-            DO stepCount = 1,1000
-              IF (LDM) PRINT *, "Direct calculation step ", stepCount
-              IF (stepcount >= 1) THEN
-                prevgrad = grad
-              END IF
-              CALL pbc_r_lat(truer,chg%npts)
-              nnind = SimpleNN(truer,chg)
-              distance = truer - nnind(1,:)
-              nexttem = CalcTEMLat(trueR,chg,temScale,previousTEM,grad,temNormCap,&
-                LDM)
-              tempRealR = nexttem
-              IF (LDM) THEN
-                ! Below contains the unit test for CalcTEMLat
-                PRINT *, "Starting debug output for CalcTEMLat"
-                DO j = 1,8
-                  nngrad(j,:) = CDGrad(nnind(j,:),chg)
-                  hessianMatrix = CDHessian(nnind(j,:),chg)
-                  !IF (opts%dohes) THEN
-                  !  CALL DiagonalOnlyHes(hessianMatrix)
-                  !END IF
-                  nnhes(j,:,:) = hessianMatrix
-                END DO
-                 !row find the nearest neighbors at this new locaiton
-                 !first update critical point location
-                 !the next big step is to interpolate the force at predicted critical
-                 !point.
-                grad = trilinear_interpol_grad(nnGrad,distance) ! val r interpol
-                interpolHessian = trilinear_interpol_hes(nnHes,distance)
-                nexttem = - MATMUL(inverse(interpolHessian),grad)
-                nexttem = MATMUL(chg%car2lat,nexttem)
-                ! see if movement capping is necessary
-                nexttem = TemMods(nexttem,temscale,temnormcap)
-                temscale = scaleinspector( nexttem, previoustem, temscale)
-                IF (nexttem(1) /= tempRealR(1) .OR. &
-                    nexttem(2) /= tempRealR(2) .OR. &
-                    nexttem(3) /= tempRealR(3)) THEN
-                  PRINT *, "In Newton Rhapson validation, two methods gave &
-                    different tem!"
-                  PRINT *, "CalcTEMLat produced postconversion "
-                  PRINT *, tempRealR
-                  PRINT *, "Direct calculations produced after car2lat"
-                  PRINT *,  MATMUL(chg%car2lat, & 
-                    -MATMUL(inverse(interpolHessian),grad))
-                  PRINT *, "Direct calculations produced postconversion"
-                  PRINT *, nexttem
-                  PRINT *, "Direct calculated grad is"
-                  PRINT *, grad
-                  PRINT *, "Direct calculated hessianMatrix is"
-                  PRINT *, interpolHessian(1,:)
-                  PRINT *, interpolHessian(2,:)
-                  PRINT *, interpolHessian(3,:)
-                  PRINT *, "Preconversion direct calculated tem is"
-                  PRINT *, - MATMUL(inverse(interpolHessian),grad)
-                  PRINT *, "Grad used here is"
-                  PRINT *, grad
-                  PRINT *, "Hessian used here is"
-                  PRINT *, interpolHessian
-                  PRINT *, "for TemMods, temscale, temnormcap are"
-                  PRINT *, temScale
-                  PRINT *, temNormCap
-                  PRINT *, "Distance is"
-                  PRINT *, distance
-                  PRINT *, "Exiting"
-                  PRINT *, "End debug output for CalcTEMLat"
-                END IF
-              END IF
-              !grad = R2GradInterpol(nnind,truer,chg,nnLayers)
-              IF (ABS(grad(1)) <= 0.1*opts%par_gradfloor .AND. &
-                  ABS(grad(2)) <= 0.1*opts%par_gradfloor .AND. &
-                  ABS(grad(3)) <= 0.1*opts%par_gradfloor) THEN
-                cpcl(i)%trueind = truer 
-                cpcl(i)%isunique = .TRUE.
-                PRINT *, "Trajectory converged after direct calculation & 
-                  small gradient"
-                PRINT *, "gradient is "
-                PRINT *, grad
-                EXIT
-              END IF
-              CALL DetectCircling(stepCount,rList,temList,trueR,nextTem,averageR, &
-                LDM_DetectCircling,cpcl(i)%ind)
-              IF (ALL(averageR /= -1.,1)) THEN
-                cpcl(i)%isUnique = .TRUE.
-                cpcl(i)%trueInd = averageR
-                trueR = averageR
-                ! the following code is temporary. it disables averaging.
-                ! upon seeing averaging, this trajectory is marked unusable.
-                IF (LDM) PRINT *, "Direct calculation stepped into vacuum"
-                cpcl(i)%isUnique = .FALSE.
-                EXIT
-              END IF
-              previoustem = nexttem
-              tempr(1) = NINT(truer(1))
-              tempr(2) = NINT(truer(2))
-              tempr(3) = NINT(truer(3))
-              CALL pbc(tempr,chg%npts)
-              IF (bdr%volnum(tempr(1), &
-                  tempr(2),tempr(3)) == bdr%bnum + 1) THEN
-                ! We are heading into the vacuum space, cosmonaughts! 
-                cpcl(i)%isunique = .FALSE.
-                EXIT
-              END IF
-              IF ( ABS(nexttem(1)) .LE. 0.1*opts%par_newtonr .AND. &
-                   ABS(nexttem(2)) .LE. 0.1*opts%par_newtonr .AND. &
-                   ABS(nexttem(3)) .LE. 0.1*opts%par_newtonr ) THEN
-                cpcl(i)%trueind = truer 
-                cpcl(i)%isUnique = .TRUE.
-                PRINT *, "Trajectory converged after direct calculation &
-                  small tem"
-                PRINT *, "tem is"
-                PRINT *, tem
-                !EXIT
-              END IF
-              truer = truer + nexttem
-            END DO
-            PRINT *, "Direct calculation trajectory converged at point"
-            PRINT *, truer
-            PRINT *, "after ", stepCount, " steps "
-          END IF
-        END IF
-        IF (LDM_Trajectories)  CALL MakeFullCPRoster(fullcpRoster,i,truer)
-        IF (cpcl(i)%isUnique ) THEN
-          CALL MakeCPRoster(cpRoster,i,truer)
-          cpcl(i)%trueind = truer
-          interpolHessian = trilinear_interpol_hes(nnHes,distance)
-          ucptnum = ucptnum + 1
-          interpolHessian = CDHessianR(truer,chg)
-          CALL RecordCPR(truer,chg,cpl,ucptnum,eigvals,eigvecs,connectedAtoms, ucpCounts, &
-            opts, grad, interpolHessian, &
-            cpcl(i)%ind,LDM_RecordCPR)
-            IF (LDM) THEN
-              PRINT *, "recording CP number ", ucptnum
-              PRINT *, "location is "
-              PRINT *,  truer
-              PRINT *, "eigvals is "
-              PRINT *, eigvals
-              PRINT *, "negCount is"
-              PRINT *, cpl(ucptnum)%negCount
-            END IF
-          CYCLE
-        ELSE
-          CYCLE
-        END IF
-        IF ( LDM .AND. (&
-            truer(1)/=trueR(1) .OR. &
-            truer(2)/=trueR(2) .OR. &
-            truer(3)/=trueR(3)) ) THEN
-          PRINT *, "ERROR :"
-          PRINT *, "NRTFGP and direct calculation converged to different &
-            points!"
-          STOP
-        END IF
-        CALL pbc_r_lat(trueR,chg%npts)
-      ! moving on to the next critical pint candidate
-        PRINT *, 'lc 4'
-      END DO
+      CALL SearchWithCPCL(bdr,chg,cpcl,cpl,cptnum,ucptnum,ucpCounts)
+
       PRINT *, 'Number of critical point count: ', ucptnum
       PRINT *, 'Number of nuclear, bond, ring and cage  critical point &
         counts : ', ucpCounts(:)
@@ -519,8 +363,7 @@
       isReduced = .FALSE.
       DO WHILE ( .NOT. isReduced)
         CALL ReduceCP(cpl,opts,ucptnum,chg,ucpCounts, &
-          isReduced,LDM_RecordCPRLight, &
-          LDM_ReduceCP)
+          isReduced,LDM_RecordCPRLight,LDM_ReduceCP)
       END DO
       
       ! After CP numbers are reduced, do density descend and reduce another
@@ -528,9 +371,9 @@
       IF (opts%enableDensityDescend) THEN
         ! First find the midpoint of all rings, and their mirror iMages across
         ! the closest pbc (to be implemented). 
-        ALLOCATE(descendPoints(uRingCount*(uRingCount - 1 ),3))
-        ALLOCATE(ringPoints(uringCount,3))
-        CALL ResizeCPL(cpl,SIZE(cpl) + uRingCount*(uRingCount - 1))
+        ALLOCATE(descendPoints(ucpCounts(3)*(ucpCounts(3) - 1 ),3))
+        ALLOCATE(ringPoints(ucpCounts(3),3))
+        CALL ResizeCPL(cpl,SIZE(cpl) + ucpCounts(3)*(ucpCounts(3) - 1))
         j = 1
         DO i = 1, ucptnum
           IF (cpl(i)%negCount == 1 ) THEN
@@ -539,24 +382,15 @@
           END IF
         END DO
         k = 1
-        DO i = 1, uRingCount
-          DO j = i+1, uRingCount
+        DO i = 1, ucpCounts(3)
+          DO j = i+1, ucpCounts(3)
             descendPoints(k,1) = INT((ringPoints(i,1) + ringPoints(j,1))/2)
             descendPoints(k,2) = INT((ringPoints(i,2) + ringPoints(j,2))/2)
             descendPoints(k,3) = INT((ringPoints(i,3) + ringPoints(j,3))/2)
             k = k + 1
           END DO
         END DO
-        IF (LDM_DensityDescend) THEN
-          PRINT *, "Initiating density descend at the following points: "
-          PRINT *, "Total point count is ", SIZE(descendPoints)/3
-          PRINT *, "uRingCount*(uRingCount-1)=",uRingCOUNT*(uRingCount-1)
-          DO i = 1, SIZE(descendPoints)/ 6 
-            PRINT *, "descendPoint #",i
-            PRINT *, descendPoints(i,:)
-          END DO
-        END IF
-        DO i = 1, ( uRingCount * ( uRingCount - 1) ) / 2
+        DO i = 1, ( ucpCounts(3) * ( ucpCounts(3) - 1) ) / 2
           CALL DensityDescend(chg,bdr,opts,descendPoints(i,:),cpl,ucptnum, ucpCounts, & 
             LDM_DensityDescend, &
             LDM_RecordCPRLight,LDM_DetectCircling,LDM_NRTFGP)
@@ -1901,8 +1735,8 @@
     ! count the number of negative eigenvalues to characterize a critical point
     ! the version of the above subroutine where p is real not integer
     ! USED IN THIS MODULE
-    SUBROUTINE RecordCPR(p,chg,cpl,ucptnum,eigvals,eigvecs,connectedAtoms, ucpCounts, &
-      opts,grad,hessianMatrix,ind,LDM)
+    SUBROUTINE RecordCPR(p,chg,cpl,ucptnum,connectedAtoms, ucpCounts, &
+      opts,hessianMatrix,ind)
       TYPE(charge_obj) :: chg
       TYPE(options_obj) :: opts
       TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpl
@@ -1926,7 +1760,7 @@
       END IF
       CALL UpDateCounts(negCount,ucpCounts)
       cpl(ucptnum)%truer = p
-      cpl(ucptnum)%grad = grad
+      !cpl(ucptnum)%grad = grad !where is this getting value from?
       cpl(ucptnum)%eigvecs = eigvecs
       cpl(ucptnum)%eigvals = eigvals
       cpl(ucptnum)%negcount = negcount
@@ -3041,7 +2875,7 @@
     ! isUnique shows if the trajectory converged
     ! USED IN THIS MODULE
     SUBROUTINE NRTFGP(bdr,chg,opts,trueR,&
-      LDM_detectCircling,isUnique,r,ind,stepMax,LDM)
+      isUnique,r,ind,stepMax)
       TYPE(bader_obj) :: bdr
       TYPE(charge_obj) :: chg
       TYPE(options_obj) :: opts
@@ -3055,14 +2889,6 @@
       REAL(q2) :: temNormCap
       LOGICAL :: isUnique
       LOGICAL :: LDM,LDM_detectCircling
-      IF (LDM) THEN
-        PRINT *, "Entered NRTFGP"
-        PRINT *, "stepMax is"
-        PRINT *, "NRTFGP starting trajectory at "
-        PRINT *, ind
-        PRINT *, "recorded r is "
-        PRINT *, r
-      END IF
       isUnique = .FALSE.
       temcap = (/1.,1.,1./)
       temScale = (/1.,1.,1./)
@@ -3084,8 +2910,6 @@
       CALL pbc_r_lat(trueR,chg%npts)
       previoustem = r
       ! All the rest of the steps
-      IF (LDM) &
-        PRINT *, "Trajectory initialization complete"
       DO stepcount = 1,stepMax
         IF (LDM) PRINT *, "This is step ",stepCount
         IF (stepcount >= 1) THEN
@@ -3101,18 +2925,12 @@
             ABS(grad(2)) <= 0.1*opts%par_gradfloor .AND. &
             ABS(grad(3)) <= 0.1*opts%par_gradfloor) THEN
           isunique = .TRUE.
-          IF (LDM) THEN
-            PRINT *, "The trajectory converged due to small gradient"
-            PRINT *, "gradient is"
-            PRINT *, grad
-          END IF 
           EXIT
         END IF
         CALL DetectCircling(stepCount,rList,temList,trueR,nextTem,averageR, &
           LDM_DetectCircling,ind)
         IF (ALL(averageR /= -1.,1)) THEN
           !cpcl(i)%isUnique = .TRUE.
-          IF(LDM) PRINT *, "Detected Circling"
           trueR = averageR
           ! the following code is temporary. it disables averaging.
           ! upon seeing averaging, this trajectory is marked unusable.
@@ -3127,7 +2945,6 @@
         IF (bdr%volnum(tempr(1), &
             tempr(2),tempr(3)) == bdr%bnum + 1) THEN
           ! We are heading into the vacuum space, cosmonaughts! 
-          IF (LDM) PRINT *, "Stepped into vacuum"
           isunique = .FALSE.
           EXIT
         END IF
@@ -3135,22 +2952,12 @@
              ABS(nexttem(2)) .LE. 0.1*opts%par_newtonr .AND. &
              ABS(nexttem(3)) .LE. 0.1*opts%par_newtonr ) THEN
           isUnique = .TRUE.
-          IF (LDM) THEN
-            PRINT *, "The trajectory converged due to small tem"
-            PRINT *, "tem is"
-            PRINT *, nexttem
-          END IF
           EXIT
         END IF
         truer = truer + nexttem
       END DO
       truer = truer + nexttem ! this keeps track the total movement
       CALL pbc_r_lat(truer,chg%npts)
-      IF (LDM) THEN
-        PRINT *, "Exiting NRTFGP after step count : ",stepCount
-        PRINT *, "NRTFGP trajectory converged at point "
-        PRINT *, truer
-      END IF 
     END SUBROUTINE NRTFGP 
 
     ! USED IN THIS MODULE
@@ -3223,16 +3030,8 @@
       ! Need to obtain initial grad at the grid point and tem
       r = CalcTEMGrid(p,chg,grad,hessianMatrix)
       CALL NRTFGP(bdr,chg,opts,trueR,&
-        LDM_DetectCircling,isUnique,r,p,&
-        1000,LDM_NRTFGP)
-      IF ( LDM ) THEN
-        PRINT *, "NRTFGP in DensityDescend ended at"
-        PRINT *, trueR
-        PRINT *, "Starting RecordCPRLight"
-        PRINT *, "Before adding new point, exisitng CP number, max, bond,ring & 
-                 cage counts are"
-        PRINT *, ucptnum, ucpCounts(:)
-      END IF
+        isUnique,r,p,&
+        1000)
       UCPTnum = UCPTnum + 1
       uCCbefore = ucpCounts(4)
       CALL RecordCPRLight(trueR,chg,cpl,UCPTnum, ucpCounts, &
@@ -3246,16 +3045,6 @@
           more information"
       END IF
       ! To catch cages that does not produce three positive eigenvalues:
-      IF ( LDM ) THEN
-        PRINT *, "Finished RecordCPRLight"
-        PRINT *, "DensityDescend ended at"
-        PRINT *, p
-        CALL PrintNeighborCharges(p,chg)
-        PRINT *, "This is UCPTNum ",UCPTNum
-        PRINT *, "After adding new point, exisitng CP number, max, bond,ring & 
-                 cage counts are"
-        PRINT *, ucptnum, ucpCounts(:)
-      END IF
     END SUBROUTINE DensityDescend
 
     ! USED IN THIS MODULE
@@ -3474,8 +3263,7 @@
     ! It takes in only the starting point index, 
     ! and returns the converged point in lattice coordiantes.
     ! USED IN THIS MODULE
-    SUBROUTINE GradientDescend(bdr, chg, opts, rn, iniI,isUnique,stepMax,&
-    LDM)
+    SUBROUTINE GradientDescend(bdr, chg, opts, rn, iniI,isUnique,stepMax)
       INTEGER,DIMENSION(8,3) :: nnInd
       INTEGER,DIMENSION(3) :: iniI, tempint
       REAL(q2),DIMENSION(3) :: tempr
@@ -3493,7 +3281,6 @@
       INTEGER ::j, stepcount, loopcount, stepMax
       REAL(q2), DIMENSION(3)::rn 
       REAL(q2), DIMENSION(8,3) :: nngrad
-      LOGICAL :: LDM
       magMode = opts%GD_magMode
       !maximum step size
       maxstepsize =(/0.5,0.5,0.5/)
@@ -3515,21 +3302,18 @@
          IF (Mag(gMCDG)<= 0.00001 )  THEN
             ! we are at a critical point !
             isUnique= .TRUE.
-            IF (LDM)  PRINT *, 'Critical point found!'
             EXIT
          END IF
          !checks if maxstepsize is too small
          IF (magMode) THEN
             IF (maxstepsize_mag <= 0.001) THEN
               isUnique = .TRUE.
-              IF (LDM) PRINT *, "The step size became too small. Gradient Descent stopped."
               EXIT
             END IF
          ELSE
             IF (Mag(maxstepsize) <= 0.001) THEN
               !critical point found by step size becoming too small
               isUnique = .TRUE.
-              IF (LDM) PRINT *, "The step size became too small. Gradient Descent stopped."
               EXIT
             END IF
          END IF
@@ -3564,7 +3348,6 @@
          CALL pbc(tempint,chg%npts) 
 
          IF (bdr%volnum(tempint(1),tempint(2),tempint(3)) == bdr%bnum + 1) THEN
-            IF (LDM) PRINT *, "Entered the void"
             isUnique = .FALSE.
             EXIT
          END IF
@@ -3605,18 +3388,6 @@
         ! END IF
      END DO     
 
-    IF (LDM) THEN
-      PRINT *, 'starting position'
-      PRINT *, iniI
-      PRINT *, ' rn is'
-      PRINT *, rn
-      PRINT *, 'final gradient is'
-      PRINT *, gMCDG
-      PRINT *, 'final stepsize is'
-      PRINT *, maxstepsize
-      PRINT *, ' final loopcount is'
-      PRINT *, loopcount
-    END IF
     END SUBROUTINE GradientDescend
 
     ! Central Difference Gradient of Modulus of Charge Density Gradient
