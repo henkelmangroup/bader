@@ -202,7 +202,6 @@
           isUniqueTest = .TRUE.
           CALL GradientDescend(bdr,chg,opts,finR,iniIList(ij,:), isUniqueTest ,3000,LDM_GradMagGrad)
           PRINT *, finR
-         ! isUniqueTest = printinfo(iniIList(ij,:),chg)
           PRINT *, " "
       END DO
     END IF
@@ -1220,173 +1219,7 @@
     END FUNCTION inthessian
 
    
-    ! below is the function for least square gradient
-    ! USED IN THIS MODULE
-    FUNCTION lsg(r0,chg,matm,matwprime,vi,ggrid)
-    !FUNCTION lsg(r0,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct) 
-      TYPE(charge_obj) :: chg
-      REAL(q2), DIMENSION(3) :: lsg
-      ! input may either be integers or not. May need to change later on.
-      INTEGER, DIMENSION(3) :: r0
-      ! r0 is the position of the current grid point
-      INTEGER,DIMENSION(3,26) :: vi, nbp
-      ! v is a column of coordinates. 
-      ! nbp is indecies of neighbors, to be used for pbc
-      !INTEGER, DIMENSION(26,3) :: vit
-      ! vit is the transpose of vi
-      ! vi are the vectors from point r0 to ri, where ri are all neighbors of r0
-      REAL(q2), DIMENSION(3) :: frakturavi
-      REAL(q2), DIMENSION(3,13) :: matwprime
-      REAL(q2), DIMENSION(3,3) ::  matm
-      ! wi are the weights of each neighbor
-      REAL(q2), DIMENSION(13) :: deltarho
-      ! deltarho is the difference between +ri and -ri
-      REAL(q2), DIMENSION(3,3) :: ggrid
-      ! ggrid is the metric tensor, from grid basis to dual basis
-      INTEGER :: i
-      ! get the value differences to all neighbors
-      PRINT *, 'position is'
-      PRINT *, r0
-      PRINT *, 'in cartesian is'
-      PRINT *, MATMUL(chg%lat2car,r0)
-      CALL pbc(r0,chg%npts)
-      DO i = 1, 26
-        nbp(:,i) = vi(:,i) + r0
-        CALL pbc(nbp(:,i),chg%npts)
-!        PRINT *, nbp(:,i)
-!        PRINT *, MATMUL(chg%lat2car,nbp(:,i))
-      END DO
-      PRINT *, 'deltarho is'
-      DO i = 1 , 13
-        PRINT *, 'nbp i is'
-        PRINT *, nbp(:,i)
-        PRINT *, MATMUL(chg%lat2car,nbp(:,i))
-        PRINT *, 'nbp i + 13 is'
-        PRINT *, nbp(:,i + 13)
-        PRINT *, MATMUL(chg%lat2car,nbp(:,i+13))
-        deltarho(i) = rho_val(chg,nbp(1,i),nbp(2,i),nbp(3,i))  - &
-          rho_val(chg,nbp(1,i+13),nbp(2,i+13),nbp(3,i+13)) 
-        PRINT *, rho_val(chg,nbp(1,i),nbp(2,i),nbp(3,i)) , &
-          rho_val(chg,nbp(1,i+13),nbp(2,i+13),nbp(3,i+13)) 
-        PRINT *, deltarho(i)
-      END DO
-      lsg = 0._q2
-      PRINT *, 'ggrid is'
-      PRINT *, ggrid(1,:)
-      PRINT *, ggrid(2,:)
-      PRINT *, ggrid(3,:)
-      PRINT *, 'matm is'
-      DO i = 1, 3
-        PRINT *, matm(i,:)
-      END DO
-      PRINT *, 'matwprime is'
-      DO i = 1,13
-        PRINT *, matwprime(:,i)
-      END DO
-      PRINT *, 'product without delta rho is'
-      PRINT *, MATMUL( &
-            MATMUL(INVERSE(ggrid),INVERSE(matm)), &
-            matwprime)
-      PRINT *, 'inverse ggrid mul inverse matm is'
-      PRINT *, MATMUL(INVERSE(ggrid),INVERSE(matm))
-      ! The following code is for debugging, which calculates gradient in direct
-      ! coordinates.
-      lsg = MATMUL(MATMUL(INVERSE(matm),matwprime),deltarho)
-      PRINT *, 'gradient in direct is'
-      PRINT *, lsg 
-      lsg = &
-        MATMUL( &
-          MATMUL( & 
-            MATMUL(INVERSE(ggrid),INVERSE(matm)), &
-            matwprime) & 
-        , deltarho)
-      PRINT *, 'calculated lsg is'
-      PRINT *, lsg
-      ! lsg up till now seems to be larger than force in cartesian units by car2lat
-      lsg = MATMUL(chg%lat2car,lsg) ! now force should be in cartesian units
-      PRINT *, 'multiplied with lat2car again is'
-      PRINT *, lsg
-      RETURN
-    END FUNCTION lsg
 
-    ! This function finds hessian by 
-    ! finding lsg of gradients found with lsg
-    ! USED IN THIS MODULE
-    FUNCTION lsh(r0,chg,matm,matwprime,vi,ggrid)
-    !FUNCTION lsh(r0,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
-      TYPE(charge_obj) :: chg
-      REAL(q2), DIMENSION(3,3) :: lsh
-      INTEGER, DIMENSION(3) :: r0
-      ! to store neighbor lsg's
-      REAL(q2), DIMENSION(3,26) :: lsg_val
-      ! vi, as usual
-      INTEGER, DIMENSION(3,26) :: vi
-      !INTEGER, DIMENSION(26,3) :: vit
-      ! ggrid, as usual
-      REAL(q2), DIMENSION(3,3) :: ggrid
-      ! one time use for neighbor positions
-      INTEGER, DIMENSION(3) :: nbp
-      !REAL(q2), DIMENSION(26) :: wi
-      REAL(q2), DIMENSION(3,13) :: matwprime
- 
-      ! differences in gradient components
-      REAL(q2), DIMENSION(13) :: deltadx, deltady, deltadz
-      REAL(q2), DIMENSION(3,3) :: matm
-      !REAL(q2), DIMENSION(3,3) :: outerproduct
-      REAL(q2) :: average
-      INTEGER :: i, j, k
-      DO i = 1, 26
-        nbp = vi(:,i) + r0
-        CALL pbc(nbp,chg%npts) ! nbps are fine
-        !lsg_val(:,i) = lsg(nbp,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
-        lsg_val(:,i) = lsg(nbp,chg,matm,matwprime,vi,ggrid)
-      END DO
-      DO i = 1, 13
-        ! matwprime matches with lsg
-        deltadx(i) = lsg_val(1,i) - lsg_val(1,i+13)
-        deltady(i) = lsg_val(2,i) - lsg_val(2,i+13)
-        deltadz(i) = lsg_val(3,i) - lsg_val(3,i+13)
-      END DO
-      lsh(1,:) = &
-        MATMUL( &
-          MATMUL( &
-            MATMUL(INVERSE(ggrid),INVERSE(matm)), &
-            matwprime &  
-          ), &        
-        deltadx &
-        )
-      lsh(2,:) = &
-        MATMUL( &
-          MATMUL( &
-            MATMUL(INVERSE(ggrid),INVERSE(matm)), &
-            matwprime &  
-          ), &        
-        deltady &
-        )
-      lsh(3,:) = &
-        MATMUL( &
-          MATMUL( &
-            MATMUL(INVERSE(ggrid),INVERSE(matm)), &
-            matwprime &  
-          ), &        
-        deltadz &
-        )
-
-      ! the hessian up till now seems larger than cartesian by car2lat
-      lsh(1,:) = MATMUL(chg%lat2car,lsh(1,:))
-      lsh(2,:) = MATMUL(chg%lat2car,lsh(2,:))
-      lsh(3,:) = MATMUL(chg%lat2car,lsh(3,:))
-      average = (lsh(1,2) + lsh(2,1))/2
-      lsh(1,2) = average
-      lsh(2,1) = average
-      average = (lsh(1,3) + lsh(3,1))/2
-      lsh(1,3) = average
-      lsh(3,1) = average
-      average = (lsh(2,3) + lsh(3,2)) /2
-      lsh(2,3) = average
-      lsh(3,2) = average
-      RETURN
-    END FUNCTION lsh
 
     ! USED IN THIS MODULE
     FUNCTION makevi()
@@ -1463,7 +1296,7 @@
       !INTEGER :: nnLayers
       REAL(q2), DIMENSION(3) :: tempr, rn, rnm1 ! rn minus 1
       REAL(q2), DIMENSION(3) :: grad, stepsize, gradnm1
-      INTEGER, DIMENSION(3,26) :: vi, matw
+      INTEGER, DIMENSION(3,26) :: vi
       !INTEGER, DIMENSION(26,3) :: vit
       REAL(q2), DIMENSION(3,3) :: ggrid
       !REAL(q2), DIMENSION(26) :: wi
@@ -1941,90 +1774,27 @@
     END FUNCTION 
 
 
-    ! this function gives the ls gradient of the squared ls gradient
-    ! USED IN THIS MODULE
-    !FUNCTION lsgsqlsg(r0,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
-    FUNCTION lsgsqlsg(r0,chg,matm,matwprime,vi,ggrid)
-      TYPE(charge_obj) :: chg
-      REAL(q2), DIMENSION(3,3) :: lsh
-      INTEGER, DIMENSION(3) :: r0
-      REAL(q2), DIMENSION(3,26) :: lsg_val
-      INTEGER, DIMENSION(3,26) :: vi
-      !INTEGER, DIMENSION(26,3) :: vit
-      REAL(q2), DIMENSION(3,3) :: ggrid
-      INTEGER, DIMENSION(3) :: nbp
-      !REAL(q2), DIMENSION(26) :: wi, totlsg_val
-      REAL(q2), DIMENSION(26) :: totlsg_val
-      REAL(q2), DIMENSION(3,13) :: matwprime
-      REAL(q2), DIMENSION(13) :: deltadx, deltady, deltadz, delta
-      REAL(q2), DIMENSION(3,3) :: matm
-      !REAL(q2), DIMENSION(3,3) :: outerproduct
-      REAL(q2) :: average
-      REAL(q2), DIMENSION(3) :: lsgsqlsg
-      INTEGER :: i, j, k
-      ! first need the gradient of the local neighbors, like the parts of lsh.
-      DO i = 1, 26
-        nbp = vi(:,i) + r0
-        CALL pbc(nbp,chg%npts) 
-        !lsg_val(:,i) = lsg(nbp,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
-        lsg_val(:,i) = lsg(nbp,chg,matm,matwprime,vi,ggrid)
-        ! square the gradient
-        lsg_val(1,i) = lsg_val(1,i) ** 2 
-        lsg_val(2,i) = lsg_val(2,i) ** 2
-        lsg_val(3,i) = lsg_val(3,i) ** 2
-        totlsg_val(i) = lsg_val(1,i) + lsg_val(2,i) + lsg_val(3,i)
-      END DO
-      ! get the gradient of the squared gradient
-      deltadx = 0.
-      deltady = 0.
-      deltadz = 0.
-      DO i = 1, 13
-!        matwprime(:,i) = vi(:,i) * wi(i)
-        ! matwprime matches with lsg
-!        deltadx(i) = lsg_val(1,i) - lsg_val(1,i+13)
-!        deltady(i) = lsg_val(2,i) - lsg_val(2,i+13)
-!        deltadz(i) = lsg_val(3,i) - lsg_val(3,i+13)
-        delta(i) = totlsg_val(i) - totlsg_val(i+13)
-      END DO
-      lsgsqlsg= 0._q2
-      lsgsqlsg = &
-        MATMUL( &
-          MATMUL( & 
-            MATMUL(INVERSE(ggrid),INVERSE(matm)), &
-            matwprime) & 
-        , delta)
-      ! lsg up till now seems to be larger than force in cartesian units by car2lat
-      lsgsqlsg = MATMUL(chg%lat2car,lsgsqlsg) ! now force should be in cartesian units
-      END FUNCTION lsgsqlsg
 
 
 
       !FUNCTION gradientfilter(p,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
       FUNCTION gradientfilter(p,chg,matm,matwprime,vi,ggrid)
       TYPE(charge_obj) :: chg
-      REAL(q2), DIMENSION(3,3) :: lsh
       INTEGER, DIMENSION(3) :: p
-      REAL(q2), DIMENSION(3,26) :: lsg_val
       INTEGER, DIMENSION(3,26) :: vi, ps ! indexes of 26 neighbors
       REAL(q2), DIMENSION(3,26) ::  grads ! gradient of 26 neighbors
-      !INTEGER, DIMENSION(26,3) :: vit
       REAL(q2), DIMENSION(3,3) :: ggrid
       INTEGER, DIMENSION(3) :: nbp
-      !REAL(q2), DIMENSION(26) :: wi
       REAL(q2), DIMENSION(3,13) :: matwprime
-      REAL(q2), DIMENSION(13) :: deltadx, deltady, deltadz
       REAL(q2), DIMENSION(3,3) :: matm
-      !REAL(q2), DIMENSION(3,3) :: outerproduct
-      REAL(q2) :: average
-      REAL(q2), DIMENSION(3) :: grad
-      INTEGER :: i, j, k
+      INTEGER :: i
       LOGICAL :: gradientfilter
       gradientfilter = .TRUE.
       DO i = 1, 26
         ps(:,i) = p + vi(:,i)
         CALL pbc(ps(:,i),chg%npts)
-        !grads(:,i) = lsg(ps(:,i),chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
-        grads(:,i) = lsg(ps(:,i),chg,matm,matwprime,vi,ggrid)
+        PRINT *, "executing broken code"
+        STOP
       END DO
       IF (grads(1,5)*grads(1,18) >= 0 &
           .OR. grads(2,11)*grads(2,24)>=0 &
@@ -2190,7 +1960,6 @@
     ! USED IN THIS MODULE
     FUNCTION scaleinspector( nexttem, previoustem, temScale)
       REAL(q2), DIMENSION(3) :: nexttem, previoustem, temScale, scaleinspector
-      INTEGER :: i
       !DO i = 1, 3
       !  IF (nexttem(i)*previoustem(i) <= 0) THEN
       !    temScale(i) = temScale(i) * 0.5
@@ -2212,16 +1981,12 @@
       REAL(q2), DIMENSION(3,3) :: unZeroHessian, lsd
       INTEGER, DIMENSION(3) :: truer
       INTEGER, DIMENSION(3,26) :: vi
-      !INTEGER, DIMENSION(26,3) :: vit
       REAL(q2), DIMENSION(3,3) :: ggrid
-      INTEGER, DIMENSION(3) :: nbp
-      !REAL(q2), DIMENSION(26) :: wi
       REAL(q2), DIMENSION(3,13) :: matwprime
       REAL(q2), DIMENSION(3,3) :: matm
-      !REAL(q2), DIMENSION(3,3) :: outerproduct
       INTEGER, DIMENSION(8,3) :: nnind
-      REAL(q2) :: average, ran
-      INTEGER :: i, j, k
+      REAL(q2) :: ran
+      INTEGER :: i, j
       
       ! first step is to move a little bit
       DO i = 1 , 3
@@ -2230,8 +1995,8 @@
       END DO
       ! second step is to find the new nearest neighbors
       PRINT *, truer
-      !lsd = lsh(nnind(j,:),chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
-      lsd = lsh(nnind(j,:),chg,matm,matwprime,vi,ggrid)
+      PRINT *,"broken code executed"
+      STOP
       unZeroHessian = 0
       RETURN
     END FUNCTION 
@@ -2391,21 +2156,13 @@
       REAL(q2), DIMENSION(3,3) :: eigvecs, hessianMatrix
       INTEGER, DIMENSION(2) :: connectedAtoms
       REAL(q2), DIMENSION(3) :: p,realdump
-      INTEGER, DIMENSION(3,26) :: vi
-      !INTEGER, DIMENSION(26,3) :: vit
-      REAL(q2), DIMENSION(3,3) :: ggrid
-      !REAL(q2), DIMENSION(26) :: wi
-      REAL(q2), DIMENSION(3,13) :: matwprime
-      REAL(q2), DIMENSION(3,3) :: matm
-      !REAL(q2), DIMENSION(3,3) :: outerproduct
       REAL(q2) :: rho
       INTEGER,DIMENSION(3) :: ind
-      INTEGER :: i, j, k, ucptnum, negCount
+      INTEGER :: ucptnum, negCount
       INTEGER :: maxcount, uRingCount, uBondCount, uCageCount
       INTEGER :: it_num, rot_num
       LOGICAL :: LDM
       cpl(ucptnum)%hessianMatrix = hessianMatrix
-      !CALL DSYEVJ3(hessianMatrix,eigvecs,eigvals)
       CALL jacobi_eigenvalue(3,hessianMatrix,9999,eigvecs,eigvals,&
         it_num, rot_num )
       negCount = CountNegModes(eigvals)
@@ -2444,16 +2201,12 @@
       REAL(q2), DIMENSION(3) :: eigvals, grad
       REAL(q2), DIMENSION(3,3) :: eigvecs, hessianMatrix
       REAL(q2), DIMENSION(3) :: p, realDump
-      REAL(q2), DIMENSION(3,3) :: ggrid
       !REAL(q2), DIMENSION(26) :: wi
-      REAL(q2), DIMENSION(3,13) :: matwprime
-      REAL(q2), DIMENSION(3,3) :: matm
       !REAL(q2), DIMENSION(3,3) :: outerproduct
       REAL(q2) :: rho
       !INTEGER, DIMENSION(26,3) :: vit
-      INTEGER, DIMENSION(3,26) :: vi
       INTEGER,DIMENSION(3) :: ind
-      INTEGER :: i, j, k, ucptnum, negCount
+      INTEGER :: ucptnum, negCount
       INTEGER :: maxcount, uRingCount, uBondCount, uCageCount
       INTEGER :: it_num, rot_num
       LOGICAL :: LDM
@@ -2502,8 +2255,6 @@
       ! vol was used to calculate charge density with cpl(i)%rho/vol
       ! REAL(q2) :: vol
       ! vol = matrix_volume(ions%lattice)
-      REAL(q2),DIMENSION(3) :: grad,realDump
-      REAL(q2) :: rho
       CHARACTER(10) :: fileName
       PRINT *, 'Writting critical point output files'
       WRITE(fileName,fmt='(a,i2.2,a)') TRIM('CPFU'), setcount,TRIM('.dat')
@@ -2608,7 +2359,7 @@
 
     FUNCTION CheckIsolatedAtom(atom_connectivity)
       INTEGER,DIMENSION(:,:) :: atom_connectivity
-      INTEGER :: i,j,con_sum
+      INTEGER :: i,con_sum
       LOGICAL :: CheckIsolatedAtom
       
 
@@ -2969,16 +2720,11 @@
       TYPE(ions_obj) :: ions
       TYPE(options_obj) :: opts
       TYPE(cpc),DIMENSION(:),ALLOCATABLE :: cpcl
-      REAL(q2),DIMENSION(8,3,3) :: nnHes
       !REAL(q2),DIMENSION(8,3) :: nnGrad
-      REAL(q2),DIMENSION(3,3) :: hessianMatrix,eigvecs
-      REAL(q2),DIMENSION(3) :: grad,r
-      INTEGER,DIMENSION(8,3) :: nnInd
-      INTEGER :: cptnum,i,n1,negCount, j
-      INTEGER :: maxCount,bondCount,ringCount,cageCount
-      INTEGER :: im,ib,ir,ic
+      REAL(q2),DIMENSION(3) :: r
+      INTEGER :: cptnum,n1,j
+      INTEGER :: bondCount,ringCount,cageCount
       CHARACTER(LEN=128) :: atoms, natoms
-      LOGICAL :: isCart
       OPEN(100,FILE=opts%chargefile,STATUS='old',ACTION='read',BLANK='null',PAD='yes')
       IF(opts%in_opt == opts%in_chgcar5) THEN
         DO n1 = 1, 5
@@ -3575,7 +3321,7 @@
       TYPE(options_obj) :: opts
       INTEGER,DIMENSION(8,3) :: nnInd
       INTEGER,DIMENSION(3) :: tempR,ind
-      INTEGER :: stepCount,AverageCount,i,j,stepMax
+      INTEGER :: stepCount,AverageCount,j,stepMax
       REAL(q2),DIMENSION(10,3) :: temList,rList
       REAL(q2),DIMENSION(8,3) :: nnGrad
       REAL(q2),DIMENSION(3) :: grad,averageR,trueR,nexttem,previoustem,&
@@ -4232,10 +3978,10 @@
         / chg%npts(3)
     END SUBROUTINE DebugGetRhoAround
 
+    ! This function should print the density, gradient and curvature of a grid point.
     SUBROUTINE DebugGetInfo(grid,chg)
       TYPE(charge_obj) :: chg
       INTEGER, DIMENSION(3) :: grid
-      LOGICAL :: printinfo
       PRINT *, 'grid point is'
       PRINT *, grid
       PRINT *, 'mag(grad:'
