@@ -56,34 +56,29 @@
     TYPE(ions_obj), INTENT(INOUT) :: ions
     TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpcl, cpl, cpclt
     ! The above three are CP candidate list, CP list and CP list temp
-! copy
-! for points, 1 and 2 are +1, -1
+    ! copy
+    ! for points, 1 and 2 are +1, -1
 
     REAL(q2), DIMENSION(:,:), ALLOCATABLE :: cpRoster, fullcpRoster, reducedcpRoster, &
       static_search
     REAL(q2), DIMENSION(8,3,3) :: nnhes !hessian of 8 nn
     REAL(q2), DIMENSION(10,3) :: rList,temList
     REAL(q2), DIMENSION(8,3) :: nngrad  
-    REAL(q2), DIMENSION(3,13) :: matwprime
-    REAL(q2), DIMENSION(3,3) :: hessianMatrix, eigvecs, inverseHessian, interpolHessian, &
-      ggrid, matm, outerproduct
-    REAL(q2), DIMENSION(26) :: wi
+    REAL(q2), DIMENSION(3,3) :: hessianMatrix, eigvecs, interpolHessian, &
+      ggrid
     REAL(q2), DIMENSION(3) :: tem, eigvals, truer, grad, prevgrad, temprealr, &
       distance, & ! vector to 000 in trilinear 
-      iP,finR, nexttem, previoustem, averager, temcap, temscale
+      finR, nexttem, previoustem, averager, temcap, temscale
     REAL(q2) :: temnormcap
 
     INTEGER, DIMENSION(:,:), ALLOCATABLE :: descendPoints, ringPoints, nnind, &
       atom_connectivity, nucleiInd 
     INTEGER, DIMENSION(:), ALLOCATABLE :: RingList
-    INTEGER, DIMENSION(26,3) :: vit
     INTEGER, DIMENSION(20,3) :: iniIList
-    INTEGER, DIMENSION(8,3) :: nn ! alternative trilinear approx.
-    INTEGER, DIMENSION(3,26) :: vi
     INTEGER, DIMENSION(3) :: p, tempr
     INTEGER, DIMENSION(2) :: connectedAtoms
     INTEGER :: n1, n2, n3, cptnum, ucptnum, i, j, k, debugnum,ij, &
-      negcount, bondcount, ringcount, maxcount, cagecount, uBondCount, uRingCount, & 
+      bondcount, ringcount, maxcount, cagecount, uBondCount, uRingCount, & 
       uCageCount, setcount, stat, axisnum,&
       avgMode, stepcount, nnlayers, averagecount
 
@@ -168,19 +163,12 @@
     WRITE(1,*) 'norm      ','| del a      | ','    del b     |','    del c'
     OPEN(2,FILE='HES.dat',STATUS='REPLACE',ACTION='WRITE')
     debugnum = 0
-
     nnlayers = findnnlayers(ions)
     nnind = findnn(truer,nnlayers,chg,ions)
-
-
-
     PRINT *, '******************************************************' 
-
     ALLOCATE (cpl(10000)) ! start with 10000 capacity
     ALLOCATE (cpcl(10000))
       ! Maxima should always be found first with gradient ascension
-
-
     !gradient descent unit test with arbitrary initial point
     !iniI and finR were defined in the main critpoint_fnd method for lack of a better place to define them.
     IF (LDM_GradMagGrad) THEN
@@ -215,10 +203,8 @@
       tempr(1) = NINT(ions%r_dir(n1,1) * chg%npts(1)) 
       tempr(2) = NINT(ions%r_dir(n1,2) * chg%npts(2)) 
       tempr(3) = NINT(ions%r_dir(n1,3) * chg%npts(3)) 
-      !temprealr = ascension(tempr,chg,matm,matwprime, &
-      !           wi,vi,vit,ggrid,outerproduct,opts,nnLayers,ions)
-      temprealr = ascension(tempr,chg,matm,matwprime, &
-                 vi,ggrid,opts,ions)
+      temprealr = ascension(tempr,chg, &
+                ggrid,opts,ions)
       ucptnum = ucptnum + 1
       cpl(ucptnum)%trueind = temprealr
       ! these points are to stay in the list so cpl is used instead of cpcl
@@ -631,9 +617,6 @@
             uRingCount, uBondCount,uCageCount,LDM_DensityDescend, &
             LDM_RecordCPRLight,LDM_DetectCircling,LDM_NRTFGP)
         END DO
-        !CALL minimasearch(chg,cptnum,cpl,bdr,matm,matwprime, &
-        !       wi,vi,vit,ggrid,outerproduct,opts,uCageCount,&
-        !       nnLayers,ions)
         DEALLOCATE(descendPoints)
         DEALLOCATE(ringPoints)
         isReduced = .FALSE.
@@ -1280,9 +1263,7 @@
     END FUNCTION
 
     ! USED IN THIS MODULE
-    !FUNCTION ascension(ind,chg,matm,matwprime,wi,vi,vit, & 
-    !                   ggrid,outerproduct,opts,nnLayers,ions)
-    FUNCTION ascension(ind,chg,matm,matwprime,vi, &
+    FUNCTION ascension(ind,chg, &
                        ggrid,opts,ions)
       ! this function finds nucleus critical points. 
       INTEGER, DIMENSION(3) :: ind
@@ -1293,16 +1274,9 @@
       INTEGER, DIMENSION(:,:),ALLOCATABLE :: nnind
       REAL(q2), DIMENSION(8,3) :: nngrad
       INTEGER :: j, stepcount
-      !INTEGER :: nnLayers
       REAL(q2), DIMENSION(3) :: tempr, rn, rnm1 ! rn minus 1
       REAL(q2), DIMENSION(3) :: grad, stepsize, gradnm1
-      INTEGER, DIMENSION(3,26) :: vi
-      !INTEGER, DIMENSION(26,3) :: vit
       REAL(q2), DIMENSION(3,3) :: ggrid
-      !REAL(q2), DIMENSION(26) :: wi
-      REAL(q2), DIMENSION(3,13) :: matwprime
-      REAL(q2), DIMENSION(3,3) :: matm 
-      !REAL(q2), DIMENSION(3,3) :: outerproduct
       
       stepcount = 0
       ALLOCATE(nnInd(8,3))
@@ -1385,8 +1359,6 @@
       TYPE(charge_obj) :: chg
       TYPE(ions_obj) :: ions
       TYPE(cpc) :: cp
-      REAL(q2),DIMENSION(3) :: descension, distance
-      INTEGER, DIMENSION(:,:),ALLOCATABLE :: nnind
       INTEGER, DIMENSION(:), ALLOCATABLE :: UniqueCPs
       INTEGER, DIMENSION(:), ALLOCATABLE :: CPsFound1
       INTEGER, DIMENSION(:), ALLOCATABLE :: CPsFound2
@@ -1519,28 +1491,15 @@
       REAL(q2), DIMENSION(3) ::vector
       TYPE(charge_obj) :: chg
       TYPE(ions_obj) :: ions
-      REAL(q2),DIMENSION(3) :: ascension, distance
-      INTEGER, DIMENSION(:,:),ALLOCATABLE :: nnind
-      !REAL(q2), DIMENSION(8,3) :: nngrad
-      INTEGER :: j, stepcount
-      ! INTEGER :: nnLayers
-      REAL(q2), DIMENSION(3) :: tempr, rn, rnm1 ! rn minus 1
-      REAL(q2), DIMENSION(3) :: grad, stepsize, gradnm1
-      !REAL(q2), DIMENSION(26) :: wi
-      REAL(q2), DIMENSION(3) :: ind_plus, ind_minus, ini_ind_plus, ini_ind_minus
+      REAL(q2), DIMENSION(3) :: ind_plus, ind_minus
       TYPE(cpc) :: cp
-      INTEGER :: vecnum, i
+      INTEGER :: vecnum
       INTEGER :: nuc1num, nuc2num
       INTEGER, DIMENSION(2) :: DoubleAscension
-      
-      
-     !assigns ind to the starting critical point coordinate 
+      !assigns ind to the starting critical point coordinate 
       ind(1) = cp%truer(1)
       ind(2) = cp%truer(2)
       ind(3) = cp%truer(3)
-
-      ! PRINT *, cp%eigvals
-      
       !checks to make sure only one eigenvalue is positive (indicating bond CP), and finds which one it is.
       IF (cp%eigvals(1) < 0 .AND. cp%eigvals(2) < 0 .AND. cp%eigvals(3) > 0 ) THEN
         vecnum = 3
@@ -1551,10 +1510,8 @@
       ELSE
         vecnum = 0
       END IF
-      
       nuc1num = 0
       nuc2num = 0
-
       IF (vecnum == 0) THEN
        ! PRINT *, "Not a valid bond critical point! Exactly one positive eigenvalue is required to proceed"
       ELSE
@@ -1681,9 +1638,7 @@
 
 
     ! USED IN THIS MODULE
-    !FUNCTION descension(ind,chg,matm,matwprime,wi,vi,vit, & 
-    !                   ggrid,outerproduct,opts,nnLayers,ions)
-    FUNCTION descension(ind,chg,matm,matwprime,vi, &
+    FUNCTION descension(ind,chg, &
                         ggrid,opts,ions)
       ! this function finds nucleus critical points. 
       INTEGER, DIMENSION(3) :: ind
@@ -1694,19 +1649,11 @@
       INTEGER, DIMENSION(:,:),ALLOCATABLE :: nnind
       REAL(q2), DIMENSION(8,3) :: nngrad
       INTEGER :: j, stepcount
-      !INTEGER :: nnLayers
       REAL(q2), DIMENSION(3) :: tempr, rn, rnm1 ! rn minus 1
       REAL(q2), DIMENSION(3) :: grad, stepsize, gradnm1
-      INTEGER, DIMENSION(3,26) :: vi, matw
-      !INTEGER, DIMENSION(26,3) :: vit
       REAL(q2), DIMENSION(3,3) :: ggrid
-      !REAL(q2), DIMENSION(26) :: wi
-      REAL(q2), DIMENSION(3,13) :: matwprime
-      REAL(q2), DIMENSION(3,3) :: matm
-      !REAL(q2), DIMENSION(3,3) :: outerproduct
       stepcount = 0
       ALLOCATE(nnInd(8,3))
-!      ALLOCATE(nnInd((nnlayers*2+1)**3,3))
       ! initialize the process
       CALL pbc(ind,chg%npts)
       rn(1) = REAL(ind(1),q2)
@@ -1716,18 +1663,12 @@
       stepsize(2) = 0.5
       stepsize(3) = 0.5
       grad = cdgrad(ind,chg)
-!      PRINT *, 'initial grad is'
-!      PRINT *, grad
       ! this gradient is in cartesian. convert it to lattice
       grad = MATMUL(chg%lat2car,grad)
       DO WHILE (stepsize(1) >= 0.1 .AND. &
                 stepsize(2) >= 0.1 .AND. &
                 stepsize(3) >= 0.1 )
         ! the gradient is in cartesian. 
-!        PRINT *, 'grad is'
-!        PRINT *, grad
-!        PRINT *, 'rn is'
-!        PRINT *, rn
         IF (SUM(grad*grad) <= (0.1*opts%par_gradfloor)**2) THEN
           PRINT *, 'descension grad small enough'
           EXIT
@@ -1749,8 +1690,6 @@
         END DO
         distance = rn - nnind(1,:)
         grad = trilinear_interpol_grad(nngrad,distance) ! val r interpol
-        !nnInd = FindNN(rn,nnLayers,chg,ions)
-        !grad = R2GradInterpol(nnInd,rn,chg,nnLayers)
         ! this grad is in cartesian. convert it to lattice
         grad = MATMUL(chg%lat2car,grad)
         IF (SUM(grad*grad)<=(0.1*opts%par_gradfloor)**2) THEN
@@ -1773,37 +1712,6 @@
       RETURN 
     END FUNCTION 
 
-
-
-
-
-      !FUNCTION gradientfilter(p,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
-      FUNCTION gradientfilter(p,chg,matm,matwprime,vi,ggrid)
-      TYPE(charge_obj) :: chg
-      INTEGER, DIMENSION(3) :: p
-      INTEGER, DIMENSION(3,26) :: vi, ps ! indexes of 26 neighbors
-      REAL(q2), DIMENSION(3,26) ::  grads ! gradient of 26 neighbors
-      REAL(q2), DIMENSION(3,3) :: ggrid
-      INTEGER, DIMENSION(3) :: nbp
-      REAL(q2), DIMENSION(3,13) :: matwprime
-      REAL(q2), DIMENSION(3,3) :: matm
-      INTEGER :: i
-      LOGICAL :: gradientfilter
-      gradientfilter = .TRUE.
-      DO i = 1, 26
-        ps(:,i) = p + vi(:,i)
-        CALL pbc(ps(:,i),chg%npts)
-        PRINT *, "executing broken code"
-        STOP
-      END DO
-      IF (grads(1,5)*grads(1,18) >= 0 &
-          .OR. grads(2,11)*grads(2,24)>=0 &
-          .OR. grads(3,13)*grads(3,26)>=0 ) THEN
-        gradientfilter = .FALSE.
-      END IF
-
-      RETURN
-    END FUNCTION
   
     ! this function takes in the current point, see if a near by point has
     ! already been marked as a critical point. if yes, skip it. The criteria is
@@ -1850,69 +1758,25 @@
       !temnormcap should not change at all
       !temscaleois direction sensitive. It gradually narrows in if tem changes
       !sign a lot.
-
-
       IF (Mag(previoustem) == temnormcap) THEN
         capprev = .TRUE.
       END IF
       IF (Mag(nexttem) == temnormcap ) THEN
         capnext = .TRUE.
       END IF
-
       ! if nexttem and prev tem are complete opposites, it's stuck for sure
       IF (nexttem(1) == -previoustem(1) .AND. &
           nexttem(2) == -previoustem(2) .AND. &
           nexttem(3) == -previoustem(3) ) THEN
         stuck = .TRUE.
       END IF
-
       IF ( stuck ) THEN
         nexttem = rngkick(nexttem)
       END IF
- 
       unstuck = nexttem
       ! stuck is defined as nexttem and previous tem being equal but complete
       ! opposite
 
-      ! if hopping back and forth without gradient changing sign
-!      IF ( (nexttem(1)*previoustem(1)<=0 .OR.     &
-!            nexttem(2)*previoustem(2)<=0 .OR.     &
-!            nexttem(3)*previoustem(3)<=0 ) .AND. (&
-!            (nexttem(1) + previoustem(1))**2 +    &
-!            (nexttem(2) + previoustem(2))**2 +    &
-!            (nexttem(3) + previoustem(3))**2      &
-!            <= 0.5) .AND. .NOT. (                 &
-!            ABS(nexttem(1)) == temcap(1) .AND.    &
-!            ABS(nexttem(2)) == temcap(2) .AND.    &
-!            ABS(nexttem(3)) == temcap(3)          &
-!            ))  THEN
-!!        PRINT *, '' 
-!        CALL RANDOM_NUMBER(rndr)
-!        nexttem(1) = nexttem(1) + rndr - 0.5
-!        CALL RANDOM_NUMBER(rndr)
-!        nexttem(2) = nexttem(2) + rndr - 0.5
-!        CALL RANDOM_NUMBER(rndr)
-!        nexttem(3) = nexttem(3) + rndr - 0.5
-!      END IF
-!      PRINT *, 'after comparing with previoustem, tem became'
-!      PRINT *, nexttem
-!      IF (nexttem(1) == previoustem(1) .AND. &
-!          nexttem(2) == previoustem(2) .AND. &
-!          nexttem(3) == previoustem(3) .AND. & 
-!          .NOT. (                            &
-!            ABS(nexttem(1)) == temcap(1) .AND.    &
-!            ABS(nexttem(2)) == temcap(2) .AND.    &
-!            ABS(nexttem(3)) == temcap(3)          &
-!         )) THEN
-!        CALL RANDOM_NUMBER(rndr)
-!        nexttem(1) = nexttem(1) + rndr - 0.5
-!        CALL RANDOM_NUMBER(rndr)
-!        nexttem(2) = nexttem(2) + rndr - 0.5
-!        CALL RANDOM_NUMBER(rndr)
-!        nexttem(3) = nexttem(3) + rndr - 0.5
-!      END IF
-!      PRINT *, 'after another check, nexttem eventually came out as'
-!      PRINT *, nexttem
       RETURN
     END FUNCTION
 
@@ -1975,18 +1839,13 @@
     END FUNCTION
 
     ! if it is detected that the hessian 
-    !FUNCTION unZeroHessian(truer,chg,matm,matwprime,wi,vi,vit,ggrid,outerproduct)
-    FUNCTION unZeroHessian(truer,chg,matm,matwprime,vi,ggrid)
+    FUNCTION unZeroHessian(truer,chg,ggrid)
       TYPE(charge_obj) :: chg
-      REAL(q2), DIMENSION(3,3) :: unZeroHessian, lsd
+      REAL(q2), DIMENSION(3,3) :: unZeroHessian
       INTEGER, DIMENSION(3) :: truer
-      INTEGER, DIMENSION(3,26) :: vi
       REAL(q2), DIMENSION(3,3) :: ggrid
-      REAL(q2), DIMENSION(3,13) :: matwprime
-      REAL(q2), DIMENSION(3,3) :: matm
-      INTEGER, DIMENSION(8,3) :: nnind
       REAL(q2) :: ran
-      INTEGER :: i, j
+      INTEGER :: i
       
       ! first step is to move a little bit
       DO i = 1 , 3
@@ -2141,10 +2000,6 @@
     END SUBROUTINE 
 
     ! count the number of negative eigenvalues to characterize a critical point
-    !SUBROUTINE RecordCP(p,chg,matm,matwprime,wi,vi,vit,ggrid &
-    !  ,outerproduct,cpl,ucptnum,eigvals,eigvecs, maxcount, uRingCount, &
-    !  uBondCount, uCageCount,opts,LDM)
-
     ! the version of the above subroutine where p is real not integer
     ! USED IN THIS MODULE
     SUBROUTINE RecordCPR(p,chg,cpl,ucptnum,eigvals,eigvecs,connectedAtoms, maxcount, uRingCount, &
@@ -2201,10 +2056,7 @@
       REAL(q2), DIMENSION(3) :: eigvals, grad
       REAL(q2), DIMENSION(3,3) :: eigvecs, hessianMatrix
       REAL(q2), DIMENSION(3) :: p, realDump
-      !REAL(q2), DIMENSION(26) :: wi
-      !REAL(q2), DIMENSION(3,3) :: outerproduct
       REAL(q2) :: rho
-      !INTEGER, DIMENSION(26,3) :: vit
       INTEGER,DIMENSION(3) :: ind
       INTEGER :: ucptnum, negCount
       INTEGER :: maxcount, uRingCount, uBondCount, uCageCount
@@ -2553,18 +2405,6 @@
       RETURN
     END FUNCTION GetPointDistanceR
 
-    FUNCTION makewi(chg,nnlayers,vi)
-      REAL,DIMENSION(26) :: makewi
-      INTEGER, DIMENSION(3,26) :: vi
-      INTEGER, DIMENSION(3) :: p1, p2
-      INTEGER :: i, nnlayers
-      TYPE(charge_obj) :: chg
-      p1 = (/chg%npts(1)/2,chg%npts(2)/2,chg%npts(3)/2/)
-      DO i  = 1, 26
-        p2 = p1 + vi(:,i)
-        makewi(i) = 1/(GetPointDistance(p1,p2,chg,nnlayers)**2)
-      END DO 
-    END FUNCTION
 
     ! USED IN THIS MODULE
     SUBROUTINE MakeCPRoster(cpr,cptnum,r)
