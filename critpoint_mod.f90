@@ -75,6 +75,8 @@
       atom_connectivity, nucleiInd 
     INTEGER, DIMENSION(:), ALLOCATABLE :: RingList
     INTEGER, DIMENSION(20,3) :: iniIList
+    INTEGER, DIMENSION(4) :: cpCounts,ucpCounts ! the 4 elements are
+    ! nuclear, bond, ring, cage CP coutns
     INTEGER, DIMENSION(3) :: p, tempr
     INTEGER, DIMENSION(2) :: connectedAtoms
     INTEGER :: n1, n2, n3, cptnum, ucptnum, i, j, k, debugnum,ij, &
@@ -88,18 +90,12 @@
       LDM_NRTFGP,LDM_CalcTEMLat,LDM_RecordCPR, LDM_GradMagGrad, LDM_RingAscend, LDM_Trajectories, &
       isUniqueTest, isReduced, phmrCompliant
 
+    CALL PrintFlavorText()
     ! below are variables for least sqaures gradient
     stat = 0 ! 0 means nothing
     ALLOCATE(atom_connectivity(ions%nions,ions%nions))
     atom_connectivity = 0
-    PRINT *, ''//achar(27)//'[31m Finding Critical points'//achar(27)//'[0m'
-    PRINT *, ''//achar(27)//'[91m Interrogation of the soul:'//achar(27)//'[0m'
-    PRINT *, ''//achar(27)//'[33m Did I turn on vacuum ?'//achar(27)//'[0m'
-    PRINT *, ''//achar(27)//'[92m Did I tell if this is a crystall or molecule?'//achar(27)//'[0m'
-    PRINT *, ''//achar(27)//'[36m Did I use the CHGCAR_sum ?'//achar(27)//'[0m'
-    PRINT *, ''//achar(27)//'[34m Did I use reasonable values for parameters ? '//achar(27)//'[0m'
-    PRINT *, ''//achar(27)//'[95m Critical point is like a box of chocolates. &
-              You never know what you are gonna get.'//achar(27)//'[0m'
+
     !WRITE(*,'(A)')  'FINDING CRITICAL POINTS'
     CALL get_voxvol(chg,ions)
     IF (opts%enableCHGCARSmoothening) THEN
@@ -108,15 +104,9 @@
       ! This will override chg object
       smoothenedCHGCAR = "smoothenedCHGCAR_sum"
       ! Deallocating objects allocated in read_charge_chgcar
-      DEALLOCATE (ions%num_ion)
-      DEALLOCATE (ions%r_dir)
-      DEALLOCATE (ions%r_car)
-      DEALLOCATE (chg%rho)
-      DEALLOCATE (ions%r_lat)
-  
+      DEALLOCATE (ions%num_ion,ions%r_dir,ions%r_car,chg%rho,ions%r_lat)
       CALL read_charge_chgcar(ions,chg,smoothenedCHGCAR,opts)
     END IF
-    !STOP
     HCF = .FALSE.
     LDM = .FALSE.
     IF (opts%debugMode) THEN
@@ -150,18 +140,10 @@
 !      WRITE (97,*) nucleiInd(d1,:)
     END DO
     setcount = 0
-    bondcount = 0
-    uBondCount = 0
-    ringcount = 0
-    uRingCount = 0
-    maxcount = 0
-    uCageCount = 0
-    cagecount = 0
+    cpCounts = 0
+    ucpCounts = 0
     ucptnum = 0
     cptnum = 0
-    OPEN(1,FILE='GRAD.dat',STATUS='REPLACE',ACTION='WRITE')
-    WRITE(1,*) 'norm      ','| del a      | ','    del b     |','    del c'
-    OPEN(2,FILE='HES.dat',STATUS='REPLACE',ACTION='WRITE')
     debugnum = 0
     nnlayers = findnnlayers(ions)
     nnind = findnn(truer,nnlayers,chg,ions)
@@ -211,8 +193,8 @@
       p(1) = NINT(cpl(ucptnum)%trueind(1))
       p(2) = NINT(cpl(ucptnum)%trueind(2))
       p(3) = NINT(cpl(ucptnum)%trueind(3))
-      CALL RecordCPR(temprealr,chg,cpl,ucptnum,eigvals,eigvecs,connectedAtoms, maxcount, uRingCount, &
-        uBondCount, uCageCount,opts,grad,hessianMatrix, p,LDM_RecordCPR)
+      CALL RecordCPR(temprealr,chg,cpl,ucptnum,eigvals,eigvecs,connectedAtoms, ucpCounts, &
+        opts,grad,hessianMatrix, p,LDM_RecordCPR)
       IF (LDM) THEN
         PRINT *, "recording CP to cpl, this is number ", ucptnum
         PRINT *, "location is "
@@ -221,20 +203,15 @@
     END DO
     ! ascension results may not give the best hessian. so the types are set
     ! manually.
-    IF (maxcount /= ucptnum) THEN
+    IF (ucpCounts(1) /= ucptnum) THEN
       PRINT *, 'WARNING: It was detected that the number of maxima found &
         does not equal to trials started. The found critical points are &
         being manually set as nuclear critical points'
       DO n1 = 1, ucptnum
         cpl(n1)%negcount = 3
       END DO
-      uBondCount = 0
-      uCageCount = 0
-      uRingCount = 0
-      maxcount = ucptnum
+      ucpCounts(1) = ucptnum
     END IF
-    !PRINT *, 'after adjustments, CP counts are'
-    !PRINT *, maxcount, uBondCount, uRingCount, uCageCount
 
     IF (opts%static_search) THEN
       PRINT *, "starting static search"
@@ -300,9 +277,6 @@
               cptnum = cptnum + 1
               ! Check if the candidate list needs to be expanded.
               IF (cptnum < SIZE(cpcl) - 1 ) THEN
-                !cpcl(cptnum)%du = hes%du
-                !cpcl(cptnum)%dv = hes%dv  
-                !cpcl(cptnum)%dw = hes%dw
                 cpcl(cptnum)%ind(1) = n1
                 cpcl(cptnum)%ind(2) = n2
                 cpcl(cptnum)%ind(3) = n3
@@ -317,24 +291,18 @@
                   cpclt(i) = cpcl(i)
                 END DO
                 DEALLOCATE(cpcl)
-!                PRINT *, 'copied'
                 ALLOCATE(cpcl(cptnum*2))
                 PRINT *, 'cpcl size now is', SIZE(cpcl)
                 DO i = 1, cptnum - 1
                   cpcl(i)=cpclt(i)
                 END DO
-!                PRINT *, 'copied back'
                 DEALLOCATE(cpclt)
-                !cpcl(cptnum)%du = hes%du 
-                !cpcl(cptnum)%dv = hes%dv
-                !cpcl(cptnum)%dw = hes%dw
                 cpcl(cptnum)%ind(1) = n1
                 cpcl(cptnum)%ind(2) = n2
                 cpcl(cptnum)%ind(3) = n3
                 cpcl(cptnum)%grad = grad
                 cpcl(cptnum)%hasProxy = .FALSE.
                 cpcl(cptnum)%r = tem
-                !cpcl(cptnum)%tempcart = MATMUL( chg%car2lat,tem + p)
               END IF
             END IF
           END DO
@@ -349,233 +317,209 @@
       ! get the new hessian which will be a matrix of constants, make moves until
       ! r is zero. get the coordinates of the new true critical point. If this
       ! point is within half lattice to another, do not record this new point.
-      IF (.TRUE.) THEN
-        ALLOCATE(cpRoster(cptnum,3))
-        IF (LDM_Trajectories) ALLOCATE(fullcpRoster(cptnum,3))
-        DO i = 1, cptnum
-          cpcl(i)%isunique = .FALSE.
-          temcap = (/1.,1.,1./)
-          temscale = (/1.,1.,1./)
-          temnormcap = 1.
-          IF (.FALSE.) THEN
-            CYCLE
-          ELSE
-            IF (opts%gradMode) THEN
-               !uses GradientDescend instead of NRTFGP          
-               IF (LDM) PRINT *, "Gradient Mode Activated"
-               CALL GradientDescend(bdr,chg,opts,trueR,cpcl(i)%ind,&
-               cpcl(i)%isUnique,3000,LDM_GradMagGrad)
-               IF (.TRUE.) THEN
-                 IF (ABS(trueR(1))>200 .OR. ABS(trueR(2))>200 .OR. ABS(trueR(3))>200) THEN
-                    PRINT *, "Way out of bounds!"
-                    EXIT
-                 END IF
+      ALLOCATE(cpRoster(cptnum,3))
+      IF (LDM_Trajectories) ALLOCATE(fullcpRoster(cptnum,3))
+      DO i = 1, cptnum
+        cpcl(i)%isunique = .FALSE.
+        temcap = (/1.,1.,1./)
+        temscale = (/1.,1.,1./)
+        temnormcap = 1.
+        IF (.FALSE.) THEN
+          CYCLE
+        ELSE
+          IF (opts%gradMode) THEN
+             !uses GradientDescend instead of NRTFGP          
+             IF (LDM) PRINT *, "Gradient Mode Activated"
+             CALL GradientDescend(bdr,chg,opts,trueR,cpcl(i)%ind,&
+             cpcl(i)%isUnique,3000,LDM_GradMagGrad)
+             IF (.TRUE.) THEN
+               IF (ABS(trueR(1))>200 .OR. ABS(trueR(2))>200 .OR. ABS(trueR(3))>200) THEN
+                  PRINT *, "Way out of bounds!"
+                  EXIT
                END IF
-            ELSE
-               ! Begins newton raphson validation process
-               CALL NRTFGP(bdr,chg,opts,trueR,&
-               LDM_detectCircling,cpcl(i)%isUnique,cpcl(i)%r,cpcl(i)%ind,&
-               1000,LDM_NRTFGP)
-            END IF
-            IF (LDM) THEN
-              PRINT *, "trueR is"
-              PRINT *, trueR
-              PRINT *, "lc 1"
-            END IF
-            IF (LDM) THEN
-              PRINT *, "NRTFGP converged at point "
-              PRINT *, trueR
-              PRINT *, "Direct calculation starting from point "
-              PRINT *, cpcl(i)%ind
-              PRINT *, "recorded r is "
-              PRINT *, cpcl(i)%r
-              stepcount = 1
-              averagecount = 0
-              averageR = (/-1.,-1.,-1./)
-              ! Now start newton method iterations
-              truer =  cpcl(i)%ind + cpcl(i)%r
-              previoustem = cpcl(i)%r
-              DO stepCount = 1,1000
-                IF (LDM) PRINT *, "Direct calculation step ", stepCount
-                IF (stepcount >= 1) THEN
-                  prevgrad = grad
-                END IF
-                CALL pbc_r_lat(truer,chg%npts)
-                nnind = SimpleNN(truer,chg)
-                distance = truer - nnind(1,:)
-                nexttem = CalcTEMLat(trueR,chg,temScale,previousTEM,grad,temNormCap,&
-                  LDM)
-                tempRealR = nexttem
-                IF (LDM) THEN
-                  ! Below contains the unit test for CalcTEMLat
-                  PRINT *, "Starting debug output for CalcTEMLat"
-                  DO j = 1,8
-                    nngrad(j,:) = CDGrad(nnind(j,:),chg)
-                    hessianMatrix = CDHessian(nnind(j,:),chg)
-                    !IF (opts%dohes) THEN
-                    !  CALL DiagonalOnlyHes(hessianMatrix)
-                    !END IF
-                    nnhes(j,:,:) = hessianMatrix
-                  END DO
-                   !row find the nearest neighbors at this new locaiton
-                   !first update critical point location
-                   !the next big step is to interpolate the force at predicted critical
-                   !point.
-                  grad = trilinear_interpol_grad(nnGrad,distance) ! val r interpol
-                  interpolHessian = trilinear_interpol_hes(nnHes,distance)
-                  nexttem = - MATMUL(inverse(interpolHessian),grad)
-                  nexttem = MATMUL(chg%car2lat,nexttem)
-                  ! see if movement capping is necessary
-                  nexttem = TemMods(nexttem,temscale,temnormcap)
-                  temscale = scaleinspector( nexttem, previoustem, temscale)
-                  IF (nexttem(1) /= tempRealR(1) .OR. &
-                      nexttem(2) /= tempRealR(2) .OR. &
-                      nexttem(3) /= tempRealR(3)) THEN
-                    PRINT *, "In Newton Rhapson validation, two methods gave &
-                      different tem!"
-                    PRINT *, "CalcTEMLat produced postconversion "
-                    PRINT *, tempRealR
-                    PRINT *, "Direct calculations produced after car2lat"
-                    PRINT *,  MATMUL(chg%car2lat, & 
-                      -MATMUL(inverse(interpolHessian),grad))
-                    PRINT *, "Direct calculations produced postconversion"
-                    PRINT *, nexttem
-                    PRINT *, "Direct calculated grad is"
-                    PRINT *, grad
-                    PRINT *, "Direct calculated hessianMatrix is"
-                    PRINT *, interpolHessian(1,:)
-                    PRINT *, interpolHessian(2,:)
-                    PRINT *, interpolHessian(3,:)
-                    PRINT *, "Preconversion direct calculated tem is"
-                    PRINT *, - MATMUL(inverse(interpolHessian),grad)
-                    PRINT *, "Grad used here is"
-                    PRINT *, grad
-                    PRINT *, "Hessian used here is"
-                    PRINT *, interpolHessian
-                    PRINT *, "for TemMods, temscale, temnormcap are"
-                    PRINT *, temScale
-                    PRINT *, temNormCap
-                    !PRINT *, "All direct calculated components of nnHes are"
-                    !DO j=1,8
-                    !  PRINT *, j
-                    !  PRINT *, nnHes(j,1,:)
-                    !  PRINT *, nnHes(j,2,:)
-                    !  PRINT *, nnHes(j,3,:)
-                    !END DO
-                    PRINT *, "Distance is"
-                    PRINT *, distance
-                    PRINT *, "Exiting"
-                    PRINT *, "End debug output for CalcTEMLat"
-                  END IF
-                END IF
-                !grad = R2GradInterpol(nnind,truer,chg,nnLayers)
-                IF (ABS(grad(1)) <= 0.1*opts%par_gradfloor .AND. &
-                    ABS(grad(2)) <= 0.1*opts%par_gradfloor .AND. &
-                    ABS(grad(3)) <= 0.1*opts%par_gradfloor) THEN
-                  cpcl(i)%trueind = truer 
-                  cpcl(i)%isunique = .TRUE.
-                  PRINT *, "Trajectory converged after direct calculation & 
-                    small gradient"
-                  PRINT *, "gradient is "
-                  PRINT *, grad
-                  EXIT
-                END IF
-                CALL DetectCircling(stepCount,rList,temList,trueR,nextTem,averageR, &
-                  LDM_DetectCircling,cpcl(i)%ind)
-                IF (ALL(averageR /= -1.,1)) THEN
-                  cpcl(i)%isUnique = .TRUE.
-                  cpcl(i)%trueInd = averageR
-                  trueR = averageR
-                  ! the following code is temporary. it disables averaging.
-                  ! upon seeing averaging, this trajectory is marked unusable.
-                  IF (LDM) PRINT *, "Direct calculation stepped into vacuum"
-                  cpcl(i)%isUnique = .FALSE.
-                  EXIT
-                END IF
-                previoustem = nexttem
-                tempr(1) = NINT(truer(1))
-                tempr(2) = NINT(truer(2))
-                tempr(3) = NINT(truer(3))
-                CALL pbc(tempr,chg%npts)
-                IF (bdr%volnum(tempr(1), &
-                    tempr(2),tempr(3)) == bdr%bnum + 1) THEN
-                  ! We are heading into the vacuum space, cosmonaughts! 
-                  cpcl(i)%isunique = .FALSE.
-                  EXIT
-                END IF
-                IF ( ABS(nexttem(1)) .LE. 0.1*opts%par_newtonr .AND. &
-                     ABS(nexttem(2)) .LE. 0.1*opts%par_newtonr .AND. &
-                     ABS(nexttem(3)) .LE. 0.1*opts%par_newtonr ) THEN
-                  cpcl(i)%trueind = truer 
-                  cpcl(i)%isUnique = .TRUE.
-                  PRINT *, "Trajectory converged after direct calculation &
-                    small tem"
-                  PRINT *, "tem is"
-                  PRINT *, tem
-                  !EXIT
-                END IF
-                truer = truer + nexttem
-              END DO
-              PRINT *, "Direct calculation trajectory converged at point"
-              PRINT *, truer
-              PRINT *, "after ", stepCount, " steps "
-            END IF
+             END IF
+          ELSE
+             ! Begins newton raphson validation process
+             CALL NRTFGP(bdr,chg,opts,trueR,&
+             LDM_detectCircling,cpcl(i)%isUnique,cpcl(i)%r,cpcl(i)%ind,&
+             1000,LDM_NRTFGP)
           END IF
-          IF (LDM) PRINT *, "lc 2"
-          IF (LDM_Trajectories)  CALL MakeFullCPRoster(fullcpRoster,i,truer)
-          IF (cpcl(i)%isUnique ) THEN
-            CALL MakeCPRoster(cpRoster,i,truer)
-            cpcl(i)%trueind = truer
-          ELSE 
-            CYCLE
-          END IF
-          IF (cpcl(i)%isunique ) THEN
-            interpolHessian = trilinear_interpol_hes(nnHes,distance)
-            ucptnum = ucptnum + 1
-            interpolHessian = CDHessianR(truer,chg)
-            CALL RecordCPR(truer,chg,cpl,ucptnum,eigvals,eigvecs,connectedAtoms, maxcount, &
-              uRingCount,uBondCount,uCageCount, opts, grad, interpolHessian, &
-              cpcl(i)%ind,LDM_RecordCPR)
-              IF (LDM) THEN
-                PRINT *, "recording CP number ", ucptnum
-                PRINT *, "location is "
-                PRINT *,  truer
-                PRINT *, "eigvals is "
-                PRINT *, eigvals
-                PRINT *, "negCount is"
-                PRINT *, cpl(ucptnum)%negCount
+          IF (LDM) THEN
+            PRINT *, "NRTFGP converged at point "
+            PRINT *, trueR
+            PRINT *, "Direct calculation starting from point "
+            PRINT *, cpcl(i)%ind
+            PRINT *, "recorded r is "
+            PRINT *, cpcl(i)%r
+            stepcount = 1
+            averagecount = 0
+            averageR = (/-1.,-1.,-1./)
+            ! Now start newton method iterations
+            truer =  cpcl(i)%ind + cpcl(i)%r
+            previoustem = cpcl(i)%r
+            DO stepCount = 1,1000
+              IF (LDM) PRINT *, "Direct calculation step ", stepCount
+              IF (stepcount >= 1) THEN
+                prevgrad = grad
               END IF
-            CYCLE
+              CALL pbc_r_lat(truer,chg%npts)
+              nnind = SimpleNN(truer,chg)
+              distance = truer - nnind(1,:)
+              nexttem = CalcTEMLat(trueR,chg,temScale,previousTEM,grad,temNormCap,&
+                LDM)
+              tempRealR = nexttem
+              IF (LDM) THEN
+                ! Below contains the unit test for CalcTEMLat
+                PRINT *, "Starting debug output for CalcTEMLat"
+                DO j = 1,8
+                  nngrad(j,:) = CDGrad(nnind(j,:),chg)
+                  hessianMatrix = CDHessian(nnind(j,:),chg)
+                  !IF (opts%dohes) THEN
+                  !  CALL DiagonalOnlyHes(hessianMatrix)
+                  !END IF
+                  nnhes(j,:,:) = hessianMatrix
+                END DO
+                 !row find the nearest neighbors at this new locaiton
+                 !first update critical point location
+                 !the next big step is to interpolate the force at predicted critical
+                 !point.
+                grad = trilinear_interpol_grad(nnGrad,distance) ! val r interpol
+                interpolHessian = trilinear_interpol_hes(nnHes,distance)
+                nexttem = - MATMUL(inverse(interpolHessian),grad)
+                nexttem = MATMUL(chg%car2lat,nexttem)
+                ! see if movement capping is necessary
+                nexttem = TemMods(nexttem,temscale,temnormcap)
+                temscale = scaleinspector( nexttem, previoustem, temscale)
+                IF (nexttem(1) /= tempRealR(1) .OR. &
+                    nexttem(2) /= tempRealR(2) .OR. &
+                    nexttem(3) /= tempRealR(3)) THEN
+                  PRINT *, "In Newton Rhapson validation, two methods gave &
+                    different tem!"
+                  PRINT *, "CalcTEMLat produced postconversion "
+                  PRINT *, tempRealR
+                  PRINT *, "Direct calculations produced after car2lat"
+                  PRINT *,  MATMUL(chg%car2lat, & 
+                    -MATMUL(inverse(interpolHessian),grad))
+                  PRINT *, "Direct calculations produced postconversion"
+                  PRINT *, nexttem
+                  PRINT *, "Direct calculated grad is"
+                  PRINT *, grad
+                  PRINT *, "Direct calculated hessianMatrix is"
+                  PRINT *, interpolHessian(1,:)
+                  PRINT *, interpolHessian(2,:)
+                  PRINT *, interpolHessian(3,:)
+                  PRINT *, "Preconversion direct calculated tem is"
+                  PRINT *, - MATMUL(inverse(interpolHessian),grad)
+                  PRINT *, "Grad used here is"
+                  PRINT *, grad
+                  PRINT *, "Hessian used here is"
+                  PRINT *, interpolHessian
+                  PRINT *, "for TemMods, temscale, temnormcap are"
+                  PRINT *, temScale
+                  PRINT *, temNormCap
+                  PRINT *, "Distance is"
+                  PRINT *, distance
+                  PRINT *, "Exiting"
+                  PRINT *, "End debug output for CalcTEMLat"
+                END IF
+              END IF
+              !grad = R2GradInterpol(nnind,truer,chg,nnLayers)
+              IF (ABS(grad(1)) <= 0.1*opts%par_gradfloor .AND. &
+                  ABS(grad(2)) <= 0.1*opts%par_gradfloor .AND. &
+                  ABS(grad(3)) <= 0.1*opts%par_gradfloor) THEN
+                cpcl(i)%trueind = truer 
+                cpcl(i)%isunique = .TRUE.
+                PRINT *, "Trajectory converged after direct calculation & 
+                  small gradient"
+                PRINT *, "gradient is "
+                PRINT *, grad
+                EXIT
+              END IF
+              CALL DetectCircling(stepCount,rList,temList,trueR,nextTem,averageR, &
+                LDM_DetectCircling,cpcl(i)%ind)
+              IF (ALL(averageR /= -1.,1)) THEN
+                cpcl(i)%isUnique = .TRUE.
+                cpcl(i)%trueInd = averageR
+                trueR = averageR
+                ! the following code is temporary. it disables averaging.
+                ! upon seeing averaging, this trajectory is marked unusable.
+                IF (LDM) PRINT *, "Direct calculation stepped into vacuum"
+                cpcl(i)%isUnique = .FALSE.
+                EXIT
+              END IF
+              previoustem = nexttem
+              tempr(1) = NINT(truer(1))
+              tempr(2) = NINT(truer(2))
+              tempr(3) = NINT(truer(3))
+              CALL pbc(tempr,chg%npts)
+              IF (bdr%volnum(tempr(1), &
+                  tempr(2),tempr(3)) == bdr%bnum + 1) THEN
+                ! We are heading into the vacuum space, cosmonaughts! 
+                cpcl(i)%isunique = .FALSE.
+                EXIT
+              END IF
+              IF ( ABS(nexttem(1)) .LE. 0.1*opts%par_newtonr .AND. &
+                   ABS(nexttem(2)) .LE. 0.1*opts%par_newtonr .AND. &
+                   ABS(nexttem(3)) .LE. 0.1*opts%par_newtonr ) THEN
+                cpcl(i)%trueind = truer 
+                cpcl(i)%isUnique = .TRUE.
+                PRINT *, "Trajectory converged after direct calculation &
+                  small tem"
+                PRINT *, "tem is"
+                PRINT *, tem
+                !EXIT
+              END IF
+              truer = truer + nexttem
+            END DO
+            PRINT *, "Direct calculation trajectory converged at point"
+            PRINT *, truer
+            PRINT *, "after ", stepCount, " steps "
           END IF
-          PRINT *, "lc 3"
-          IF ( LDM .AND. (&
-              truer(1)/=trueR(1) .OR. &
-              truer(2)/=trueR(2) .OR. &
-              truer(3)/=trueR(3)) ) THEN
-            PRINT *, "ERROR :"
-            PRINT *, "NRTFGP and direct calculation converged to different &
-              points!"
-            STOP
-          END IF
-          PRINT *, "lc 3.1"
-          PRINT *, trueR
-          CALL pbc_r_lat(trueR,chg%npts)
-        ! moving on to the next critical pint candidate
-          PRINT *, 'lc 4'
-        END DO
-      END IF
+        END IF
+        IF (LDM_Trajectories)  CALL MakeFullCPRoster(fullcpRoster,i,truer)
+        IF (cpcl(i)%isUnique ) THEN
+          CALL MakeCPRoster(cpRoster,i,truer)
+          cpcl(i)%trueind = truer
+          interpolHessian = trilinear_interpol_hes(nnHes,distance)
+          ucptnum = ucptnum + 1
+          interpolHessian = CDHessianR(truer,chg)
+          CALL RecordCPR(truer,chg,cpl,ucptnum,eigvals,eigvecs,connectedAtoms, ucpCounts, &
+            opts, grad, interpolHessian, &
+            cpcl(i)%ind,LDM_RecordCPR)
+            IF (LDM) THEN
+              PRINT *, "recording CP number ", ucptnum
+              PRINT *, "location is "
+              PRINT *,  truer
+              PRINT *, "eigvals is "
+              PRINT *, eigvals
+              PRINT *, "negCount is"
+              PRINT *, cpl(ucptnum)%negCount
+            END IF
+          CYCLE
+        ELSE
+          CYCLE
+        END IF
+        IF ( LDM .AND. (&
+            truer(1)/=trueR(1) .OR. &
+            truer(2)/=trueR(2) .OR. &
+            truer(3)/=trueR(3)) ) THEN
+          PRINT *, "ERROR :"
+          PRINT *, "NRTFGP and direct calculation converged to different &
+            points!"
+          STOP
+        END IF
+        CALL pbc_r_lat(trueR,chg%npts)
+      ! moving on to the next critical pint candidate
+        PRINT *, 'lc 4'
+      END DO
       PRINT *, 'Number of critical point count: ', ucptnum
-      PRINT *, 'Number of nucl critical point count: ', maxcount
-      PRINT *, 'Number of bond critical point count: ', uBondCount
-      PRINT *, 'Number of ring critical point count: ', uRingCount
-      PRINT *, 'Number of cage critical point count: ', uCageCount
+      PRINT *, 'Number of nuclear, bond, ring and cage  critical point &
+        counts : ', ucpCounts(:)
       ! remove duplicate CPs
-
-
       isReduced = .FALSE.
       DO WHILE ( .NOT. isReduced)
-        CALL ReduceCP(cpl,opts,ucptnum,chg,uBondCount, &
-          uRingCount,uCageCount,maxCount,isReduced,LDM_RecordCPRLight, &
+        CALL ReduceCP(cpl,opts,ucptnum,chg,ucpCounts, &
+          isReduced,LDM_RecordCPRLight, &
           LDM_ReduceCP)
       END DO
       
@@ -613,16 +557,16 @@
           END DO
         END IF
         DO i = 1, ( uRingCount * ( uRingCount - 1) ) / 2
-          CALL DensityDescend(chg,bdr,opts,descendPoints(i,:),cpl,ucptnum, maxCount, & 
-            uRingCount, uBondCount,uCageCount,LDM_DensityDescend, &
+          CALL DensityDescend(chg,bdr,opts,descendPoints(i,:),cpl,ucptnum, ucpCounts, & 
+            LDM_DensityDescend, &
             LDM_RecordCPRLight,LDM_DetectCircling,LDM_NRTFGP)
         END DO
         DEALLOCATE(descendPoints)
         DEALLOCATE(ringPoints)
         isReduced = .FALSE.
         DO WHILE ( .NOT. isReduced)
-          CALL ReduceCP(cpl,opts,ucptnum,chg,uBondCount, &
-            uRingCount,uCageCount,maxCount,isReduced,LDM_RecordCPRLight, &
+          CALL ReduceCP(cpl,opts,ucptnum,chg,ucpCounts, &
+            isReduced,LDM_RecordCPRLight, &
             LDM_ReduceCP)
         END DO
       END IF
@@ -633,20 +577,15 @@
       PRINT *, 'After a round of reduction'
       PRINT *, 'Numbver of atoms: ', ions%nions
       PRINT *, 'Number of critical point count: ', ucptnum
-      PRINT *, 'Number of nucl critical point count: ', maxcount
-      PRINT *, 'Number of bond critical point count: ', uBondCount
-      PRINT *, 'Number of ring critical point count: ', uRingCount
-      PRINT *, 'Number of cage critical point count: ', uCageCount
-      CALL  PHRuleExam(maxCount,ubondCount,uringCount,ucageCount,opts,&
-        ions,phmrCompliant)
-      
+      PRINT *, 'Number of nuclear, bond, ring and cage  critical point &
+        counts : ', ucpCounts(:)
+      CALL PHRuleExam(ucpCounts,opts,ions,phmrCompliant)
       IF (phmrCompliant) THEN
         stat = 1
       ELSE
         stat = 0
       END IF
       ! stat = 1
-
       !Runs DoubleAscension and RingAscension on all detected critical points
       DO ij = 1,ucptnum
         !Saves pairs of connected atoms in connectedAtoms
@@ -662,8 +601,7 @@
         END IF
       END DO
       ! output the cp to files
-      CALL OutputCP(cpl,opts,ucptnum,chg,setcount, uBondCount, &
-        uRingCount, uCageCount, maxcount)
+      CALL OutputCP(cpl,opts,ucptnum,chg,setcount, ucpCounts)
       !Output the found list of connectivity pairs to file 
       CALL OutputNetwork(cpl,ucptnum,setcount,atom_connectivity)
       IF (stat == 1 .AND. CheckIsolatedAtom(atom_connectivity)) THEN
@@ -671,7 +609,6 @@
         PRINT *, 'Declaring this a false positive.'
         stat = 0
       END IF      
-
       IF (LDM_Trajectories) THEN
         !Performs statistical analysis (standard deviation) on the CP Roster 
         CALL CPRosterAnalysis(cpl,ions,fullcpRoster,chg)
@@ -684,21 +621,9 @@
       END IF
       DEALLOCATE(cpRoster)
     END IF
-
-    !CALL connectivity_check(bdr, chg, opts, ions, cpl)
-
-    !PRINT *, 'stat', stat
     PRINT *, 'outputting debugging information to allcpPOSCAR'
-!    CALL VisAllCP(cpcl,cptnum,chg,ions,opts)
-    CALL VisAllCP(cpl,ucptnum,chg,ions,opts,uringCount,ubondCount,ucageCount)
-
-    DEALLOCATE(cpl)
-    DEALLOCATE(cpcl)
-    DEALLOCATE(atom_connectivity)
-!    CLOSE(97)
-!    CLOSE(98)
-    CLOSE(1)
-    CLOSE(2)
+    CALL VisAllCP(cpl,ucptnum,chg,ions,opts,ucpCounts)
+    DEALLOCATE(cpl,cpcl,atom_connectivity)
   END SUBROUTINE critpoint_find
 
     ! this function determins when looking for nn, how many layers to search
@@ -1860,49 +1785,23 @@
       RETURN
     END FUNCTION 
 
-    ! check if the number of each type of critical point satisfies the
-    ! Poincare-Hopf rule
-    FUNCTION PHRuleChecker(maxcount, uBondCount, uRingCount, uCageCount, opts, &
-      ions )
-      LOGICAL :: PHRuleChecker
-      INTEGER :: maxcount, uBondCount, uRingCount, uCageCount
-      TYPE(options_obj) :: opts
-      TYPE(ions_obj) :: ions
-      phrulechecker = .FALSE.
-      IF ( maxcount < ions%nions) THEN
-        PHRULECHECKER = .FALSE.
-      ELSEIF (maxcount > ions%nions) THEN
-        PRINT *, 'WARNING : MORE MAXIMA FOUND THAN NUMBER OF NUCLEI!'
-      ELSE 
-        IF (opts%iscrystal ) THEN
-          IF (maxcount - uBondCount + uRingCount - uCageCount == 0) THEN
-            phrulechecker = .TRUE.
-          END IF
-        ELSE 
-          IF (maxcount - uBondCount + uRingCount - uCageCount == 1) THEN
-            phrulechecker = .TRUE.
-          END IF 
-        END IF
-      END IF
-      RETURN
-    END FUNCTION PHRuleChecker
     
     ! This subroutine checks if PH rule is satisfied given crystal/molecule
     ! inport or not
     ! USED IN THIS MODULE
-    SUBROUTINE PHRuleExam(maxCount,bondCount,ringCount,cageCount,opts,ions,&
-      phmrCompliant)
+    SUBROUTINE PHRuleExam(ucpCounts,opts,ions,phmrCompliant)
       TYPE(options_obj) :: opts
       TYPE(ions_obj) :: ions
-      INTEGER :: maxCount,bondCount,ringCount,cageCount,phSum,iphsum
+      INTEGER, DIMENSION(4) :: ucpCounts
+      INTEGER :: phSum,iphsum
       LOGICAL :: phmrCompliant
-      phSum = maxCount - bondCount + ringCount - cageCount
-      iphSum = ions%nions - bondCount + ringCount - cageCount
+      phSum = ucpCounts(1) - ucpCounts(2) + ucpCounts(3) - ucpCounts(4)
+      iphSum = ions%nions - ucpCounts(2) + ucpCounts(3) - ucpCounts(4) 
       !phSum = iphSum ! Using atom count to override
       phmrCompliant = .FALSE.
       IF (opts%isCrystal) THEN
         PRINT *, 'The system is assigned as a Crystal'
-        IF (.NOT. (maxCount>=1 .AND. bondCount>=3 .AND. ringCount>=3 .AND. cageCount>=1)) THEN
+        IF (.NOT. (ucpCounts(1)>=1 .AND. ucpCounts(2)>=3 .AND. ucpCounts(3)>=3 .AND. ucpCounts(4)>=1)) THEN
           PRINT *,''//achar(27)//'[31m ERROR: FAILED Morse relationship. Number&
             of CPs found is not enough.' &
             //achar(27)//'[0m'
@@ -1960,7 +1859,7 @@
         END IF
       ELSE 
         IF (phSum == 0) THEN
-          IF (.NOT. (maxCount>=1 .AND. bondCount>=3 .AND. ringCount>=3 .AND. cageCount>=1)) THEN
+          IF (.NOT. (ucpCounts(1)>=1 .AND. ucpCounts(2)>=3 .AND. ucpCounts(3)>=3 .AND. ucpCounts(4)>=1)) THEN
             PRINT *,''//achar(27)//'[31m ERROR: FAILED Morse relationship. Number&
               of CPs found is not enough and FAILED Poincare Hopf Rule.' &
             //achar(27)//'[0m'
@@ -2002,19 +1901,19 @@
     ! count the number of negative eigenvalues to characterize a critical point
     ! the version of the above subroutine where p is real not integer
     ! USED IN THIS MODULE
-    SUBROUTINE RecordCPR(p,chg,cpl,ucptnum,eigvals,eigvecs,connectedAtoms, maxcount, uRingCount, &
-      uBondCount, uCageCount,opts,grad,hessianMatrix,ind,LDM)
+    SUBROUTINE RecordCPR(p,chg,cpl,ucptnum,eigvals,eigvecs,connectedAtoms, ucpCounts, &
+      opts,grad,hessianMatrix,ind,LDM)
       TYPE(charge_obj) :: chg
       TYPE(options_obj) :: opts
       TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpl
       REAL(q2), DIMENSION(3) :: eigvals, grad
       REAL(q2), DIMENSION(3,3) :: eigvecs, hessianMatrix
+      INTEGER, DIMENSION(4) :: ucpCounts
       INTEGER, DIMENSION(2) :: connectedAtoms
       REAL(q2), DIMENSION(3) :: p,realdump
       REAL(q2) :: rho
       INTEGER,DIMENSION(3) :: ind
       INTEGER :: ucptnum, negCount
-      INTEGER :: maxcount, uRingCount, uBondCount, uCageCount
       INTEGER :: it_num, rot_num
       LOGICAL :: LDM
       cpl(ucptnum)%hessianMatrix = hessianMatrix
@@ -2025,7 +1924,7 @@
         PRINT *, "CountNegModes counted negCount as "
         PRINT *, negCount
       END IF
-      CALL UpDateCounts(negCount,maxCount,uBondCount,uRingCount,uCageCount)
+      CALL UpDateCounts(negCount,ucpCounts)
       cpl(ucptnum)%truer = p
       cpl(ucptnum)%grad = grad
       cpl(ucptnum)%eigvecs = eigvecs
@@ -2049,17 +1948,17 @@
     END SUBROUTINE RecordCPR
    
     ! USED IN THIS MODULE
-    SUBROUTINE RecordCPRLight(p,chg,cpl,ucptnum, maxcount, uRingCount, &
-      uBondCount, uCageCount,ind,LDM)
+    SUBROUTINE RecordCPRLight(p,chg,cpl,ucptnum, ucpCounts, &
+      ind,LDM)
       TYPE(charge_obj) :: chg
       TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpl
       REAL(q2), DIMENSION(3) :: eigvals, grad
       REAL(q2), DIMENSION(3,3) :: eigvecs, hessianMatrix
       REAL(q2), DIMENSION(3) :: p, realDump
       REAL(q2) :: rho
+      INTEGER, DIMENSION(4) :: ucpCounts
       INTEGER,DIMENSION(3) :: ind
       INTEGER :: ucptnum, negCount
-      INTEGER :: maxcount, uRingCount, uBondCount, uCageCount
       INTEGER :: it_num, rot_num
       LOGICAL :: LDM
       hessianMatrix = CDHessianR(p,chg)
@@ -2069,7 +1968,7 @@
       CALL jacobi_eigenvalue(3,hessianMatrix,9999,eigvecs,eigvals,&
         it_num, rot_num )
       negCount = CountNegModes(eigvals)
-      CALL UpDateCounts(negCount,maxCount,uBondCount,uRingCount,uCageCount)
+      CALL UpDateCounts(negCount,ucpCounts)
       cpl(ucptnum)%truer = p
       cpl(ucptnum)%grad = grad
       cpl(ucptnum)%eigvecs = eigvecs
@@ -2096,13 +1995,12 @@
     END SUBROUTINE RecordCPRLight
 
     ! USED IN THIS MODULE
-    SUBROUTINE  OutputCP(cpl,opts,ucptnum,chg,setcount,uBondCount, &
-      uRingCount,uCageCount, maxcount)
+    SUBROUTINE  OutputCP(cpl,opts,ucptnum,chg,setcount, ucpCounts)
       TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpl
       TYPE(options_obj) :: opts
       TYPE(charge_obj) :: chg
+      INTEGER, DIMENSION(4) :: ucpCounts
       INTEGER :: ucptnum, i, setcount
-      INTEGER :: uBondCount, uRingCount, uCageCount, maxcount
       ! TYPE(ions_obj) :: ions
       ! vol was used to calculate charge density with cpl(i)%rho/vol
       ! REAL(q2) :: vol
@@ -2113,10 +2011,7 @@
       PRINT *, 'Critical point information are written in file: ', filename
       OPEN(98,FILE=filename,STATUS='REPLACE',ACTION='WRITE')
       WRITE(98,*) 'Number of critical points written: ', ucptnum
-      WRITE(98,*) 'Number of bond critical point written: ', uBondCount
-      WRITE(98,*) 'Number of ring critical point written: ', uRingCount
-      WRITE(98,*) 'Number of cage critical point written: ', uCageCount
-      !WRITE(98,*) 'Number of nucl critical point written: ', maxcount
+      WRITE(98,*) 'Number of bond, ring and cage critical point written: ', ucpCounts(2:4)
       WRITE(98,*) 'Nuclear critical points are omitted. Use atomic positions.'
       DO i = 1, ucptnum
         IF (cpl(i)%negCount == 3 ) CYCLE
@@ -2536,16 +2431,17 @@
  
     ! updates the count on all types of CPs
     ! USED IN THIS MODULE
-    SUBROUTINE UpDateCounts(negCount,maxCount,bondCount,ringCount,cageCount)
-      INTEGER :: negCount,maxCount,bondCount,ringCount,cageCount
+    SUBROUTINE UpDateCounts(negCount,ucpCounts)
+      INTEGER, DIMENSION(4) :: ucpCounts
+      INTEGER :: negCount
       IF (negCount == 3) THEN
-        maxCount = maxCount + 1
+        ucpCounts(1) = ucpCounts(1) + 1
       ELSE IF (negCount == 2) THEN
-        bondCount = bondCount + 1
+        ucpCounts(2) = ucpCounts(2) + 1
       ELSE IF (negCount == 1) THEN
-        ringCount = ringCount + 1
+        ucpCounts(3) = ucpCounts(3) + 1
       ELSE 
-        cageCount = cageCount + 1
+        ucpCounts(4) = ucpCounts(4) + 1
       END IF
     END SUBROUTINE UpDateCounts
 
@@ -2555,15 +2451,15 @@
     ! normal
     ! USED IN THIS MODULE
     SUBROUTINE VisAllCP(cpcl,cptnum,chg,ions,opts,&
-      ringCount,bondCount,cageCount)
+      ucpCounts)
       TYPE(charge_obj) :: chg
       TYPE(ions_obj) :: ions
       TYPE(options_obj) :: opts
       TYPE(cpc),DIMENSION(:),ALLOCATABLE :: cpcl
       !REAL(q2),DIMENSION(8,3) :: nnGrad
       REAL(q2),DIMENSION(3) :: r
+      INTEGER, DIMENSION(4) :: ucpCounts
       INTEGER :: cptnum,n1,j
-      INTEGER :: bondCount,ringCount,cageCount
       CHARACTER(LEN=128) :: atoms, natoms
       OPEN(100,FILE=opts%chargefile,STATUS='old',ACTION='read',BLANK='null',PAD='yes')
       IF(opts%in_opt == opts%in_chgcar5) THEN
@@ -2588,25 +2484,21 @@
       ELSE
          OPEN(11,FILE='allcpPOSCAR_NM',STATUS='REPLACE',ACTION='WRITE')
       END IF
-      IF (cageCount>0) WRITE(11,'(a)',ADVANCE='NO') 'Ar '
-      IF (ringCount>0) WRITE(11,'(a)',ADVANCE='NO') 'Ne '
-      IF (bondCount>0) WRITE(11,'(a)',ADVANCE='NO') 'He '
-      !IF (maxCount>0) WRITE(11,'(a)',ADVANCE='NO') 'Kr'
-!      WRITE(11,'(a)',ADVANCE='NO') ' He  Ne  Ar'
+      IF (ucpCounts(4)>0) WRITE(11,'(a)',ADVANCE='NO') 'Ar '
+      IF (ucpCounts(3)>0) WRITE(11,'(a)',ADVANCE='NO') 'Ne '
+      IF (ucpCounts(2)>0) WRITE(11,'(a)',ADVANCE='NO') 'He '
       WRITE(11,'(a)') TRIM(atoms)
       WRITE(11,*) ions%scalefactor
       WRITE(11,*) '     ',ions%lattice(1,:)
       WRITE(11,*) '     ',ions%lattice(2,:)
       WRITE(11,*) '     ',ions%lattice(3,:)
-      IF (cageCount>0) WRITE(11,'(a)',ADVANCE='NO') 'Ar '
-      IF (ringCount>0) WRITE(11,'(a)',ADVANCE='NO') 'Ne '
-      IF (bondCount>0) WRITE(11,'(a)',ADVANCE='NO') 'He '
-      !IF (maxCount>0) WRITE(11,'(a)',ADVANCE='NO') ' Kr'
+      IF (ucpCounts(4)>0) WRITE(11,'(a)',ADVANCE='NO') 'Ar '
+      IF (ucpCounts(3)>0) WRITE(11,'(a)',ADVANCE='NO') 'Ne '
+      IF (ucpCounts(2)>0) WRITE(11,'(a)',ADVANCE='NO') 'He '
       WRITE(11,'(a)') TRIM(atoms)
-      IF (cageCount>0) WRITE(11,'(I4)',ADVANCE='NO') cageCount
-      IF (ringCount>0) WRITE(11,'(I4)',ADVANCE='NO') ringCount
-      IF (bondCount>0) WRITE(11,'(I4)',ADVANCE='NO') bondCount
-      !IF (maxCount>0) WRITE(11,'(I)',ADVANCE='NO') maxCount
+      IF (ucpCounts(4)>0) WRITE(11,'(I4)',ADVANCE='NO') ucpCounts(4)
+      IF (ucpCounts(3)>0) WRITE(11,'(I4)',ADVANCE='NO') ucpCounts(3)
+      IF (ucpCounts(2)>0) WRITE(11,'(I4)',ADVANCE='NO') ucpCounts(2)
       WRITE(11,'(a)') TRIM(natoms)
       WRITE(11,'(a)') 'Cartesian'
       ! Loop three times, each time writes out one type of CP
@@ -2699,23 +2591,20 @@
     ! another, and averages the same types into one to remove duplicate critical
     ! points.
     ! USED IN THIS MODULE
-    SUBROUTINE ReduceCP(cpl,opts,ucptnum,chg,uBondCount, &
-        uRingCount,uCageCount,maxCount,isReduced,LDM_RecordCPRLight,LDM)
+    SUBROUTINE ReduceCP(cpl,opts,ucptnum,chg,ucpCounts, &
+      isReduced,LDM_RecordCPRLight,LDM)
       TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpl,rcpl
       TYPE(charge_obj) :: chg
       TYPE(options_obj) :: opts
       REAL(q2),DIMENSION(3) :: avgR
-      INTEGER :: uCPTNum, uBondCount,uRingCount,uCageCount,maxCount
-      INTEGER :: rBondCount,rRingCount,rCageCount,rmaxCount
+      INTEGER, DIMENSION(4) :: ucpCounts,rcpCounts
+      INTEGER :: uCPTNum
       INTEGER :: i,j, nUCPTNum, weight, dupCount
       LOGICAL :: isReduced,LDM_RecordCPRLight,LDM
       IF (LDM) PRINT *, 'Checking for duplicate CP'
       isReduced = .TRUE.
       dupCount = 0
-      rmaxCount = 0
-      rRingCount = 0
-      rBondCount = 0
-      rCageCount = 0
+      rcpCounts = 0
       ! Give the reduced list same length as before, it's ok if a little goes to
       ! waste
       ALLOCATE(rcpl(ucptnum))
@@ -2772,17 +2661,14 @@
         END DO
         nUCPTNum = nUCPTNum + 1
         ! record the reduced CP
-        CALL RecordCPRLight(avgR,chg,rcpl,nUCPTnum, rMaxCount, rRingCount, &
-          rBondCount, rCageCount,cpl(i)%ind,LDM_RecordCPRLight)
+        CALL RecordCPRLight(avgR,chg,rcpl,nUCPTnum, rcpCounts, &
+          cpl(i)%ind,LDM_RecordCPRLight)
       END DO
       CALL ReplaceCPL(cpl,rcpl)
       DO i = 1, SIZE(cpl)
         cpl(i)%isUnique = .TRUE.
       END DO
-      maxCount = rMaxCount
-      uRingCount = rRingCount
-      uBondCount = rBondCount
-      uCageCount = rCageCount
+      ucpCounts = rcpCounts
       ucptnum = nUCPTnum
       IF (LDM) PRINT *, 'The number of duplicate CP found is', dupcount
       DEALLOCATE(rcpl)
@@ -3268,16 +3154,17 @@
     END SUBROUTINE NRTFGP 
 
     ! USED IN THIS MODULE
-    SUBROUTINE DensityDescend(chg,bdr,opts,p,cpl,UCPTnum, maxCount, uRingCount, &
-        uBondCount, uCageCount,LDM,LDM_RecordCPRLight, &
+    SUBROUTINE DensityDescend(chg,bdr,opts,p,cpl,UCPTnum, ucpCounts, &
+        LDM,LDM_RecordCPRLight, &
         LDM_DetectCircling,LDM_NRTFGP)
       TYPE(bader_obj) :: bdr
       TYPE(charge_obj) :: chg
       TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpl
       TYPE(options_obj) :: opts
+      INTEGER, DIMENSION(4) :: ucpCounts
       INTEGER,DIMENSION(3) :: p,pn,trueInd
       INTEGER :: n1,n2,n3,assignedNegCount
-      INTEGER :: UCPTnum,maxCount,uRingCount,uBondCount,uCageCount
+      INTEGER :: UCPTnum
       INTEGER :: uCCbefore,uCCafter !cage count before and after
       REAL(q2),DIMENSION(3,3) :: hessianMatrix 
       REAL(q2),DIMENSION(3) :: pr,trueR,r,grad
@@ -3344,13 +3231,13 @@
         PRINT *, "Starting RecordCPRLight"
         PRINT *, "Before adding new point, exisitng CP number, max, bond,ring & 
                  cage counts are"
-        PRINT *, ucptnum, maxCount, uBondCount, uRingCount, uCageCount
+        PRINT *, ucptnum, ucpCounts(:)
       END IF
       UCPTnum = UCPTnum + 1
-      uCCbefore = uCageCount
-      CALL RecordCPRLight(trueR,chg,cpl,UCPTnum, maxCount, uRingCount, &
-        uBondCount, uCageCount,trueInd, LDM_RecordCPRLight)
-      uCCafter = uCageCount 
+      uCCbefore = ucpCounts(4)
+      CALL RecordCPRLight(trueR,chg,cpl,UCPTnum, ucpCounts, &
+        trueInd, LDM_RecordCPRLight)
+      uCCafter = ucpCounts(4)
       IF (uCCbefore == uCCafter .AND. LDM) THEN
         PRINT *, "ERROR :: Density descend found a cage point that did not &
           produce three positive eigenvalues!"
@@ -3367,7 +3254,7 @@
         PRINT *, "This is UCPTNum ",UCPTNum
         PRINT *, "After adding new point, exisitng CP number, max, bond,ring & 
                  cage counts are"
-        PRINT *, ucptnum, maxCount, uBondCount, uRingCount, uCageCount
+        PRINT *, ucptnum, ucpCounts(:)
       END IF
     END SUBROUTINE DensityDescend
 
@@ -3800,6 +3687,18 @@
         END DO
       END DO
     END FUNCTION GetHessianMag
+
+    SUBROUTINE PrintFlavorText()
+      PRINT *, ''//achar(27)//'[31m Finding Critical points'//achar(27)//'[0m'
+      PRINT *, ''//achar(27)//'[91m Interrogation of the soul:'//achar(27)//'[0m'
+      PRINT *, ''//achar(27)//'[33m Did I turn on vacuum ?'//achar(27)//'[0m'
+      PRINT *, ''//achar(27)//'[92m Did I tell if this is a crystall or molecule?'//achar(27)//'[0m'
+      PRINT *, ''//achar(27)//'[36m Did I use the CHGCAR_sum ?'//achar(27)//'[0m'
+      PRINT *, ''//achar(27)//'[34m Did I use reasonable values for parameters ? '//achar(27)//'[0m'
+      PRINT *, ''//achar(27)//'[95m Critical point is like a box of chocolates. &
+        You never know what you are gonna get.'//achar(27)//'[0m'
+
+    END SUBROUTINE
 
     SUBROUTINE DebugGetRhoAround(p,chg,ions)
       TYPE(charge_obj) :: chg
