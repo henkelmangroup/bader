@@ -188,20 +188,14 @@
     ALLOCATE(cp_static(ReadStaticSize()))
     CALL StaticCheckReadStatic(cp_static)
     DO n = 1, SIZE(cp_static)
-      PRINT *, "truer is ", cp_static(n)%truer
       cp_static(n)%truer(1) = cp_static(n)%truer(1) * chg%npts(1) + 1
       cp_static(n)%truer(2) = cp_static(n)%truer(2) * chg%npts(1) + 1
       cp_static(n)%truer(3) = cp_static(n)%truer(3) * chg%npts(1) + 1
-      PRINT *, "negCount is ", cp_static(n)%negCount
     END DO
     ucptnum = SIZE(cp_static)
     ucpCounts = 0
     DO WHILE(.NOT. isReduced)
-      PRINT *, "ucpCounts before reduction"
-      PRINT *, ucpCounts
       CALL ReduceCPStatic(cp_static, ucptnum, ucpCounts, isReduced, opts)
-      PRINT *, "ucpCounts after reduction"
-      PRINT *, ucpCounts
     END DO
     PRINT *, "the cp set after reduction is "
     PRINT *, "cp number | signature | positions "
@@ -2603,7 +2597,6 @@
       isReduced = .TRUE.
       dupCount = 0
       reduced_ucpCounts = 0
-      PRINT *, "opts%par_distance is ", opts%par_distance
       ! Give the reduced list same length as before, it's ok if a little goes to
       ! waste
       ALLOCATE(reduced_cp_static(ucptnum))
@@ -2611,21 +2604,17 @@
       ! another entry 
       reduced_ucptnum = 0
       DO i = 1, ucptnum
-        PRINT *, "i is ", i
         ! check if this point is already determined as a proxy to some other
         ! point before
         cp_static(i)%weight = 1
         avg_r = cp_static(i)%truer
         IF (cp_static(i)%hasProxy ) THEN 
-          PRINT *, i ," has proxy"
           CYCLE
         END IF
         DO j = i, ucptnum
-          PRINT *, "j is ", j
           ! Periodic boundary condition will come to haunt me, periodically. 
           IF (j == i) CYCLE
           IF ( Mag(cp_static(i)%truer - cp_static(j)%truer) .LE. opts%par_distance ) THEN
-            PRINT *, j," is proxy"
             cp_static(j)%hasProxy = .TRUE.
             avg_r = (avg_r * cp_static(i)%weight + cp_static(j)%truer )/(cp_static(i)%weight + 1)
             cp_static(i)%weight = cp_static(i)%weight + 1
