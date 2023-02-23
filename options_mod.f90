@@ -39,6 +39,8 @@
       LOGICAL :: GD_magMode 
       LOGICAL :: autocp_flag ! Turns on heuristic features
       LOGICAL :: static_search ! Only initiate searches from coordinates read
+      LOGICAL :: static_check ! reads in a list of CPs and runs through checks.
+      LOGICAL :: aflow_sym ! Reads aflow.fgroup.relax.out to get symmetry info
    END TYPE options_obj
 
     PRIVATE
@@ -64,11 +66,11 @@
 ! Default values
       opts%par_tem = 0
       opts%par_sr = 3
-      opts%par_distance = 1
+      opts%par_distance = 1.5
       ! par_distance is the criteria for determine if two points are identical
       ! due to spacial proximity. This is in lattice units.
-      opts%par_newtonr = 0.000001
-      opts%par_gradfloor = 0.000001
+      opts%par_newtonr = 0.1
+      opts%par_gradfloor = 0.1
      ! opts%par_GDgradfloor = 0.2
       opts%ismolecule = .FALSE.
       opts%iscrystal = .FALSE.
@@ -108,6 +110,7 @@
       opts%gradMode = .FALSE. 
       opts%GD_magMode = .TRUE.
       opts%static_search = .FALSE.
+      opts%aflow_sym = .FALSE.
 !      n=IARGC()
       n=COMMAND_ARGUMENT_COUNT()
       IF (n == 0) THEN
@@ -157,6 +160,8 @@
           opts%autocp_flag = .TRUE.
         ELSEIF (p(1:ip) == '-static_search') THEN
           opts%static_search = .TRUE.
+        ELSEIF (p(1:ip) == '-static_check') THEN
+          opts%static_check = .TRUE.
         ELSEIF (p(1:ip) == '-molecule') THEN
           PRINT *, 'This system is assigned as a molecule'
           opts%ismolecule = .TRUE.
@@ -175,6 +180,8 @@
           opts%gradMode = .TRUE.
         ELSEIF (p(1:ip) == '-smoothenCHGCAR') THEN
           opts%enableCHGCARSmoothening = .TRUE.  
+        ELSEIF (p(1:ip) == '-aflow_sym') THEN
+          opts%aflow_sym = .TRUE.  
         ELSEIF (p(1:ip) == '-DensityDescend') THEN
           opts%enableDensityDescend = .TRUE.  
         ELSEIF (p(1:ip) == '-partem') THEN

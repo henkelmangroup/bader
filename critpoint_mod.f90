@@ -15,7 +15,12 @@
     IMPLICIT NONE
 
     PRIVATE 
-    PUBLIC :: critpoint_find
+    PUBLIC :: critpoint_find, StaticCheck
+
+    TYPE static_cp_list
+      CHARACTER(LEN=1) :: cp_type
+      REAL(q2),DIMENSION(3) :: pos_direct
+    END TYPE
 
     TYPE cpc ! stands for critical point candidate
       INTEGER, DIMENSION(3) :: ind  ! these are the indices of the cp
@@ -24,7 +29,7 @@
       !REAL(q2), DIMENSION(3) :: tempcart, tempind
       REAL(q2) :: rho
       INTEGER, DIMENSION(2) :: connectedAtoms
-      INTEGER :: negcount
+      INTEGER :: negcount, weight
       LOGICAL :: hasProxy, isunique
     END TYPE
     REAL(q2) :: voxvol
@@ -115,7 +120,7 @@
     END DO
   END SUBROUTINE GetCPCL
 
-  SUBROUTINE SearchWithCPCL(bdr,chg,cpcl,cpl,cptnum,ucptnum,ucpCounts)
+  SUBROUTINE SearchWithCPCL(bdr,chg,cpcl,cpl,cptnum,ucptnum,ucpCounts,opts)
     TYPE(bader_obj) :: bdr
     TYPE(charge_obj) :: chg
     TYPE(cpc), ALLOCATABLE, DIMENSION(:) :: cpcl,cpl
@@ -168,6 +173,47 @@
     END DO
   END SUBROUTINE SearchWithCPCL
 
+  ! This subroutine reads in a list of CPs and their types, runs it through ReduceCP and PHRuleExam
+  SUBROUTINE StaticCheck(chg,opts,ions)
+    TYPE(charge_obj) :: chg
+    TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cp_static
+    TYPE(ions_obj) :: ions
+    TYPE(options_obj) :: opts
+ 
+    INTEGER,DIMENSION(4) :: ucpCounts
+    INTEGER :: n, ucptnum
+    LOGICAL :: phmrCompliant, isReduced
+
+    isReduced = .FALSE.
+    ALLOCATE(cp_static(ReadStaticSize()))
+    CALL StaticCheckReadStatic(cp_static)
+    DO n = 1, SIZE(cp_static)
+      PRINT *, "truer is ", cp_static(n)%truer
+      cp_static(n)%truer(1) = cp_static(n)%truer(1) * chg%npts(1) + 1
+      cp_static(n)%truer(2) = cp_static(n)%truer(2) * chg%npts(1) + 1
+      cp_static(n)%truer(3) = cp_static(n)%truer(3) * chg%npts(1) + 1
+      PRINT *, "negCount is ", cp_static(n)%negCount
+    END DO
+    ucptnum = SIZE(cp_static)
+    ucpCounts = 0
+    DO WHILE(.NOT. isReduced)
+      PRINT *, "ucpCounts before reduction"
+      PRINT *, ucpCounts
+      CALL ReduceCPStatic(cp_static, ucptnum, ucpCounts, isReduced, opts)
+      PRINT *, "ucpCounts after reduction"
+      PRINT *, ucpCounts
+    END DO
+    PRINT *, "the cp set after reduction is "
+    PRINT *, "cp number | signature | positions "
+    DO n = 1, ucptnum
+      PRINT *, n, (3 - cp_static(n)%negCount) - cp_static(n)%negCount , cp_static(n)%truer
+    END DO
+    PRINT *, "nuclear | bond | ring | cage cp numbers are"
+    PRINT *, ucpCounts
+    CALL PHRuleExam(ucpCounts,opts,ions,phmrCompliant)
+    STOP
+  END SUBROUTINE StaticCheck
+
   SUBROUTINE critpoint_find(bdr,chg,opts,ions,stat)
 ! These are for screening CP due to numerical error. 
     !TYPE(hessian) :: hes
@@ -176,6 +222,8 @@
     TYPE(options_obj), INTENT(INOUT) :: opts
     TYPE(ions_obj), INTENT(INOUT) :: ions
     TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpcl, cpl, cpclt
+    TYPE(static_cp_list), ALLOCATABLE, DIMENSION(:) :: cps_read
+
     ! The above three are CP candidate list, CP list and CP list temp
     ! copy
     ! for points, 1 and 2 are +1, -1
@@ -210,6 +258,9 @@
       LDM_NRTFGP,LDM_CalcTEMLat,LDM_RecordCPR, LDM_GradMagGrad, LDM_RingAscend, LDM_Trajectories, &
       isUniqueTest, isReduced, phmrCompliant
 
+    IF (opts%static_check) THEN
+      CALL StaticCheck(chg,opts,ions)
+    END IF
     CALL PrintFlavorText()
     ! below are variables for least sqaures gradient
     stat = 0 ! 0 means nothing
@@ -270,6 +321,32 @@
     PRINT *, '******************************************************' 
     ALLOCATE (cpl(10000)) ! start with 10000 capacity
     ALLOCATE (cpcl(10000))
+    IF (opts%static_search) THEN
+      ALLOCATE(cps_read(ReadStaticSize()))
+      CALL ReadStatic(cps_read)
+      DO i = 1, SIZE(cps_read)
+        cpcl(i)%ind=INT(cps_read(i)%pos_direct(:)*chg%npts(:))+(/1,1,1/)
+        PRINT *, "Starting search at assigned index: "
+        PRINT *, cpcl(i)%ind
+        CALL NRTFGP(bdr,chg,opts,trueR,cpcl(i)%isUnique,cpcl(i)%r,cpcl(i)%ind,&
+        1000)
+        PRINT *, "Search trajectory ended at "
+        PRINT *, trueR
+        cpcl(i)%trueind = trueR
+        interpolHessian = trilinear_interpol_hes(nnHes,distance)
+        interpolHessian = CDHessianR(truer,chg)
+        ucptnum = ucptnum + 1
+        CALL RecordCPR(trueR,chg,cpl,ucptnum,connectedAtoms, ucpCounts, &
+          opts, interpolHessian, &
+          cpcl(i)%ind)
+        PRINT *, "cpl ucptnum trueR is ", cpl(ucptnum)%trueR(:)
+        cpl(ucptnum)%isUnique = .TRUE.
+        PRINT *, "cpl ucptnum negcount is ", cpl(ucptnum)%negCount
+      END DO
+      CALL VisAllCP(cpl,ucptnum,chg,ions,opts,ucpCounts)
+      PRINT *, "called visallcp"
+      STOP
+    END IF
       ! Maxima should always be found first with gradient ascension
     !gradient descent unit test with arbitrary initial point
     !iniI and finR were defined in the main critpoint_fnd method for lack of a better place to define them.
@@ -333,11 +410,30 @@
     END IF
 
     IF (opts%static_search) THEN
-      PRINT *, "starting static search"
-      static_search = ReadStatic()
-      PRINT *, static_search
-
-      CONTINUE
+      ALLOCATE(cps_read(ReadStaticSize()))
+      CALL ReadStatic(cps_read)
+      DO i = 1, SIZE(cps_read)
+        cpcl(i)%ind=INT(cps_read(i)%pos_direct(:)*chg%npts(:))+(/1,1,1/)
+        PRINT *, "Starting search at assigned index: "
+        PRINT *, cpcl(i)%ind
+        CALL NRTFGP(bdr,chg,opts,trueR,cpcl(i)%isUnique,cpcl(i)%r,cpcl(i)%ind,&
+        1000)
+        PRINT *, "Search trajectory ended at "
+        PRINT *, trueR
+        cpcl(i)%trueind = trueR
+        interpolHessian = trilinear_interpol_hes(nnHes,distance)
+        interpolHessian = CDHessianR(truer,chg)
+        ucptnum = ucptnum + 1
+        CALL RecordCPR(trueR,chg,cpl,ucptnum,connectedAtoms, ucpCounts, &
+          opts, interpolHessian, &
+          cpcl(i)%ind)
+        PRINT *, "cpl ucptnum trueR is ", cpl(ucptnum)%trueR(:)
+        cpl(ucptnum)%isUnique = .TRUE.
+        PRINT *, "cpl ucptnum negcount is ", cpl(ucptnum)%negCount
+      END DO
+      CALL VisAllCP(cpl,ucptnum,chg,ions,opts,ucpCounts)
+      PRINT *, "called visallcp"
+      STOP
     ELSE 
       PRINT *, "entering main loop"
       ! Loop through every grid point once and collect a list of points to start
@@ -354,7 +450,7 @@
       ! point is within half lattice to another, do not record this new point.
       ALLOCATE(cpRoster(cptnum,3))
       IF (LDM_Trajectories) ALLOCATE(fullcpRoster(cptnum,3))
-      CALL SearchWithCPCL(bdr,chg,cpcl,cpl,cptnum,ucptnum,ucpCounts)
+      CALL SearchWithCPCL(bdr,chg,cpcl,cpl,cptnum,ucptnum,ucpCounts,opts)
 
       PRINT *, 'Number of critical point count: ', ucptnum
       PRINT *, 'Number of nuclear, bond, ring and cage  critical point &
@@ -1697,11 +1793,13 @@
             PRINT *,''//achar(27)//'[31m ERROR: FAILED Morse relationship. Number&
               of CPs found is not enough and FAILED Poincare Hopf Rule.' &
             //achar(27)//'[0m'
+            phmrCompliant = .FALSE.
+          ELSE
+            phmrCompliant = .TRUE.
+            PRINT *, ''//achar(27)//'[32m This system has not been designated & 
+              as a molecule or crystal but the Morse relationship for & 
+              crystals are satisfied.' //achar(27)//'[0m'
           END IF
-          phmrCompliant = .TRUE.
-          PRINT *, ''//achar(27)//'[32m This system has not been designated & 
-            as a molecule or crystal but the Morse relationship for & 
-            crystals are satisfied.' //achar(27)//'[0m'
         ELSE IF (phSum == 1) THEN
           phmrCompliant = .TRUE.
           PRINT *, ''//achar(27)//'[32m This system has not been designated & 
@@ -1827,6 +1925,15 @@
         PRINT *, hessianMatrix(3,:)
       END IF
     END SUBROUTINE RecordCPRLight
+
+    SUBROUTINE RecordCPStatic(i,cp_static, reduced_cp_static, reduced_ucptnum, reduced_ucpCounts)
+      TYPE(cpc), ALLOCATABLE, DIMENSION(:) :: cp_static, reduced_cp_static
+      INTEGER, DIMENSION(4) :: reduced_ucpCounts
+      INTEGER :: reduced_ucptnum, i
+     
+      reduced_cp_static(reduced_ucptnum) = cp_static(i)
+      CALL UpDateCounts(reduced_cp_static(i)%negCount,reduced_ucpCounts)
+    END SUBROUTINE RecordCPStatic
 
     ! USED IN THIS MODULE
     SUBROUTINE  OutputCP(cpl,opts,ucptnum,chg,setcount, ucpCounts)
@@ -2417,8 +2524,6 @@
 !          averageR = averageR/10
         END IF
       END IF
-
-
     END SUBROUTINE DetectCircling
 
     ! This subroutine looks for critical points in the list that is too close to
@@ -2468,27 +2573,6 @@
               ! it some times go to bond CP
               PRINT *,'ERROR: TWO TYPES OF CP ARE TOO CLOSE TO EACH OTHER. &
                 TURN ON DEBUGMODE and enter ReduceCP in debugConfig FOR MORE INFORAMTION'
-              IF (LDM) THEN 
-                PRINT *, "Critical point number ", i
-                PRINT *, "Location is "
-                PRINT *, cpl(i)%trueR
-                PRINT *, "Number of negative eigenvalue is "
-                PRINT *, cpl(i)%negCount
-                PRINT *, "The Hessian matrix is "
-                PRINT *, cpl(i)%hessianMatrix(1,:)
-                PRINT *, cpl(i)%hessianMatrix(2,:)
-                PRINT *, cpl(i)%hessianMatrix(3,:)
-                PRINT *, "Critical point number ", j
-                PRINT *, "Location is "
-                PRINT *, cpl(j)%trueR
-                PRINT *, "Number of negative eigenvalue is "
-                PRINT *, cpl(j)%negCount
-                PRINT *, "The Hessian matrix is "
-                PRINT *, cpl(j)%hessianMatrix(1,:)
-                PRINT *, cpl(j)%hessianMatrix(2,:)
-                PRINT *, cpl(j)%hessianMatrix(3,:)
-                PRINT *, "***** end of one pair ****"
-              END IF
             END IF 
             isReduced = .FALSE.
           END IF
@@ -2496,7 +2580,7 @@
         nUCPTNum = nUCPTNum + 1
         ! record the reduced CP
         CALL RecordCPRLight(avgR,chg,rcpl,nUCPTnum, rcpCounts, &
-          cpl(i)%ind,LDM_RecordCPRLight)
+          cpl(i)%ind,.FALSE.)
       END DO
       CALL ReplaceCPL(cpl,rcpl)
       DO i = 1, SIZE(cpl)
@@ -2507,6 +2591,68 @@
       IF (LDM) PRINT *, 'The number of duplicate CP found is', dupcount
       DEALLOCATE(rcpl)
     END SUBROUTINE ReduceCP
+
+    SUBROUTINE ReduceCPStatic(cp_static,ucptnum,ucpCounts,isReduced,opts)
+      TYPE(cpc), ALLOCATABLE, DIMENSION(:) :: cp_static, reduced_cp_static
+      TYPE(options_obj) :: opts
+      INTEGER, DIMENSION(4) :: ucpCounts, reduced_ucpCounts
+      INTEGER :: ucptnum, reduced_ucptnum, i, j, weight, dupCount
+      REAL(q2), DIMENSION(3) :: avg_r
+      LOGICAL :: isReduced
+
+      isReduced = .TRUE.
+      dupCount = 0
+      reduced_ucpCounts = 0
+      PRINT *, "opts%par_distance is ", opts%par_distance
+      ! Give the reduced list same length as before, it's ok if a little goes to
+      ! waste
+      ALLOCATE(reduced_cp_static(ucptnum))
+      ! start from a critical point. loop through the entire list, look for
+      ! another entry 
+      reduced_ucptnum = 0
+      DO i = 1, ucptnum
+        PRINT *, "i is ", i
+        ! check if this point is already determined as a proxy to some other
+        ! point before
+        cp_static(i)%weight = 1
+        avg_r = cp_static(i)%truer
+        IF (cp_static(i)%hasProxy ) THEN 
+          PRINT *, i ," has proxy"
+          CYCLE
+        END IF
+        DO j = i, ucptnum
+          PRINT *, "j is ", j
+          ! Periodic boundary condition will come to haunt me, periodically. 
+          IF (j == i) CYCLE
+          IF ( Mag(cp_static(i)%truer - cp_static(j)%truer) .LE. opts%par_distance ) THEN
+            PRINT *, j," is proxy"
+            cp_static(j)%hasProxy = .TRUE.
+            avg_r = (avg_r * cp_static(i)%weight + cp_static(j)%truer )/(cp_static(i)%weight + 1)
+            cp_static(i)%weight = cp_static(i)%weight + 1
+            dupCount = dupCount + 1
+            ! The two CP should be the same type!
+            IF (cp_static(i)%negCount /= cp_static(j)%negCount) THEN
+              IF (cp_static(i)%negCount == 3) CYCLE !Skip validating maxima.
+              IF (cp_static(j)%negCount == 3) CYCLE !ascension is bugged. 
+              ! it some times go to bond CP
+              PRINT *,'ERROR: TWO TYPES OF CP ARE TOO CLOSE TO EACH OTHER'
+            END IF 
+            isReduced = .FALSE.
+          END IF
+        END DO
+        reduced_ucptnum = reduced_ucptnum + 1
+        ! record the reduced CP
+        CALL RecordCPStatic(i, cp_static, reduced_cp_static, reduced_ucptnum, reduced_ucpCounts)
+      END DO
+      CALL ReplaceCPL(cp_static,reduced_cp_static)
+      DO i = 1, reduced_ucptnum
+        cp_static(i)%isUnique = .TRUE.
+      END DO
+      ucpCounts = reduced_ucpCounts
+      ucptnum = reduced_ucptnum
+      DEALLOCATE(reduced_cp_static)
+
+    END SUBROUTINE ReduceCPStatic
   
     ! USED IN THIS MODULE
     SUBROUTINE ReplaceCPL(replacee,replacer)
@@ -2889,6 +3035,8 @@
       REAL(q2) :: temNormCap
       LOGICAL :: isUnique
       LOGICAL :: LDM,LDM_detectCircling
+      LDM = .FALSE.
+      LDM_detectCircling = .FALSE.
       isUnique = .FALSE.
       temcap = (/1.,1.,1./)
       temScale = (/1.,1.,1./)
@@ -3429,15 +3577,66 @@
       RETURN
     END FUNCTION CDGMCDG
 
-    FUNCTION ReadStatic()
-      REAL(q2), ALLOCATABLE, DIMENSION(:,:) :: ReadStatic
-      INTEGER :: nSearches,ios
-      OPEN(150,FILE="static_search",STATUS='old',ACTION='read',BLANK='null',PAD='yes',IOSTAT=ios)
-      READ (150,*) nSearches   
-      CLOSE(150)
-      ALLOCATE(ReadStatic(nSearches,3))
+    FUNCTION ReadStaticSize()
+      INTEGER :: ReadStaticSize
+      OPEN(13,FILE="static_search",STATUS='old',ACTION="read")
+      READ(13,*) ReadStaticSize
+      CLOSE(13)
       RETURN
-    END FUNCTION ReadStatic
+    END FUNCTION ReadStaticSize
+
+    SUBROUTINE ReadStatic(cps_read)
+      TYPE(static_cp_list), ALLOCATABLE, DIMENSION(:) :: cps_read
+      CHARACTER(LEN=1) :: cp_type
+      REAL(q2), DIMENSION(3) :: pos_direct
+      INTEGER :: natoms, ios, n
+      
+      OPEN(13,FILE="static_search",IOSTAT=ios,STATUS='old',ACTION="read")
+      READ(13,*) natoms
+      DO n = 1, natoms
+        READ(13,*,IOSTAT=ios) cp_type, pos_direct
+        cps_read(n)%cp_type = cp_type
+        cps_read(n)%pos_direct(:) = pos_direct(:)
+      END DO
+      CLOSE(13)
+      
+    END SUBROUTINE ReadStatic
+
+    ! This subroutine is the same as the other version except for it returns a cpc type.
+    SUBROUTINE StaticCheckReadStatic(cp_static)
+      TYPE(cpc), ALLOCATABLE, DIMENSION(:) :: cp_static
+      CHARACTER(LEN=1) :: cp_type
+      REAL(q2), DIMENSION(3) :: pos_direct
+      INTEGER :: natoms, ios, n
+
+      ! only negcount and truer in cp_static needs to be set
+
+      OPEN(13,FILE="static_search",IOSTAT=ios,STATUS='old',ACTION="read")
+      READ(13,*) natoms
+      DO n = 1, natoms
+        READ(13,*,IOSTAT=ios) cp_type, pos_direct
+        IF (cp_type == 'n') THEN
+          cp_static(n)%negcount = 3
+        ELSE IF (cp_type == 'b') THEN        
+          cp_static(n)%negcount = 2
+        ELSE IF (cp_type == 'r') THEN        
+          cp_static(n)%negcount = 1
+        ELSE IF (cp_type == 'c') THEN        
+          cp_static(n)%negcount = 0
+        END IF
+        cp_static(n)%truer(:) = pos_direct(:)
+        cp_static(n)%hasProxy = .FALSE.
+      END DO
+      CLOSE(13)
+    END SUBROUTINE StaticCheckReadStatic
+
+
+    ! Returns the number of symmetry operations in the AFLOW file.
+    FUNCTION ReadSymOpSize()
+      INTEGER :: ReadSymOpSize
+
+      RETURN
+    END FUNCTION ReadSymOpSize
 
     ! USED IN THIS MODULE
     SUBROUTINE get_voxvol(chg,ions)
