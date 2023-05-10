@@ -143,12 +143,6 @@
          !uses GradientDescend instead of NRTFGP          
          CALL GradientDescend(bdr,chg,opts,trueR,cpcl(i)%ind,&
          cpcl(i)%isUnique,3000)
-         IF (.TRUE.) THEN
-           IF (ABS(trueR(1))>200 .OR. ABS(trueR(2))>200 .OR. ABS(trueR(3))>200) THEN
-              PRINT *, "Way out of bounds!"
-              EXIT
-           END IF
-         END IF
       ELSE
          ! Begins newton raphson validation process
          CALL NRTFGP(bdr,chg,opts,trueR,&
@@ -499,7 +493,7 @@
       !ip = (/-0.554,1.953,1.985/)
       !CALL CPTracer(iP,chg,cpl,ucptnum)
       PRINT *, 'After a round of reduction'
-      PRINT *, 'Numbver of atoms: ', ions%nions
+      PRINT *, 'Number of atoms: ', ions%nions
       PRINT *, 'Number of critical point count: ', ucptnum
       PRINT *, 'Number of nuclear, bond, ring and cage  critical point &
         counts : ', ucpCounts(:)
@@ -3041,11 +3035,12 @@
       DO j = 1, 8
         nngrad(j,:) = CDGrad(nnInd,chg)
       END DO
+      previoustem = CalcTEMLat(trueR,chg,temScale,previousTEM,grad,temNormCap,&
+        LDM)
       ! Now start newton method iterations
       ! First step
-      trueR =  ind + r
+      trueR =  ind + previoustem
       CALL pbc_r_lat(trueR,chg%npts)
-      previoustem = r
       ! All the rest of the steps
       DO stepcount = 1,stepMax
         IF (LDM) PRINT *, "This is step ",stepCount
@@ -3092,6 +3087,7 @@
           EXIT
         END IF
         truer = truer + nexttem
+
       END DO
       truer = truer + nexttem ! this keeps track the total movement
       CALL pbc_r_lat(truer,chg%npts)
