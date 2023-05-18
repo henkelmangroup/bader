@@ -229,7 +229,7 @@
     REAL(q2) :: temnormcap
 
     INTEGER, DIMENSION(:,:), ALLOCATABLE :: descendPoints, ringPoints, nnind, &
-      atom_connectivity, nucleiInd 
+      atom_connectivity, nucleiInd, ring_connectivity
     INTEGER, DIMENSION(:), ALLOCATABLE :: RingList
     INTEGER, DIMENSION(20,3) :: iniIList
     INTEGER, DIMENSION(4) :: cpCounts,ucpCounts ! the 4 elements are
@@ -361,15 +361,9 @@
       END DO
     END IF
 
-    IF (LDM) PRINT *, 'Finding maxima'
+    IF (LDM) PRINT *, 'Finding maxima near atoms'
     DO n1 = 1, ions%nions
-      IF (LDM .EQV. .TRUE.) THEN
-        PRINT *, "De Bugger:"
-        PRINT *, "finding maxima around the ", n1, "th atom"
-      END IF
-      tempr(1) = NINT(ions%r_dir(n1,1) * chg%npts(1)) 
-      tempr(2) = NINT(ions%r_dir(n1,2) * chg%npts(2)) 
-      tempr(3) = NINT(ions%r_dir(n1,3) * chg%npts(3)) 
+      tempr = NINT(ions%r_dir(n1,:) * chg%npts)
       temprealr = ascension(tempr,chg, &
                 ggrid,opts,ions)
       ucptnum = ucptnum + 1
@@ -377,6 +371,7 @@
       ! these points are to stay in the list so cpl is used instead of cpcl
       p = (/NINT(cpl(ucptnum)%trueind(1)),NINT(cpl(ucptnum)%trueind(2)), &
         NINT(cpl(ucptnum)%trueind(3))/)
+      hessianMatrix = CDHessian(p,chg)
       CALL RecordCPR(temprealr,chg,cpl,ucptnum,connectedAtoms, ucpCounts, &
         opts,hessianMatrix, p)
       IF (LDM) THEN
@@ -388,6 +383,7 @@
     ! ascension results may not give the best hessian. so the types are set
     ! manually.
     IF (ucpCounts(1) /= ucptnum) THEN
+      PRINT *, "ucpCounts(1) and ucptnum are ", ucpCounts(1), ucptnum
       PRINT *, 'WARNING: It was detected that the number of maxima found &
         does not equal to trials started. The found critical points are &
         being manually set as nuclear critical points'
@@ -475,9 +471,8 @@
           END DO
         END DO
         DO i = 1, ( ucpCounts(3) * ( ucpCounts(3) - 1) ) / 2
-          CALL DensityDescend(chg,bdr,opts,descendPoints(i,:),cpl,ucptnum, ucpCounts, & 
-            LDM_DensityDescend, &
-            LDM_RecordCPRLight,LDM_DetectCircling,LDM_NRTFGP)
+          CALL DensityDescendAndRecord(chg,bdr,opts,descendPoints(i,:),cpl,&
+            ucptnum, ucpCounts, .FALSE.)
         END DO
         DEALLOCATE(descendPoints)
         DEALLOCATE(ringPoints)
@@ -508,9 +503,11 @@
       DO ij = 1,ucptnum
         !Saves pairs of connected atoms in connectedAtoms
         IF (cpl(ij)%negcount == 2) THEN
-          cpl(ij)%connectedAtoms = DoubleAscension(cpl(ij),chg,ions)
+          cpl(ij)%connectedAtoms = DoubleAscension(bdr,cpl(ij),chg,ions,opts,1,cpl,ucptnum)
           atom_connectivity(cpl(ij)%connectedAtoms(1),cpl(ij)%connectedAtoms(2))=1
           atom_connectivity(cpl(ij)%connectedAtoms(2),cpl(ij)%connectedAtoms(1))=1
+        ELSEIF (cpl(ij)%negcount == 1) THEN
+          cpl(ij)%connectedAtoms = DoubleAscension(bdr,cpl(ij),chg,ions,opts,-1,cpl,ucptnum)
         END IF
        
         IF (LDM_RingAscend) THEN
@@ -523,10 +520,24 @@
       !Output the found list of connectivity pairs to file 
       CALL OutputNetwork(cpl,ucptnum,setcount,atom_connectivity)
       IF (stat == 1 .AND. CheckIsolatedAtom(atom_connectivity)) THEN
-        PRINT *, 'The CPs are self-consistent but isolated atoms are detected.'
-        PRINT *, 'Declaring this a false positive.'
+        PRINT *, 'The CPs are self-consistent but isolated atoms are detected. &
+          Declaring this a false positive.'
         stat = 0
       END IF      
+      IF (.NOT. CheckIsolatedRing(cpl,ucptnum)) THEN
+        IF (stat == 1) THEN
+          PRINT *, "A disconnected ring CP is found. Declaring this a false positive."
+          stat = 0
+        END IF
+      END IF
+      IF (.NOT. CheckIsolatedCage(cpl,ucptnum)) THEN
+        IF (stat == 1) THEN
+          PRINT *, "A disconnected cage CP is found. Declaring this a false positive."
+          stat = 0
+        END IF
+      END IF
+
+
       IF (LDM_Trajectories) THEN
         !Performs statistical analysis (standard deviation) on the CP Roster 
         CALL CPRosterAnalysis(cpl,ions,fullcpRoster,chg)
@@ -1325,77 +1336,105 @@
     END SUBROUTINE unique_realcoords
 
     ! USED IN THIS MODULE
-    FUNCTION DoubleAscension(cp,chg,ions)
+    FUNCTION DoubleAscension(bdr,cp,chg,ions,opts,direction,cpl,ucptnum)
       !cp is a selected critical point candidate (cpc) object
       !performs ascension starting from an input bond CP to find the array indices of the two associated nuclei CPs.
       !will gradient ascend from two points shifted in opposite directions around it following the bond eigenvector. 
       !Returns the index numbers of the two nuclei found as an array of size 2
       REAL(q2), DIMENSION(3) :: ind
       REAL(q2), DIMENSION(3) ::vector
+      TYPE(cpc), ALLOCATABLE, DIMENSION(:) :: cpl
+      TYPE(bader_obj) :: bdr
       TYPE(charge_obj) :: chg
       TYPE(ions_obj) :: ions
+      TYPE(options_obj) :: opts
       REAL(q2), DIMENSION(3) :: ind_plus, ind_minus
+      REAL(q2), DIMENSION(3) :: traj_end
       TYPE(cpc) :: cp
-      INTEGER :: vecnum
-      INTEGER :: nuc1num, nuc2num
+      INTEGER :: vecnum, nuc1num, nuc2num, direction, ucptnum
+      INTEGER, DIMENSION(3) :: iinds
       INTEGER, DIMENSION(2) :: DoubleAscension
       !assigns ind to the starting critical point coordinate 
-      ind(1) = cp%truer(1)
-      ind(2) = cp%truer(2)
-      ind(3) = cp%truer(3)
-      !checks to make sure only one eigenvalue is positive (indicating bond CP), and finds which one it is.
-      IF (cp%eigvals(1) < 0 .AND. cp%eigvals(2) < 0 .AND. cp%eigvals(3) > 0 ) THEN
-        vecnum = 3
-      ELSE IF (cp%eigvals(1) < 0 .AND. cp%eigvals(2) > 0 .AND. cp%eigvals(3) <0 ) THEN
-        vecnum = 2
-      ELSE IF (cp%eigvals(1) > 0 .AND. cp%eigvals(2) < 0 .AND. cp%eigvals(3) < 0 ) THEN
-        vecnum = 1
-      ELSE
-        vecnum = 0
+      ind = cp%truer
+      IF (direction == 1) THEN
+        !checks to make sure only one eigenvalue is positive (indicating bond CP), and finds which one it is.
+        IF (cp%eigvals(1) < 0 .AND. cp%eigvals(2) < 0 .AND. cp%eigvals(3) > 0 ) THEN
+          vecnum = 3
+        ELSE IF (cp%eigvals(1) < 0 .AND. cp%eigvals(2) > 0 .AND. cp%eigvals(3) <0 ) THEN
+          vecnum = 2
+        ELSE IF (cp%eigvals(1) > 0 .AND. cp%eigvals(2) < 0 .AND. cp%eigvals(3) < 0 ) THEN
+          vecnum = 1
+        ELSE
+          vecnum = 0
+        END IF
+      ELSEIF (direction == -1) THEN
+        !checks to make sure only one eigenvalue is negative (indicating ring CP), and finds which one it is.
+        IF (cp%eigvals(1) > 0 .AND. cp%eigvals(2) > 0 .AND. cp%eigvals(3) < 0 ) THEN
+          vecnum = 3
+        ELSE IF (cp%eigvals(1) > 0 .AND. cp%eigvals(2) < 0 .AND. cp%eigvals(3) > 0 ) THEN
+          vecnum = 2
+        ELSE IF (cp%eigvals(1) < 0 .AND. cp%eigvals(2) > 0 .AND. cp%eigvals(3) > 0 ) THEN
+          vecnum = 1
+        ELSE
+          vecnum = 0
+        END IF
       END IF
       nuc1num = 0
       nuc2num = 0
       IF (vecnum == 0) THEN
        ! PRINT *, "Not a valid bond critical point! Exactly one positive eigenvalue is required to proceed"
       ELSE
-        vector(1) = cp%eigvecs(1,vecnum)
-        vector(2) = cp%eigvecs(2,vecnum)
-        vector(3) = cp%eigvecs(3,vecnum)
+        vector = cp%eigvecs(:,vecnum)
         vector = vector/Mag(vector)
-       ! PRINT *, vector
-        ind_plus(1) = ind(1)+vector(1)
-        ind_plus(2) = ind(2)+vector(2)
-        ind_plus(3) = ind(3)+vector(3)
-        ind_minus(1) = ind(1)-vector(1)
-        ind_minus(2) = ind(2)-vector(2)
-        ind_minus(3) = ind(3)-vector(3)
-       ! PRINT *,"ind_plus", ind_plus
-       ! PRINT *,"ind_minus", ind_minus
-      
-        nuc1num = ascension_new(ind_plus,chg,ions)
-        nuc2num = ascension_new(ind_minus,chg,ions)
-
+        ind_plus = ind + vector
+        ind_minus = ind - vector
+        IF (direction == 1) THEN
+          nuc1num = ascension_new(ind_plus,chg,ions)
+          nuc2num = ascension_new(ind_minus,chg,ions)
+        ELSEIF (direction == -1) THEN
+          iinds = NINT(ind + 2 * vector)
+          traj_end = DensityDescend(chg,bdr,opts,iinds)
+          nuc1num = CageSearch(traj_end,cpl,ucptnum,bdr)
+          iinds = NINT(ind - 2 * vector)
+          traj_end = DensityDescend(chg,bdr,opts,iinds)
+          nuc2num = CageSearch(traj_end,cpl,ucptnum,bdr)
+        END IF
       END IF
-
-      !PRINT *, 'cartesian', MATMUL(ind, chg%lat2car)
-
       DoubleAscension(1) = nuc1num
-      !PRINT *, "nuc1num", nuc1num
-      !PRINT *, "initial ind_plus", MATMUL(ini_ind_plus, chg%lat2car)
-      !PRINT *, "final ind_plus", MATMUL(ind_plus, chg%lat2car)
-
       DoubleAscension(2) = nuc2num
-      !PRINT *, "nuc2num", nuc2num                  
-      !PRINT *, "initial ind_minus", MATMUL(ini_ind_minus, chg%lat2car)
-      !PRINT *, "final ind_minus", MATMUL(ind_minus, chg%lat2car)
-      !PRINT *, NEW_LINE('a')
-    
       RETURN
-
     END FUNCTION DoubleAscension
 
+    ! search in the cp list and find a close by cage point 
+    FUNCTION CageSearch(r,cpl,ucptnum,bdr)
+      TYPE(bader_obj) :: bdr
+      TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpl
+      REAL(q2),DIMENSION(3) :: r
+      REAL(q2) :: min_distance, distance
+      INTEGER :: CageSearch, ucptnum, nearest_cage, n
+      IF (bdr%volnum(NINT(r(1)), NINT(r(2)), NINT(r(3))) == bdr%bnum + 1) THEN
+        CageSearch = -1 !connected to vacuum
+      ELSE
+        min_distance = 9999
+        DO n=1, ucptnum
+          IF (cpl(n)%negCount == 0) THEN
+            distance = SQRT(SUM((cpl(n)%trueR(1:3) - r(1:3))**2) )
+            IF (distance < min_distance) THEN
+              min_distance = distance
+              CageSearch = n
+            END IF
+          END IF        
+        END DO
+        IF (min_distance > 1) THEN
+          CageSearch = -2 !no cage found
+        END IF
+      END IF
+      RETURN
+    END FUNCTION CageSearch
+
+
     ! USED IN THIS MODULE
-    FUNCTION ascension_new(ind, chg, ions)
+    FUNCTION Ascension_New(ind, chg, ions)
     !used by DoubleAscension  
     !performs gradient ascent on a real coordinate, returns list index of the first nuclei found within 0.5 units of position .  
       REAL(q2), DIMENSION(3) ::startpos, ind
@@ -1481,8 +1520,8 @@
 
 
     ! USED IN THIS MODULE
-    FUNCTION descension(ind,chg, &
-                        ggrid,opts,ions)
+    FUNCTION Descension(ind,chg, &
+                        opts,ions)
       ! this function finds nucleus critical points. 
       INTEGER, DIMENSION(3) :: ind
       TYPE(charge_obj) :: chg
@@ -1494,7 +1533,6 @@
       INTEGER :: j, stepcount
       REAL(q2), DIMENSION(3) :: tempr, rn, rnm1 ! rn minus 1
       REAL(q2), DIMENSION(3) :: grad, stepsize, gradnm1
-      REAL(q2), DIMENSION(3,3) :: ggrid
       stepcount = 0
       ALLOCATE(nnInd(8,3))
       ! initialize the process
@@ -1714,6 +1752,8 @@
       INTEGER :: phSum,iphsum
       LOGICAL :: phmrCompliant
       phSum = ucpCounts(1) - ucpCounts(2) + ucpCounts(3) - ucpCounts(4)
+      IF (ucpCounts(1) /= ions%nions) PRINT *, "WARNING: There is more nuclear CP &
+        than number of atoms!" 
       iphSum = ions%nions - ucpCounts(2) + ucpCounts(3) - ucpCounts(4) 
       !phSum = iphSum ! Using atom count to override
       phmrCompliant = .FALSE.
@@ -1943,7 +1983,7 @@
       WRITE(98,*) 'Number of bond, ring and cage critical point written: ', ucpCounts(2:4)
       WRITE(98,*) 'Nuclear critical points are omitted. Use atomic positions.'
       DO i = 1, ucptnum
-        IF (cpl(i)%negCount == 3 ) CYCLE
+        !IF (cpl(i)%negCount == 3 ) CYCLE
         WRITE (98,*) '_______________________________________'
         WRITE (98,*) 'Unique CP # : ', i
         WRITE (98,*) 'Critical point is found at indices'
@@ -2014,9 +2054,27 @@
       !DO i=1,size(ions%atomic_num)
       !  WRITE (98,*) ions%atomic_num(i)  
       !END DO
-     ! WRITE(98,*) ucptnum
+      WRITE(98,*) "Connections between bond CP and atoms"
       WRITE(98,*) "Connection 1 , ", " CP # , "," Connection 2"
       DO i=1,ucptnum
+        IF (cpl(i)%negCount /= 2) THEN
+          CYCLE
+        END IF
+        pair = cpl(i)%connectedAtoms
+        IF (pair(1) == 0 .AND. pair(2) == 0 ) THEN
+          !PRINT *, "Invalid bond CP"
+        ELSE
+          WRITE(98,*) pair(1),' ', i, ' ', pair(2)
+        END IF
+      END DO
+      WRITE(98,*) "Connections between ring CP and cage CP"
+      WRITE(98,*) "connection to -1 means the connected cage point is located in vacuum"
+      WRITE(98,*) "connection to -2 means the connected cage point is not found"
+      WRITE(98,*) "Connection 1 , ", " CP # , "," Connection 2"
+      DO i=1,ucptnum
+        IF (cpl(i)%negCount /= 1) THEN
+          CYCLE
+        END IF
         pair = cpl(i)%connectedAtoms
         IF (pair(1) == 0 .AND. pair(2) == 0 ) THEN
           !PRINT *, "Invalid bond CP"
@@ -2049,7 +2107,57 @@
       CheckIsolatedAtom = .FALSE.
       RETURN 
     END FUNCTION CheckIsolatedAtom
+
+    ! TRUE means there is no problem.
+    FUNCTION CheckIsolatedRing(cpl,ucptnum)
+      TYPE(cpc),DIMENSION(:),ALLOCATABLE :: cpl
+      INTEGER :: n, ucptnum
+      LOGICAL :: CheckIsolatedRing, voidDweller
+      CheckIsolatedRing = .FALSE.  
+      voidDweller = .FALSE. !if there are rings connecting to vacuum
+      DO n=1,ucptnum
+        IF (cpl(n)%negCount == 1) THEN
+          IF (CheckIsolatedRing) THEN
+            CYCLE
+          ELSE
+            CheckIsolatedRing = ALL(cpl(n)%connectedAtoms /= -2 ) .AND. ALL(cpl(n)%connectedAtoms /= 0) 
+          END IF
+          IF (voidDweller) THEN
+            CYCLE
+          ELSE
+            voidDweller = voidDweller .OR. ANY(cpl(n)%connectedAtoms == -1)
+          END IF
+        END IF
+      END DO
+      IF (voidDweller) PRINT *, "WARNING: at least one ring point is expected in the vacuum. &
+        Examine the results carefully. This may be OK for non-crystaline system."
+      RETURN
+    END FUNCTION CheckIsolatedRing
    
+    ! TRUE means there is no problem.
+    FUNCTION CheckIsolatedCage(cpl,ucptnum)
+      TYPE(cpc),DIMENSION(:),ALLOCATABLE :: cpl
+      INTEGER :: i, j, ucptnum, connection_count
+      LOGICAL :: CheckIsolatedCage
+      CheckIsolatedCage = .TRUE.  
+      DO i = 1, ucptnum
+        connection_count = 0
+        IF (cpl(i)%negCount == 0) THEN
+          DO j = 1, ucptnum
+            IF (cpl(j)%negCount == 1) THEN
+              IF (ANY(cpl(j)%connectedAtoms == i)) connection_count = connection_count + 1 
+            END IF
+          END DO
+          IF (connection_count <= 1) THEN
+            CheckIsolatedCage = .FALSE.
+            PRINT *, "ERROR: cp # ", i, "has connection to ", connection_count, "ring CPs"
+          END IF
+        END IF
+      END DO
+      RETURN
+    END FUNCTION CheckIsolatedCage
+
+
     ! USED IN THIS MODULE
     SUBROUTINE OutputCPRoster(cpRoster,setcount)
       REAL(q2), DIMENSION(:,:), ALLOCATABLE :: cpRoster
@@ -3005,6 +3113,7 @@
     ! USED IN THIS MODULE
     SUBROUTINE NRTFGP(bdr,chg,opts,trueR,&
       isUnique,r,ind,stepMax)
+      ! is r used?
       TYPE(bader_obj) :: bdr
       TYPE(charge_obj) :: chg
       TYPE(options_obj) :: opts
@@ -3094,30 +3203,58 @@
     END SUBROUTINE NRTFGP 
 
     ! USED IN THIS MODULE
-    SUBROUTINE DensityDescend(chg,bdr,opts,p,cpl,UCPTnum, ucpCounts, &
-        LDM,LDM_RecordCPRLight, &
-        LDM_DetectCircling,LDM_NRTFGP)
+    ! Follow the charge density on grid points down to local minimums
+    FUNCTION DensityDescend(chg,bdr,opts,p)
+      TYPE(bader_obj) :: bdr
+      TYPE(charge_obj) :: chg
+      TYPE(options_obj) :: opts
+      INTEGER, DIMENSION(3) :: p,pn
+      INTEGER :: n1,n2,n3
+      REAL(q2),DIMENSION(3,3) :: hessianMatrix 
+      REAL(q2),DIMENSION(3) :: r,grad,DensityDescend
+      LOGICAL :: isUnique,minimized
+      minimized = .FALSE.
+      DO WHILE (.NOT. minimized) 
+        outer: DO n1 = -1 , 1
+          DO n2 = -1 , 1
+            DO n3 = -1 , 1
+              pn = p + (/n1,n2,n3/)
+              IF ( rho_val(chg,pn(1),pn(2),pn(3)) < rho_val(chg,p(1),p(2),p(3)) ) THEN
+                minimized = .FALSE.
+                p = pn
+                CALL pbc(p,chg%npts)
+                EXIT outer
+              ELSE 
+                minimized = .TRUE.      
+              END IF
+            END DO
+          END DO
+        END DO outer
+      END DO
+      ! Need to obtain initial grad at the grid point and tem
+      r = CalcTEMGrid(p,chg,grad,hessianMatrix)
+      CALL NRTFGP(bdr,chg,opts,DensityDescend,&
+        isUnique,r,p,1000)
+      ! note: what if NRTFGP gets carried away? 
+      RETURN
+    END FUNCTION DensityDescend
+
+
+    SUBROUTINE DensityDescendAndRecord(chg,bdr,opts,p,cpl,UCPTnum, ucpCounts, &
+      noRecording )
       TYPE(bader_obj) :: bdr
       TYPE(charge_obj) :: chg
       TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpl
       TYPE(options_obj) :: opts
       INTEGER, DIMENSION(4) :: ucpCounts
       INTEGER,DIMENSION(3) :: p,pn,trueInd
-      INTEGER :: n1,n2,n3,assignedNegCount
+      INTEGER :: n1,n2,n3
       INTEGER :: UCPTnum
       INTEGER :: uCCbefore,uCCafter !cage count before and after
       REAL(q2),DIMENSION(3,3) :: hessianMatrix 
-      REAL(q2),DIMENSION(3) :: pr,trueR,r,grad
-      LOGICAL :: isUnique
-      LOGICAL :: minimized, LDM, LDM_RecordCPRLight
-      LOGICAL :: LDM_DetectCircling,LDM_NRTFGP
+      REAL(q2),DIMENSION(3) :: trueR,r,grad
+      LOGICAL :: isUnique, minimized, noRecording
       minimized = .FALSE.
-      assignedNegCount = 0
-      IF ( LDM ) THEN
-        PRINT *, "DensityDescend starting at "
-        PRINT *, p
-        PRINT *, "Initial density is", rho_val(chg,p(1),p(2),p(3))
-      END IF
       DO WHILE (.NOT. minimized) 
         minimized = .TRUE.
         outer: DO n1 = -1 , 1
@@ -3127,11 +3264,6 @@
               IF ( rho_val(chg,pn(1),pn(2),pn(3)) < rho_val(chg,p(1),p(2),p(3)) ) THEN
                 minimized = .FALSE.
                 p = pn
-                IF (LDM) THEN
-                  PRINT *, "Descended to point"
-                  PRINT *, p
-                  PRINT *, "New density is ", rho_val(chg,p(1),p(2),p(3))
-                END IF
                 CALL pbc(p,chg%npts)
                 EXIT outer
               END IF
@@ -3139,38 +3271,28 @@
           END DO
         END DO outer
       END DO
-      pr(1) = REAL(p(1),q2)
-      pr(2) = REAL(p(2),q2)
-      pr(3) = REAL(p(3),q2)
-      IF (LDM) THEN
-        PRINT *, "Density Descend ended at ", p
-        PRINT *, "Density of all neighbors are"
-          DO n1= -1,1
-            DO n2 = -1,1
-              DO n3 = -1,1
-                IF (n1==0 .AND. n2==0 .AND. n3==0) CYCLE
-                PRINT *, rho_val(chg,p(1)+n1,p(2)+n2,p(3)+n3)
-              END DO
-            END DO
-          END DO
-        PRINT *, "On the grid point, the gradient is"
-        PRINT *, CDGrad(p,chg)
-        PRINT *, "On the grid point, the hessian is"
-        PRINT *, CDHessian(p,chg)
-        PRINT *, "Starting a Newton Raphson trajectory from point "
-        PRINT *, p
-      END IF
       ! Need to obtain initial grad at the grid point and tem
       r = CalcTEMGrid(p,chg,grad,hessianMatrix)
       CALL NRTFGP(bdr,chg,opts,trueR,&
         isUnique,r,p,&
         1000)
-      UCPTnum = UCPTnum + 1
-      uCCbefore = ucpCounts(4)
-      CALL RecordCPRLight(trueR,chg,cpl,UCPTnum, ucpCounts, &
-        trueInd, LDM_RecordCPRLight)
-      uCCafter = ucpCounts(4)
-      IF (uCCbefore == uCCafter .AND. LDM) THEN
+      ! note: what if NRTFGP gets carried away? 
+      IF (ABS(trueR(1) - p(1)) > 1 .OR. ABS(trueR(2) - p(2)) > 1 .OR. &
+          ABS(trueR(3) - p(3)) > 1) THEN
+        PRINT *, "Please report bug that DensityDescend wondered off"
+      END IF
+
+      trueInd(:) = NINT(trueR(:))
+      IF (noRecording) THEN
+        ! trueR is what we are after
+      ELSE
+        UCPTnum = UCPTnum + 1
+        uCCbefore = ucpCounts(4)
+        CALL RecordCPRLight(trueR,chg,cpl,UCPTnum, ucpCounts, &
+          trueInd, .FALSE.)
+        uCCafter = ucpCounts(4)
+      END IF
+      IF (uCCbefore == uCCafter .AND. .FALSE.) THEN
         PRINT *, "ERROR :: Density descend found a cage point that did not &
           produce three positive eigenvalues!"
         PRINT *, "The found cage point is at ", trueR
@@ -3178,7 +3300,7 @@
           more information"
       END IF
       ! To catch cages that does not produce three positive eigenvalues:
-    END SUBROUTINE DensityDescend
+    END SUBROUTINE DensityDescendAndRecord
 
     ! USED IN THIS MODULE
     SUBROUTINE PrintNeighborCharges(p,chg)
