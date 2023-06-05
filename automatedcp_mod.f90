@@ -24,14 +24,12 @@
       !stat 1 means pass 0 means fail
       isExhausted = .FALSE.
       DO WHILE ( .NOT. isExhausted .AND. stat /= 1) 
-        PRINT *, "kdebug Calling critpoint_find"
         CALL critpoint_find(bdr,chg,opts,ions,stat)
         !CALL critpoint_find(bdr,chg,opts,ions)
         !PRINT *, "Stat came back as ", stat
         isExhausted = CheckExhaustion(opts)
         !PRINT *, "isExhausted came back as ", isExhausted
         IF (stat /= 1) THEN
-          PRINT *, "Adjusting parameters to be stricter"
           CALL AdjustParameters(opts)
         END IF
       END DO
