@@ -509,11 +509,9 @@
             END DO
           END DO
           DO i = 1, ( ucpCounts(3) * ( ucpCounts(3) - 1) ) / 2
-            PRINT *, "calling density descend with i = ", i
             CALL DensityDescendAndRecord(chg,bdr,opts,descendPoints(i,:),cpl,&
               ucptnum, ucpCounts, .FALSE.)
           END DO
-          PRINT *, "finished density descend"
           DEALLOCATE(descendPoints)
           DEALLOCATE(ringPoints)
           isReduced = .FALSE.
@@ -541,7 +539,7 @@
         ! stat = 1
         !Runs DoubleAscension and RingAscension on all detected critical points
         !ALLOCATE(atom_connectivity(ucptnum,ucptnum))
-        atom_connectivity = 0
+        !atom_connectivity = 0
         DO ij = 1,ucptnum
           !Saves pairs of connected atoms in connectedAtoms
           IF (cpl(ij)%negcount == 2) THEN
@@ -560,7 +558,7 @@
         ! output the cp to files
         CALL OutputCP(cpl,opts,ucptnum,chg,setcount, ucpCounts)
         !Output the found list of connectivity pairs to file 
-        CALL OutputNetwork(cpl,ucptnum,setcount,atom_connectivity)
+        CALL OutputNetwork(cpl,ucptnum,setcount)
         IF (stat == 1) THEN
           IF ( .NOT. CheckIsolatedAtom(cpl,ucptnum)) THEN
             PRINT *, 'The CPs are self-consistent but isolated atoms are detected.'
@@ -2087,12 +2085,11 @@
     
     !Outputs a list of connections in a file
     ! USED IN THIS MODULE
-    SUBROUTINE OutputNetwork(cpl,ucptnum,setcount,atom_connectivity)
+    SUBROUTINE OutputNetwork(cpl,ucptnum,setcount)
       TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpl
       INTEGER :: ucptnum, i, setcount
       CHARACTER(10) :: fileName
       INTEGER, DIMENSION(2) :: pair
-      INTEGER, DIMENSION(:,:) :: atom_connectivity
       WRITE(fileName,fmt='(a,i2.2,a)') TRIM('LINK'),setcount, TRIM('.dat')
       PRINT *, "Network Graph is written in file: ", fileName
       OPEN(98,FILE=fileName,STATUS='REPLACE',ACTION='WRITE')
@@ -2128,12 +2125,12 @@
           WRITE(98,*) pair(1),' ', i, ' ', pair(2)
         END IF
       END DO
-
-      WRITE(98,*) ""
-      WRITE(98,*) "The connectivity matrix is"
-      DO i = 1,size(atom_connectivity,1)
-        WRITE(98,*) atom_connectivity(i,:)
-      END DO
+      ! Not sure if we need the connectivity matrix
+      !WRITE(98,*) ""
+      !WRITE(98,*) "The connectivity matrix is"
+      !DO i = 1,size(atom_connectivity,1)
+      !  WRITE(98,*) atom_connectivity(i,:)
+      !END DO
       CLOSE(98)
     END SUBROUTINE OutputNetwork
 
@@ -3314,7 +3311,6 @@
             DO n3 = -1 , 1
               pn = p + (/n1,n2,n3/)
               CALL pbc(pn,chg%npts)
-              PRINT *, "pn is ", pn
               IF ( rho_val(chg,pn(1),pn(2),pn(3)) < rho_val(chg,p(1),p(2),p(3)) ) THEN
                 minimized = .FALSE.
                 p = pn
