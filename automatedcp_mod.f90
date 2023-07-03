@@ -29,7 +29,7 @@
         !PRINT *, "Stat came back as ", stat
         isExhausted = CheckExhaustion(opts)
         !PRINT *, "isExhausted came back as ", isExhausted
-        IF (stat /= 1) THEN
+        IF (stat /= 1 .AND. .NOT. isExhausted) THEN
           CALL AdjustParameters(opts)
         END IF
       END DO
@@ -41,7 +41,7 @@
       LOGICAL :: CheckExhaustion
       CheckExhaustion = .FALSE.
       IF (opts%autocp_flag) THEN
-        IF (opts%par_sr<=2 .AND. opts%par_newtonr <= 0.000000001 .AND. &
+        IF (opts%cp_search_radius<=2 .AND. opts%par_newtonr <= 0.000000001 .AND. &
             opts%par_gradfloor <= 0.000000001) THEN
           IF (opts%enableDensityDescend  .AND. &
               opts%gradMode ) THEN
@@ -52,12 +52,12 @@
             ! In case parameters has been unnecessarily strict, reset everything
             opts%par_newtonr = 0.0001
             opts%par_gradfloor = 0.0001
-            opts%par_sr = 3
+            opts%cp_search_radius = 3
           ELSE IF (.NOT. opts%gradMode ) THEN
             opts%gradMode = .TRUE.
             opts%par_newtonr = 0.0001
             opts%par_gradfloor = 0.0001
-            opts%par_sr = 3
+            opts%cp_search_radius = 3
           ! Smoothening seems to be not worth the effort. Someone is doing it
           ! better than us.
           !ELSE IF (.NOT. opts%enableCHGCARSmoothening ) THEN
@@ -68,7 +68,7 @@
           !  opts%enableCHGCARSmoothening = .TRUE.
           !  opts%par_newtonr = 0.0001
           !  opts%par_gradfloor = 0.0001
-          !  opts%par_sr = 3
+          !  opts%cp_search_radius = 3
           END IF
 
         END IF
@@ -88,13 +88,13 @@
         opts%par_gradfloor = opts%par_gradfloor * 0.01
       END IF
       IF ( opts%par_gradfloor <= 0.000000001 .AND. &
-           opts%par_newtonr <= 0.000000001 .AND. opts%par_sr > 2) THEN
-        opts%par_sr = opts%par_sr - 1
+           opts%par_newtonr <= 0.000000001 .AND. opts%cp_search_radius > 2) THEN
+        opts%cp_search_radius = opts%cp_search_radius - 1
       END IF
       PRINT *, "Search failed to satisfy constrains! Adjusting parameters:"
       PRINT *, "parnewtonr is now ", opts%par_newtonr
       PRINT *, "pargradfloor is now ", opts%par_gradfloor
-      PRINT *, "parsr is now ", opts%par_sr
+      PRINT *, "CP search radius is now ", opts%cp_search_radius
     END SUBROUTINE AdjustParameters
 
     ! Output the last set of parameters used. If a calculationo is restarted, it

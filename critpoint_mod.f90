@@ -66,7 +66,7 @@
     INTEGER :: n1,n2,n3,cptnum,i
  
 
-    DO n1 = 1,chg%npts(1)
+    OUTER: DO n1 = 1,chg%npts(1)
       DO n2 = 1,chg%npts(2)
         DO n3 = 1,chg%npts(3)
             ! check to see if this point is in the vacuum
@@ -97,6 +97,10 @@
               cpcl(cptnum)%hasProxy = .FALSE.
               cpcl(cptnum)%r = tem
             ELSE 
+              IF (cptnum > 100000) THEN
+                PRINT *, "ERROR: Too many searches required. Aborting."
+                EXIT OUTER
+              END IF
               PRINT *, 'expanding cpcl size'
               ALLOCATE(cpclt(cptnum + 1))
               DO i = 1, cptnum - 1
@@ -126,7 +130,7 @@
           END IF
         END DO
       END DO
-    END DO
+    END DO OUTER
   END SUBROUTINE GetCPCL
 
   SUBROUTINE SearchWithCPCL(bdr,chg,cpcl,cpl,cptnum,ucptnum,ucpCounts,opts)
@@ -225,7 +229,7 @@
       END IF
     END DO
     CALL PHRuleExam(ucpCounts,opts,ions,phmrCompliant)
-    IF (CheckIsolatedAtom(cp_static,ucptnum)) THEN
+    IF (.NOT. CheckIsolatedAtom(cp_static,ucptnum)) THEN
       PRINT *, 'The CPs are self-consistent but isolated atoms are detected. &
         Declaring this a false positive.'
     END IF      
@@ -280,12 +284,12 @@
 
     LOGICAL :: HCF, LDM, LDM_DetectCircling, LDM_ReduceCP, LDM_DensityDescend,LDM_RecordCPRLight, &
       LDM_NRTFGP,LDM_CalcTEMLat,LDM_RecordCPR, LDM_GradMagGrad, LDM_RingAscend, LDM_Trajectories, &
-      isUniqueTest, isReduced, phmrCompliant
+      isUniqueTest, isReduced, phmrCompliant, isReducible
 
     IF (opts%static_check) THEN
       CALL StaticCheck(bdr,chg,opts,ions)
     ELSE 
-      CALL PrintFlavorText()
+      !CALL PrintFlavorText()
       ! below are variables for least sqaures gradient
       stat = 0 ! 0 means nothing
 
@@ -457,141 +461,151 @@
         ! Loop through every grid point once and collect a list of points to start
         ! CP searching trajectories into cpcl, the CP candidate list.
         CALL GetCPCL(bdr,chg,cpl,cpcl,opts,cptnum)
-        PRINT *, "Number of Newton Rhapson trajectory needed: ", cptnum 
-!!**    *****************************************************************
-        ! To find critical points (unique), start with a cell that contains a
-        ! critical point and its hessian and force. Use Newton's method to make a
-        ! move. Interpolate the force inside the voxel. 
-        ! Once moved, get the new force through trilinear interpolation, and
-        ! get the new hessian which will be a matrix of constants, make moves until
-        ! r is zero. get the coordinates of the new true critical point. If this
-        ! point is within half lattice to another, do not record this new point.
-        ALLOCATE(cpRoster(cptnum,3))
-        IF (LDM_Trajectories) ALLOCATE(fullcpRoster(cptnum,3))
-        CALL SearchWithCPCL(bdr,chg,cpcl,cpl,cptnum,ucptnum,ucpCounts,opts)
+        IF (cptnum > 100000) THEN
+          stat = 0
+        ELSE 
+          PRINT *, "Number of Newton Rhapson trajectory needed: ", cptnum 
+!!**      *****************************************************************
+          ! To find critical points (unique), start with a cell that contains a
+          ! critical point and its hessian and force. Use Newton's method to make a
+          ! move. Interpolate the force inside the voxel. 
+          ! Once moved, get the new force through trilinear interpolation, and
+          ! get the new hessian which will be a matrix of constants, make moves until
+          ! r is zero. get the coordinates of the new true critical point. If this
+          ! point is within half lattice to another, do not record this new point.
+          ALLOCATE(cpRoster(cptnum,3))
+          IF (LDM_Trajectories) ALLOCATE(fullcpRoster(cptnum,3))
+          CALL SearchWithCPCL(bdr,chg,cpcl,cpl,cptnum,ucptnum,ucpCounts,opts)
 
-        PRINT *, 'Number of critical point count: ', ucptnum
-        PRINT *, 'Number of nuclear, bond, ring and cage  critical point &
-          counts : ', ucpCounts(:)
-        ! remove duplicate CPs
-        isReduced = .FALSE.
-        DO WHILE ( .NOT. isReduced)
-          PRINT *, "Reducing CPs"
-          CALL ReduceCP(cpl,opts,ucptnum,chg,ucpCounts, &
-            isReduced,LDM_RecordCPRLight,LDM_ReduceCP)
-          PRINT *, "out of ReduceCP"
-        END DO
-        
-        ! After CP numbers are reduced, do density descend and reduce another
-        ! round afterwards
-        IF (opts%enableDensityDescend) THEN
-          PRINT *, "starting density descend"
-          ! First find the midpoint of all rings, and their mirror iMages across
-          ! the closest pbc (to be implemented). 
-          ALLOCATE(descendPoints(ucpCounts(3)*(ucpCounts(3) - 1 ),3))
-          ALLOCATE(ringPoints(ucpCounts(3),3))
-          CALL ResizeCPL(cpl,SIZE(cpl) + ucpCounts(3)*(ucpCounts(3) - 1))
-          PRINT *, "finished resizecpl"
-          j = 1
-          DO i = 1, ucptnum
-            IF (cpl(i)%negCount == 1 ) THEN
-              ringPoints(j,:) = cpl(i)%truer 
-              j = j + 1
+          PRINT *, 'Number of critical point count: ', ucptnum
+          PRINT *, 'Number of nuclear, bond, ring and cage  critical point &
+            counts : ', ucpCounts(:)
+          ! remove duplicate CPs
+          isReduced = .FALSE.
+          isReducible = .TRUE.
+          DO WHILE ( .NOT. isReduced .AND. isReducible)
+            CALL ReduceCP(cpl,opts,ucptnum,chg,ucpCounts, &
+              isReduced,LDM_RecordCPRLight,LDM_ReduceCP, isReducible)
+          END DO
+          
+          ! After CP numbers are reduced, do density descend and reduce another
+          ! round afterwards
+          IF (opts%enableDensityDescend .AND. isReducible) THEN
+            PRINT *, "starting density descend"
+            ! First find the midpoint of all rings, and their mirror iMages across
+            ! the closest pbc (to be implemented). 
+            ALLOCATE(descendPoints(ucpCounts(3)*(ucpCounts(3) - 1 ),3))
+            ALLOCATE(ringPoints(ucpCounts(3),3))
+            CALL ResizeCPL(cpl,SIZE(cpl) + ucpCounts(3)*(ucpCounts(3) - 1))
+            PRINT *, "finished resizecpl"
+            j = 1
+            DO i = 1, ucptnum
+              IF (cpl(i)%negCount == 1 ) THEN
+                ringPoints(j,:) = cpl(i)%truer 
+                j = j + 1
+              END IF
+            END DO
+            PRINT *, "finished getting ringPoints"
+            k = 1
+            DO i = 1, ucpCounts(3)
+              DO j = i+1, ucpCounts(3)
+                descendPoints(k,1) = INT((ringPoints(i,1) + ringPoints(j,1))/2)
+                descendPoints(k,2) = INT((ringPoints(i,2) + ringPoints(j,2))/2)
+                descendPoints(k,3) = INT((ringPoints(i,3) + ringPoints(j,3))/2)
+                k = k + 1
+              END DO
+            END DO
+            DO i = 1, ( ucpCounts(3) * ( ucpCounts(3) - 1) ) / 2
+              CALL DensityDescendAndRecord(chg,bdr,opts,descendPoints(i,:),cpl,&
+                ucptnum, ucpCounts, .FALSE.)
+            END DO
+            DEALLOCATE(descendPoints)
+            DEALLOCATE(ringPoints)
+            isReduced = .FALSE.
+            isReducible = .TRUE.
+            DO WHILE ( .NOT. isReduced .AND. isReducible)
+              CALL ReduceCP(cpl,opts,ucptnum,chg,ucpCounts, &
+                isReduced,LDM_RecordCPRLight, &
+                LDM_ReduceCP,isReducible)
+            END DO
+          END IF
+          ! This following debug line need to be togged on or off manually
+          ! before compilling
+          !ip = (/-0.554,1.953,1.985/)
+          !CALL CPTracer(iP,chg,cpl,ucptnum)
+          PRINT *, 'After a round of reduction'
+          PRINT *, 'Number of atoms: ', ions%nions
+          PRINT *, 'Number of critical point count: ', ucptnum
+          PRINT *, 'Number of nuclear, bond, ring and cage  critical point &
+            counts : ', ucpCounts(:)
+          CALL PHRuleExam(ucpCounts,opts,ions,phmrCompliant)
+          IF (phmrCompliant) THEN
+            stat = 1
+          ELSE
+            stat = 0
+          END IF
+          ! stat = 1
+          !Runs DoubleAscension and RingAscension on all detected critical points
+          !ALLOCATE(atom_connectivity(ucptnum,ucptnum))
+          !atom_connectivity = 0
+          DO ij = 1,ucptnum
+            !Saves pairs of connected atoms in connectedAtoms
+            IF (cpl(ij)%negcount == 2) THEN
+              cpl(ij)%connectedAtoms = DoubleAscension(bdr,cpl(ij),chg,ions,opts,1,cpl,ucptnum)
+              !atom_connectivity(cpl(ij)%connectedAtoms(1),cpl(ij)%connectedAtoms(2))=1
+              !atom_connectivity(cpl(ij)%connectedAtoms(2),cpl(ij)%connectedAtoms(1))=1
+            ELSEIF (cpl(ij)%negcount == 1) THEN
+              cpl(ij)%connectedAtoms = DoubleAscension(bdr,cpl(ij),chg,ions,opts,-1,cpl,ucptnum)
+            END IF
+           
+            IF (LDM_RingAscend) THEN
+               !Prints Rings
+               CALL RingAscension(cpl(ij),chg,ions,RingList)
             END IF
           END DO
-          k = 1
-          DO i = 1, ucpCounts(3)
-            DO j = i+1, ucpCounts(3)
-              descendPoints(k,1) = INT((ringPoints(i,1) + ringPoints(j,1))/2)
-              descendPoints(k,2) = INT((ringPoints(i,2) + ringPoints(j,2))/2)
-              descendPoints(k,3) = INT((ringPoints(i,3) + ringPoints(j,3))/2)
-              k = k + 1
-            END DO
-          END DO
-          DO i = 1, ( ucpCounts(3) * ( ucpCounts(3) - 1) ) / 2
-            CALL DensityDescendAndRecord(chg,bdr,opts,descendPoints(i,:),cpl,&
-              ucptnum, ucpCounts, .FALSE.)
-          END DO
-          DEALLOCATE(descendPoints)
-          DEALLOCATE(ringPoints)
-          isReduced = .FALSE.
-          DO WHILE ( .NOT. isReduced)
-            CALL ReduceCP(cpl,opts,ucptnum,chg,ucpCounts, &
-              isReduced,LDM_RecordCPRLight, &
-              LDM_ReduceCP)
-          END DO
-        END IF
-        ! This following debug line need to be togged on or off manually
-        ! before compilling
-        !ip = (/-0.554,1.953,1.985/)
-        !CALL CPTracer(iP,chg,cpl,ucptnum)
-        PRINT *, 'After a round of reduction'
-        PRINT *, 'Number of atoms: ', ions%nions
-        PRINT *, 'Number of critical point count: ', ucptnum
-        PRINT *, 'Number of nuclear, bond, ring and cage  critical point &
-          counts : ', ucpCounts(:)
-        CALL PHRuleExam(ucpCounts,opts,ions,phmrCompliant)
-        IF (phmrCompliant) THEN
-          stat = 1
-        ELSE
-          stat = 0
-        END IF
-        ! stat = 1
-        !Runs DoubleAscension and RingAscension on all detected critical points
-        !ALLOCATE(atom_connectivity(ucptnum,ucptnum))
-        !atom_connectivity = 0
-        DO ij = 1,ucptnum
-          !Saves pairs of connected atoms in connectedAtoms
-          IF (cpl(ij)%negcount == 2) THEN
-            cpl(ij)%connectedAtoms = DoubleAscension(bdr,cpl(ij),chg,ions,opts,1,cpl,ucptnum)
-            !atom_connectivity(cpl(ij)%connectedAtoms(1),cpl(ij)%connectedAtoms(2))=1
-            !atom_connectivity(cpl(ij)%connectedAtoms(2),cpl(ij)%connectedAtoms(1))=1
-          ELSEIF (cpl(ij)%negcount == 1) THEN
-            cpl(ij)%connectedAtoms = DoubleAscension(bdr,cpl(ij),chg,ions,opts,-1,cpl,ucptnum)
+          ! output the cp to files
+          CALL OutputCP(cpl,opts,ucptnum,chg,setcount, ucpCounts)
+          !Output the found list of connectivity pairs to file 
+          CALL OutputNetwork(cpl,ucptnum,setcount)
+          IF (stat == 1) THEN
+            IF ( .NOT. CheckIsolatedAtom(cpl,ucptnum)) THEN
+              PRINT *, 'The CPs are self-consistent but isolated atoms are detected.'
+              stat = 0
+            END IF      
+            IF (.NOT. CheckIsolatedRing(cpl,ucptnum)) THEN
+              PRINT *, "A disconnected ring CP is found."
+              stat = 0
+            END IF
+            IF (.NOT. CheckIsolatedCage(cpl,ucptnum)) THEN
+              PRINT *, "A disconnected cage CP is found."
+              stat = 0
+            END IF
+            IF (stat == 0) THEN 
+              PRINT *, 'Declaring this a false positive.'
+            END IF
           END IF
-         
-          IF (LDM_RingAscend) THEN
-             !Prints Rings
-             CALL RingAscension(cpl(ij),chg,ions,RingList)
-          END IF
-        END DO
-        ! output the cp to files
-        CALL OutputCP(cpl,opts,ucptnum,chg,setcount, ucpCounts)
-        !Output the found list of connectivity pairs to file 
-        CALL OutputNetwork(cpl,ucptnum,setcount)
-        IF (stat == 1) THEN
-          IF ( .NOT. CheckIsolatedAtom(cpl,ucptnum)) THEN
-            PRINT *, 'The CPs are self-consistent but isolated atoms are detected.'
-            stat = 0
-          END IF      
-          IF (.NOT. CheckIsolatedRing(cpl,ucptnum)) THEN
-            PRINT *, "A disconnected ring CP is found."
-            stat = 0
-          END IF
-          IF (.NOT. CheckIsolatedCage(cpl,ucptnum)) THEN
-            PRINT *, "A disconnected cage CP is found."
-            stat = 0
-          END IF
-          IF (stat == 0) THEN 
-            PRINT *, 'Declaring this a false positive.'
-          END IF
-        END IF
 
 
-        IF (LDM_Trajectories) THEN
-          !Performs statistical analysis (standard deviation) on the CP Roster 
-          CALL CPRosterAnalysis(cpl,ions,fullcpRoster,chg)
-          !unique_realcoords removes NaN/0 valued blank CPs, condenses the list to only the relevant ones inside reducedcpRoster
-          CALL unique_realcoords(cpRoster,reducedcpRoster) 
-          !Output the CP Roster to file
-          CALL OutputCPRoster(fullcpRoster,setcount)
-          DEALLOCATE(fullcpRoster)
-          DEALLOCATE(reducedcpRoster)
+          IF (LDM_Trajectories) THEN
+            !Performs statistical analysis (standard deviation) on the CP Roster 
+            CALL CPRosterAnalysis(cpl,ions,fullcpRoster,chg)
+            !unique_realcoords removes NaN/0 valued blank CPs, condenses the list to only the relevant ones inside reducedcpRoster
+            CALL unique_realcoords(cpRoster,reducedcpRoster) 
+            !Output the CP Roster to file
+            CALL OutputCPRoster(fullcpRoster,setcount)
+            DEALLOCATE(fullcpRoster)
+            DEALLOCATE(reducedcpRoster)
+          END IF
+          DEALLOCATE(cpRoster)
         END IF
-        DEALLOCATE(cpRoster)
       END IF
-      PRINT *, 'outputting debugging information to allcpPOSCAR'
-      CALL VisAllCP(cpl,ucptnum,chg,ions,opts,ucpCounts)
+      IF (cptnum > 100000) THEN
+        PRINT *, ''//achar(27)//'[31m ERROR: FAILED Poincare Hopf Rule & 
+          and Morse Relationship' //achar(27)//'[0m'      
+      ELSE
+        PRINT *, 'outputting debugging information to allcpPOSCAR'
+        CALL VisAllCP(cpl,ucptnum,chg,ions,opts,ucpCounts)
+      END IF
       DEALLOCATE(cpl)
       DEALLOCATE(cpcl)
       !PRINT *, "DEALLOCATING atom_connectivity"
@@ -1493,18 +1507,14 @@
       INTEGER :: i, j, loopcount, stepMax
       INTEGER :: ascension_new
       LOGICAL :: foundAtom
-      
       CALL pbc_r_lat(ind, chg%npts)
-      
       startpos = ind
-
       nnInd = SimpleNN(ind, chg)
       DO j=1,8
         CALL pbc(nnInd(j,:),chg%npts)
         nngrad(j,:) = CDGrad(nnInd(j,:),chg)
       END DO
       distance = ind - nnInd(1,:)
-
       grad = trilinear_interpol_grad(nnGrad,distance)
       grad = MATMUL(grad,chg%lat2car)
       foundAtom = .FALSE.
@@ -1525,17 +1535,12 @@
             EXIT
           END IF
         END DO
-        
         IF (foundAtom) THEN
           EXIT
         END IF
-        
         grad = MIN(Mag(grad),maxstepsize) * grad/Mag(grad)
-
         ind = ind + grad
-        
         oldgrad = grad
-
         CALL pbc_r_lat(ind, chg%npts)
         nnInd = SimpleNN(ind,chg)
         DO j=1,8
@@ -1545,20 +1550,14 @@
         distance = ind - nnInd(1,:)
         grad = trilinear_interpol_grad(nnGrad,distance)
         grad = MATMUL(grad,chg%lat2car)
-        
         IF (SUM(grad*oldgrad)<0) THEN
           maxstepsize = 1*maxstepsize
         END IF
-      
-
       END DO
-      
       IF (.NOT. foundAtom) THEN
        ! PRINT *, "No atom was found"
       END IF
-      
       RETURN
-
     END FUNCTION ascension_new
 
 
@@ -1660,9 +1659,9 @@
       ProxyToCPCandidate = .FALSE.
       ! These are lattice based and do not take PBC into consideration
       DO i = 1, cptnum
-        IF (ABS(cpl(i)%ind(1) - p(1)) <= opts%par_sr .AND. &
-            ABS(cpl(i)%ind(2) - p(2)) <= opts%par_sr .AND. &
-            ABS(cpl(i)%ind(3) - p(3)) <= opts%par_sr ) THEN
+        IF (ABS(cpl(i)%ind(1) - p(1)) <= opts%cp_search_radius .AND. &
+            ABS(cpl(i)%ind(2) - p(2)) <= opts%cp_search_radius .AND. &
+            ABS(cpl(i)%ind(3) - p(3)) <= opts%cp_search_radius ) THEN
           ProxyToCPCandidate = .TRUE.
         END IF
       END DO  
@@ -1951,6 +1950,26 @@
       END IF
     END SUBROUTINE RecordCPR
    
+    ! This is for recording cage points found through density descend. 
+    ! These cage points are on grid points. They can have a gradient 
+    ! and a hessian but the hessian may not have 3 positive eigenvalues.
+    SUBROUTINE RecordDensityDescendCage(p,cpl,ucptnum,ucpCounts,chg)
+      TYPE(charge_obj) :: chg
+      TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpl
+      INTEGER, DIMENSION(3) :: p
+      INTEGER, DIMENSION(4) :: ucpCounts
+      INTEGER :: ucptnum, it_num, rot_num
+      cpl(ucptnum)%grad = CDGrad(p,chg)
+      cpl(ucptnum)%hessianMatrix = CDHessian(p,chg)
+      CALL jacobi_eigenvalue(3,cpl(ucptnum)%hessianMatrix, &
+        9999,cpl(ucptnum)%eigvecs,cpl(ucptnum)%eigvals,it_num,rot_num) 
+      cpl(ucptnum)%negCount = 0
+      CALL UpDateCounts(0,ucpCounts)
+      cpl(ucptnum)%trueR = p
+      cpl(ucptnum)%rho = chg%rho(p(1),p(2),p(3))
+      cpl(ucptnum)%hasProxy = .FALSE.
+    END SUBROUTINE RecordDensityDescendCage
+
     ! USED IN THIS MODULE
     SUBROUTINE RecordCPRLight(p,chg,cpl,ucptnum, ucpCounts, &
       ind,LDM)
@@ -1981,7 +2000,6 @@
       cpl(ucptnum)%hasProxy = .FALSE.
       cpl(ucptnum)%ind = ind
       realDump = rho_grad(chg,p,rho)
-      rho = rho
       cpl(ucptnum)%rho = rho
       IF (LDM) THEN
         PRINT *, "RecordCPRLight recorded CP number ",ucptnum
@@ -2198,9 +2216,9 @@
               IF (ANY(cpl(j)%connectedAtoms == i)) connection_count = connection_count + 1 
             END IF
           END DO
-          IF (connection_count <= 1) THEN
+          IF (connection_count < 1) THEN
             CheckIsolatedCage = .FALSE.
-            PRINT *, "ERROR: cp # ", i, "has connection to ", connection_count, "ring CPs"
+            PRINT *, "ERROR: cp # ", i, "has no connection to any ring CPs" ! todo: check if it's connecting to a periodic self.
           END IF
         END IF
       END DO
@@ -2677,7 +2695,7 @@
     ! points.
     ! USED IN THIS MODULE
     SUBROUTINE ReduceCP(cpl,opts,ucptnum,chg,ucpCounts, &
-      isReduced,LDM_RecordCPRLight,LDM)
+      isReduced,LDM_RecordCPRLight,LDM,isReducible)
       TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpl,rcpl
       TYPE(charge_obj) :: chg
       TYPE(options_obj) :: opts
@@ -2685,7 +2703,7 @@
       INTEGER, DIMENSION(4) :: ucpCounts,rcpCounts
       INTEGER :: uCPTNum
       INTEGER :: i,j, nUCPTNum, weight, dupCount
-      LOGICAL :: isReduced,LDM_RecordCPRLight,LDM
+      LOGICAL :: isReduced,LDM_RecordCPRLight,LDM, switch, isReducible
       IF (LDM) PRINT *, 'Checking for duplicate CP'
       isReduced = .TRUE.
       dupCount = 0
@@ -2696,18 +2714,19 @@
       ! start from a critical point. loop through the entire list, look for
       ! another entry 
       nUCPTNum = 0
-      DO i = 1, ucptnum
+      OUTER: DO i = 1, ucptnum
         ! check if this point is already determined as a proxy to some other
         ! point before
         weight = 1
         avgR = cpl(i)%truer
+        switch = .TRUE.
         IF (cpl(i)%hasProxy ) THEN 
           CYCLE
         END IF
         DO j = i, ucptnum
           ! Periodic boundary condition will come to haunt me, periodically. 
           IF (j == i) CYCLE
-          IF ( Mag(cpl(i)%truer - cpl(j)%truer) .LE. opts%par_distance ) THEN
+          IF ( Mag(cpl(i)%truer - cpl(j)%truer) .LE. opts%cp_min_dinstance ) THEN
             cpl(j)%hasProxy = .TRUE.
             avgR = (avgR * weight + cpl(j)%truer )/(weight + 1)
             weight = weight + 1
@@ -2717,8 +2736,15 @@
               IF (cpl(i)%negCount == 3) CYCLE !Skip validating maxima.
               IF (cpl(j)%negCount == 3) CYCLE !ascension is bugged. 
               ! it some times go to bond CP
-              PRINT *,'ERROR: TWO TYPES OF CP ARE TOO CLOSE TO EACH OTHER.'
-              PRINT *, 'The CPs ',i, j, 'have number of negative eigenvalues: ',cpl(i)%negCount, cpl(j)%negCount
+              IF (switch) THEN
+                PRINT *,'ERROR: TWO TYPES OF CP ARE TOO CLOSE TO EACH OTHER.'
+                PRINT *, 'The CPs ',i, j, 'have number of negative eigenvalues: ',cpl(i)%negCount, cpl(j)%negCount
+                PRINT *, ''//achar(27)//'[31m STOPPING. NO MORE CP WILL BE OUTPUT.'//achar(27)//'[0m'
+                switch = .FALSE.
+                isReducible = .FALSE.
+                isReduced = .FALSE.
+                EXIT OUTER
+              END IF
             END IF 
             isReduced = .FALSE.
           END IF
@@ -2727,7 +2753,7 @@
         ! record the reduced CP
         CALL RecordCPRLight(avgR,chg,rcpl,nUCPTnum, rcpCounts, &
           cpl(i)%ind,.FALSE.)
-      END DO
+      END DO OUTER
       CALL ReplaceCPL(cpl,rcpl)
       DO i = 1, SIZE(cpl)
         cpl(i)%isUnique = .TRUE.
@@ -2766,7 +2792,7 @@
         DO j = i, ucptnum
           ! Periodic boundary condition will come to haunt me, periodically. 
           IF (j == i) CYCLE
-          IF ( Mag(cp_static(i)%truer - cp_static(j)%truer) .LE. opts%par_distance ) THEN
+          IF ( Mag(cp_static(i)%truer - cp_static(j)%truer) .LE. opts%cp_min_dinstance ) THEN
             cp_static(j)%hasProxy = .TRUE.
             avg_r = (avg_r * cp_static(i)%weight + cp_static(j)%truer )/(cp_static(i)%weight + 1)
             cp_static(i)%weight = cp_static(i)%weight + 1
@@ -3299,59 +3325,66 @@
       INTEGER, DIMENSION(4) :: ucpCounts
       INTEGER,DIMENSION(3) :: p,pn,trueInd
       INTEGER :: n1,n2,n3
-      INTEGER :: UCPTnum
+      INTEGER :: UCPTnum, stepCount
       INTEGER :: uCCbefore,uCCafter !cage count before and after
       REAL(q2),DIMENSION(3,3) :: hessianMatrix 
-      REAL(q2),DIMENSION(3) :: trueR,r,grad
+      REAL(q2),DIMENSION(3) :: trueR,r,grad 
+      REAL(q2) :: current_rho, test_rho
       LOGICAL :: isUnique, minimized, noRecording
       minimized = .FALSE.
+      stepCount = 0
+      current_rho = chg%rho(p(1),p(2),p(3))
       DO WHILE (.NOT. minimized) 
-        outer: DO n1 = -1 , 1
+        OUTER: DO n1 = -1 , 1
           DO n2 = -1 , 1
             DO n3 = -1 , 1
+              stepCount = stepCount + 1
               pn = p + (/n1,n2,n3/)
               CALL pbc(pn,chg%npts)
-              IF ( rho_val(chg,pn(1),pn(2),pn(3)) < rho_val(chg,p(1),p(2),p(3)) ) THEN
-                minimized = .FALSE.
+              test_rho = chg%rho(pn(1),pn(2),pn(3))
+              IF (test_rho < current_rho) THEN
+              !IF ( rho_val(chg,pn(1),pn(2),pn(3)) < rho_val(chg,p(1),p(2),p(3)) ) THEN
+                current_rho = test_rho
                 p = pn
-                CALL pbc(p,chg%npts)
-                EXIT outer
+                EXIT OUTER
               ELSE
                 minimized = .TRUE.
               END IF
             END DO
           END DO
-        END DO outer
+        END DO OUTER
       END DO
       ! Need to obtain initial grad at the grid point and tem
-      r = CalcTEMGrid(p,chg,grad,hessianMatrix)
-      CALL NRTFGP(bdr,chg,opts,trueR,&
-        isUnique,r,p,&
-        1000)
-      ! note: what if NRTFGP gets carried away? 
-      IF (ABS(trueR(1) - p(1)) > 1 .OR. ABS(trueR(2) - p(2)) > 1 .OR. &
-          ABS(trueR(3) - p(3)) > 1) THEN
-        trueR = p
-        !PRINT *, "Please report bug that DensityDescend wondered off. The distance is "
-        !PRINT *, SQRT((trueR(1) - p(1))**2 + (trueR(2) - p(2))**2 + (trueR(3) - p(3))**2)
-      END IF
+      !r = CalcTEMGrid(p,chg,grad,hessianMatrix)
+      !CALL NRTFGP(bdr,chg,opts,trueR,&
+      !  isUnique,r,p,&
+      !  1000)
+      !! note: what if NRTFGP gets carried away? 
+      !IF (ABS(trueR(1) - p(1)) > 1 .OR. ABS(trueR(2) - p(2)) > 1 .OR. &
+      !    ABS(trueR(3) - p(3)) > 1) THEN
+      !  trueR = p
+      !  !PRINT *, "Please report bug that DensityDescend wondered off. The distance is "
+      !  !PRINT *, SQRT((trueR(1) - p(1))**2 + (trueR(2) - p(2))**2 + (trueR(3) - p(3))**2)
+      !END IF
 
-      trueInd(:) = NINT(trueR(:))
+      !trueInd(:) = NINT(trueR(:))
+      trueR = p
       IF (noRecording) THEN
         ! trueR is what we are after
+      ELSEIF (bdr%volnum(p(1),p(2),p(3) ) == bdr%bnum + 1) THEN
+        ! Density descend went into the vacuum. DO NOTHING.
       ELSE
         UCPTnum = UCPTnum + 1
         uCCbefore = ucpCounts(4)
-        CALL RecordCPRLight(trueR,chg,cpl,UCPTnum, ucpCounts, &
-          trueInd, .FALSE.)
+        CALL RecordDensityDescendCage(p,cpl,ucptnum,ucpCounts,chg)
+        !CALL RecordCPRLight(trueR,chg,cpl,UCPTnum, ucpCounts, &
+        !  trueInd, .FALSE.)
         uCCafter = ucpCounts(4)
       END IF
-      IF (uCCbefore == uCCafter .AND. .FALSE.) THEN
+      IF (uCCbefore == uCCafter .AND. .FALSE. ) THEN
         PRINT *, "ERROR :: Density descend found a cage point that did not &
           produce three positive eigenvalues!"
         PRINT *, "The found cage point is at ", trueR
-        PRINT *, "Turn on debug mode and add DensityDescend to debugConfig for &
-          more information"
       END IF
       ! To catch cages that does not produce three positive eigenvalues:
     END SUBROUTINE DensityDescendAndRecord

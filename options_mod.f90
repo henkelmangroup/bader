@@ -27,8 +27,8 @@
       LOGICAL :: verbose_flag, ref_flag, find_critpoints_flag
       LOGICAL :: print_surfaces_atoms
       REAL(q2) :: par_tem, par_gradfloor
-      REAL(q2) :: par_distance
-      REAL(q2) :: par_newtonr, par_sr
+      REAL(q2) :: cp_min_dinstance
+      REAL(q2) :: par_newtonr, cp_search_radius
       LOGICAL :: ismolecule
       LOGICAL :: iscrystal
       LOGICAL :: debugMode
@@ -65,9 +65,9 @@
 
 ! Default values
       opts%par_tem = 0
-      opts%par_sr = 3
-      opts%par_distance = 1.5
-      ! par_distance is the criteria for determine if two points are identical
+      opts%cp_search_radius = 3
+      opts%cp_min_dinstance = 1.5
+      ! cp_min_dinstance is the criteria for determine if two points are identical
       ! due to spacial proximity. This is in lattice units.
       opts%par_newtonr = 0.1
       opts%par_gradfloor = 0.1
@@ -191,19 +191,19 @@
           it=LEN_TRIM(inc)
           PRINT *, 'instructed to read partem'
           READ(inc,*) opts%par_tem
-        ELSEIF (p(1:ip) == '-parsr') THEN
+        ELSEIF (p(1:ip) == '-cp_search_radius') THEN
           m = m + 1
           CALL GET_COMMAND_ARGUMENT(m,inc)
           inc = ADJUSTL(inc)
           it=LEN_TRIM(inc)
           PRINT *, 'instructed to read partem'
-          READ(inc,*) opts%par_sr
-        ELSEIF (p(1:ip) == '-pardistance') THEN
+          READ(inc,*) opts%cp_search_radius
+        ELSEIF (p(1:ip) == '-cp_min_distance') THEN
           m = m + 1
           CALL GET_COMMAND_ARGUMENT(m,inc)
           inc = ADJUSTL(inc)
           it=LEN_TRIM(inc)
-          READ(inc,*) opts%par_distance
+          READ(inc,*) opts%cp_min_dinstance
         ELSEIF (p(1:ip) == '-parnewtonr') THEN
           m = m + 1
           CALL GET_COMMAND_ARGUMENT(m,inc)
