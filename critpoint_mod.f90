@@ -229,17 +229,16 @@
       END IF
     END DO
     CALL PHRuleExam(ucpCounts,opts,ions,phmrCompliant)
-    IF (.NOT. CheckIsolatedAtom(cp_static,ucptnum)) THEN
+    IF (phmrCompliant .AND. .NOT. CheckIsolatedAtom(cp_static,ucptnum)) THEN
       PRINT *, 'The CPs are self-consistent but isolated atoms are detected. &
         Declaring this a false positive.'
     END IF      
-    IF (.NOT. CheckIsolatedRing(cp_static,ucptnum)) THEN
+    IF (phmrCompliant .AND. .NOT. CheckIsolatedRing(cp_static,ucptnum)) THEN
       PRINT *, "A disconnected ring CP is found. Declaring this a false positive."
     END IF
-    IF (.NOT. CheckIsolatedCage(cp_static,ucptnum)) THEN
+    IF (phmrCompliant .AND. .NOT. CheckIsolatedCage(cp_static,ucptnum)) THEN
       PRINT *, "A disconnected cage CP is found. Declaring this a false positive."
     END IF
-    PRINT *, 'Finished checking connectivities'
   END SUBROUTINE StaticCheck
 
   SUBROUTINE critpoint_find(bdr,chg,opts,ions,stat)
@@ -1447,16 +1446,22 @@
         vector = vector/Mag(vector)
         ind_plus = ind + vector
         ind_minus = ind - vector
+        CALL pbc_r_lat(ind_plus, chg%npts)
+        CALL pbc_r_lat(ind_minus, chg%npts)
         IF (direction == 1) THEN
           nuc1num = ascension_new(ind_plus,chg,ions)
           nuc2num = ascension_new(ind_minus,chg,ions)
         ELSEIF (direction == -1) THEN
           iinds = NINT(ind + 2 * vector)
+          CALL pbc(iinds,chg%npts)
           traj_end = DensityDescend(chg,bdr,opts,iinds)
-          nuc1num = CageSearch(traj_end,cpl,ucptnum,bdr)
+          CALL pbc_r_lat(traj_end, chg%npts)
+          nuc1num = CageSearch(traj_end,cpl,ucptnum,bdr,chg)
           iinds = NINT(ind - 2 * vector)
+          CALL pbc(iinds,chg%npts)
           traj_end = DensityDescend(chg,bdr,opts,iinds)
-          nuc2num = CageSearch(traj_end,cpl,ucptnum,bdr)
+          CALL pbc_r_lat(traj_end, chg%npts)
+          nuc2num = CageSearch(traj_end,cpl,ucptnum,bdr,chg)
         END IF
       END IF
       DoubleAscension(1) = nuc1num
@@ -1465,13 +1470,17 @@
     END FUNCTION DoubleAscension
 
     ! search in the cp list and find a close by cage point 
-    FUNCTION CageSearch(r,cpl,ucptnum,bdr)
+    FUNCTION CageSearch(r,cpl,ucptnum,bdr,chg)
+      TYPE(charge_obj) :: chg
       TYPE(bader_obj) :: bdr
       TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpl
       REAL(q2),DIMENSION(3) :: r
       REAL(q2) :: min_distance, distance
+      INTEGER, DIMENSION(3) :: p
       INTEGER :: CageSearch, ucptnum, nearest_cage, n
-      IF (bdr%volnum(NINT(r(1)), NINT(r(2)), NINT(r(3))) == bdr%bnum + 1) THEN
+      p = NINT(r)
+      CALL pbc(p,chg%npts)
+      IF (bdr%volnum(p(1),p(2),p(3)) == bdr%bnum + 1) THEN
         CageSearch = -1 !connected to vacuum
       ELSE
         min_distance = 9999
