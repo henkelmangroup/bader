@@ -194,8 +194,8 @@
 
     isReduced = .FALSE.
     ALLOCATE(cp_static(ReadStaticSize()))
-    ALLOCATE(atom_connectivity(ions%nions,ions%nions))
-    atom_connectivity = 0
+    !ALLOCATE(atom_connectivity(ions%nions,ions%nions))
+    !atom_connectivity = 0
     CALL StaticCheckReadStatic(cp_static,chg)
     DO n = 1, SIZE(cp_static)
       cp_static(n)%truer(1) = cp_static(n)%truer(1) * chg%npts(1) + 1
@@ -222,8 +222,8 @@
         it_num, rot_num )
       IF (cp_static(ij)%negcount == 2) THEN
         cp_static(ij)%connectedAtoms = DoubleAscension(bdr,cp_static(ij),chg,ions,opts,1,cp_static,ucptnum)
-        atom_connectivity(cp_static(ij)%connectedAtoms(1),cp_static(ij)%connectedAtoms(2))=1
-        atom_connectivity(cp_static(ij)%connectedAtoms(2),cp_static(ij)%connectedAtoms(1))=1
+        !atom_connectivity(cp_static(ij)%connectedAtoms(1),cp_static(ij)%connectedAtoms(2))=1
+        !atom_connectivity(cp_static(ij)%connectedAtoms(2),cp_static(ij)%connectedAtoms(1))=1
       ELSEIF (cp_static(ij)%negcount == 1) THEN
         cp_static(ij)%connectedAtoms = DoubleAscension(bdr,cp_static(ij),chg,ions,opts,-1,cp_static,ucptnum)
       END IF
@@ -239,6 +239,9 @@
     IF (phmrCompliant .AND. .NOT. CheckIsolatedCage(cp_static,ucptnum)) THEN
       PRINT *, "A disconnected cage CP is found. Declaring this a false positive."
     END IF
+    DEALLOCATE(cp_static)
+    !DEALLOCATE(atom_connectivity)
+
   END SUBROUTINE StaticCheck
 
   SUBROUTINE critpoint_find(bdr,chg,opts,ions,stat)
@@ -611,6 +614,7 @@
       !DEALLOCATE(atom_connectivity)
       !DEALLOCATE(cpl,cpcl,atom_connectivity)
     END IF
+    PRINT *, "end of critpoint_find"
   END SUBROUTINE critpoint_find
 
     ! this function determins when looking for nn, how many layers to search
