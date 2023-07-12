@@ -2756,7 +2756,9 @@
                 switch = .FALSE.
                 isReducible = .FALSE.
                 isReduced = .FALSE.
-                EXIT OUTER
+                IF (.NOT. opts%ignore_cp_conflict) THEN
+                  EXIT OUTER
+                END IF
               END IF
             END IF 
             isReduced = .FALSE.

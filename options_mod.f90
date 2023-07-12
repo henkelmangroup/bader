@@ -41,6 +41,7 @@
       LOGICAL :: static_search ! Only initiate searches from coordinates read
       LOGICAL :: static_check ! reads in a list of CPs and runs through checks.
       LOGICAL :: aflow_sym ! Reads aflow.fgroup.relax.out to get symmetry info
+      LOGICAL :: ignore_cp_conflict ! This forces ReduceCP to always finish.
    END TYPE options_obj
 
     PRIVATE
@@ -111,6 +112,7 @@
       opts%GD_magMode = .TRUE.
       opts%static_search = .FALSE.
       opts%aflow_sym = .FALSE.
+      opts%ignore_cp_conflict = .FALSE.
 !      n=IARGC()
       n=COMMAND_ARGUMENT_COUNT()
       IF (n == 0) THEN
@@ -168,6 +170,9 @@
         ELSEIF (p(1:ip) == '-crystal') THEN
           PRINT *, 'This system is assigned as a crystal'
           opts%iscrystal = .TRUE.  
+        ELSEIF (p(1:ip) == '-ignore_cp_conflict') THEN
+          PRINT *, 'Reduce CP will run its full course even for problematic cases. '
+          opts%ignore_cp_conflict = .TRUE.  
         ELSEIF (p(1:ip) == '-dohes') THEN
           ! Use diagonal terms in the hessian
           opts%dohes = .TRUE.  
