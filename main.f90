@@ -72,7 +72,7 @@
      INTEGER :: stat
 
     ! Write the version number
-     WRITE(*,'(/,2X,A)') 'GRID BASED BADER ANALYSIS  (Version 1.04 02/08/20)'
+     WRITE(*,'(/,2X,A)') 'GRID BASED BADER ANALYSIS  (Version 1.05 08/19/23)'
 
      ! Get the control variables
      CALL get_options(opts)
