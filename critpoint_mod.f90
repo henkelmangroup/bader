@@ -457,7 +457,6 @@
           PRINT *, "cpl ucptnum negcount is ", cpl(ucptnum)%negCount
         END DO
         CALL VisAllCP(cpl,ucptnum,chg,ions,opts,ucpCounts)
-        PRINT *, "called visallcp"
         STOP
       ELSE 
         ! Loop through every grid point once and collect a list of points to start
@@ -493,13 +492,11 @@
           ! After CP numbers are reduced, do density descend and reduce another
           ! round afterwards
           IF (opts%enableDensityDescend .AND. isReducible) THEN
-            PRINT *, "starting density descend"
             ! First find the midpoint of all rings, and their mirror iMages across
             ! the closest pbc (to be implemented). 
             ALLOCATE(descendPoints(ucpCounts(3)*(ucpCounts(3) - 1 ),3))
             ALLOCATE(ringPoints(ucpCounts(3),3))
             CALL ResizeCPL(cpl,SIZE(cpl) + ucpCounts(3)*(ucpCounts(3) - 1))
-            PRINT *, "finished resizecpl"
             j = 1
             DO i = 1, ucptnum
               IF (cpl(i)%negCount == 1 ) THEN
@@ -507,7 +504,6 @@
                 j = j + 1
               END IF
             END DO
-            PRINT *, "finished getting ringPoints"
             k = 1
             DO i = 1, ucpCounts(3)
               DO j = i+1, ucpCounts(3)
@@ -541,6 +537,7 @@
           PRINT *, 'Number of nuclear, bond, ring and cage  critical point &
             counts : ', ucpCounts(:)
           CALL PHRuleExam(ucpCounts,opts,ions,phmrCompliant)
+          CALL OutPutParameters(opts)
           IF (phmrCompliant) THEN
             stat = 1
           ELSE
@@ -610,9 +607,6 @@
       END IF
       DEALLOCATE(cpl)
       DEALLOCATE(cpcl)
-      !PRINT *, "DEALLOCATING atom_connectivity"
-      !DEALLOCATE(atom_connectivity)
-      !DEALLOCATE(cpl,cpcl,atom_connectivity)
     END IF
     PRINT *, "end of critpoint_find"
   END SUBROUTINE critpoint_find
@@ -2739,7 +2733,7 @@
         DO j = i, ucptnum
           ! Periodic boundary condition will come to haunt me, periodically. 
           IF (j == i) CYCLE
-          IF ( Mag(cpl(i)%truer - cpl(j)%truer) .LE. opts%cp_min_dinstance ) THEN
+          IF ( Mag(cpl(i)%truer - cpl(j)%truer) .LE. opts%cp_min_distance ) THEN
             cpl(j)%hasProxy = .TRUE.
             avgR = (avgR * weight + cpl(j)%truer )/(weight + 1)
             weight = weight + 1
@@ -2807,7 +2801,7 @@
         DO j = i, ucptnum
           ! Periodic boundary condition will come to haunt me, periodically. 
           IF (j == i) CYCLE
-          IF ( Mag(cp_static(i)%truer - cp_static(j)%truer) .LE. opts%cp_min_dinstance ) THEN
+          IF ( Mag(cp_static(i)%truer - cp_static(j)%truer) .LE. opts%cp_min_distance ) THEN
             cp_static(j)%hasProxy = .TRUE.
             avg_r = (avg_r * cp_static(i)%weight + cp_static(j)%truer )/(cp_static(i)%weight + 1)
             cp_static(i)%weight = cp_static(i)%weight + 1
@@ -4016,6 +4010,27 @@
         PRINT *, eigvals
       END IF
     END SUBROUTINE DebugCoreFunctionsCheck
+    
+    SUBROUTINE OutPutParameters(opts)
+      TYPE(options_obj) :: opts
+      
+      PRINT *, "Parameters used are: "
+      PRINT *, "Search trajectory convergence criteria - distance : ", opts%par_newtonr
+      PRINT *, "Search trajectory convergence criteria - gradient : ", opts%par_gradfloor
+      PRINT *, "Grid Point of Interest distance criteria :          ", 1.5 + opts%par_tem
+      PRINT *, "Grid Point of Interests minimum seperation        : ", opts%cp_search_radius
+      PRINT *, "CP duplicate distance threshold :                   ", opts%cp_min_distance
+
+      OPEN(168,FILE="heuristic_parameters",STATUS='REPLACE',ACTION='WRITE')
+      WRITE(168,*) "Search trajectory convergence criteria - distance : ", opts%par_newtonr
+      WRITE(168,*) "Search trajectory convergence criteria - gradient : ", opts%par_gradfloor
+      WRITE(168,*) "Grid Point of Interest distance criteria :          ", 1.5 + opts%par_tem
+      WRITE(168,*) "Grid Point of Interests minimum seperation        : ", opts%cp_search_radius
+      WRITE(168,*) "CP duplicate distance threshold :                   ", opts%cp_min_distance
+
+      CLOSE(168)
+
+    END SUBROUTINE
 
   END MODULE
 

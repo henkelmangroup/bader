@@ -88,7 +88,7 @@
         opts%par_gradfloor = opts%par_gradfloor * 0.01
       END IF
       IF ( opts%par_gradfloor <= 0.000000001 .AND. &
-           opts%par_newtonr <= 0.000000001 .AND. opts%cp_search_radius > 2) THEN
+           opts%par_newtonr <= 0.000000001 .AND. opts%cp_search_radius >= 1) THEN
         opts%cp_search_radius = opts%cp_search_radius - 1
       END IF
       PRINT *, "Search failed to satisfy constrains! Adjusting parameters:"
