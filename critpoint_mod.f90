@@ -571,11 +571,11 @@
               PRINT *, 'The CPs are self-consistent but isolated atoms are detected.'
               stat = 0
             END IF      
-            IF (.NOT. CheckIsolatedRing(cpl,ucptnum)) THEN
+            IF (.NOT. CheckIsolatedRing(cpl,ucptnum) .AND. ucpCounts(3) >= 1 ) THEN
               PRINT *, "A disconnected ring CP is found."
               stat = 0
             END IF
-            IF (.NOT. CheckIsolatedCage(cpl,ucptnum)) THEN
+            IF (.NOT. CheckIsolatedCage(cpl,ucptnum) .AND. ucpCounts(4) >= 1) THEN
               PRINT *, "A disconnected cage CP is found."
               stat = 0
             END IF
@@ -2188,7 +2188,7 @@
       TYPE(cpc),DIMENSION(:),ALLOCATABLE :: cpl
       INTEGER :: n, ucptnum
       LOGICAL :: CheckIsolatedRing, voidDweller
-      CheckIsolatedRing = .FALSE.  
+      CheckIsolatedRing = .TRUE.  
       voidDweller = .FALSE. !if there are rings connecting to vacuum
       DO n=1,ucptnum
         IF (cpl(n)%negCount == 1) THEN
