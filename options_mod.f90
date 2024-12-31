@@ -160,10 +160,11 @@
           opts%vac_flag = .TRUE. ! set this to be default
         ELSEIF (p(1:ip) == '-autocp') THEN
           opts%autocp_flag = .TRUE.
-        ELSEIF (p(1:ip) == '-static_search') THEN
-          opts%static_search = .TRUE.
-        ELSEIF (p(1:ip) == '-static_check') THEN
-          opts%static_check = .TRUE.
+! statics are failed experiments. I need to review them to see if the corpse is worth keeping around.
+!        ELSEIF (p(1:ip) == '-static_search') THEN
+!          opts%static_search = .TRUE.
+!        ELSEIF (p(1:ip) == '-static_check') THEN
+!          opts%static_check = .TRUE.
         ELSEIF (p(1:ip) == '-molecule') THEN
           PRINT *, 'This system is assigned as a molecule'
           opts%ismolecule = .TRUE.
