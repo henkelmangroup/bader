@@ -1,0 +1,77 @@
+draw delete all
+
+puts "Enter the file name:"
+
+gets stdin filename
+
+# Extract the file extension
+set extension [file extension $filename]
+puts "filetype: $extension" 
+
+# Determine the correct file type for VMD
+set filetype ""
+if {$extension == ".xyz"} {
+    set filetype "xyz"
+} elseif {$extension == ".pdb"} {
+    set filetype "pdb"
+} elseif {$extension == ".vasp" || $filename == "POSCAR" || $filename == "CONTCAR"} {
+    set filetype "POSCAR"
+} else {
+    puts "Unsupported file type!"
+}
+
+# Load the file in VMD
+mol new $filename type $filetype
+puts "Loaded $filename as type $filetype"
+
+set fileID [open "CPFU00.dat" r]
+
+array set myDict {
+	nuclear red
+	bond blue
+	ring green
+	cage yellow
+}
+
+while {![eof $fileID]} {
+	
+	set line [gets $fileID]
+	set first_word [lindex [split $line] 1]
+
+	if {$first_word eq "Unique"} {
+		scan $line " Unique CP # :            %d" cp_index	
+		#puts "Critical Point: $cp_index"
+		for {set i 0} {$i < 3} {incr i} {
+			set line [gets $fileID]
+		}
+
+		set line [gets $fileID]
+		scan $line "%g %g %g" x y z
+		#puts "Direct Coordinates for this critical point $x $y $z"
+		
+		while {$first_word != "This"} {
+			set line [gets $fileID]
+			set first_word [lindex [split $line] 1]
+			
+		}
+		
+		set cp_type [lindex [split $line] 4]
+		#puts "Type of critical point $cp_type"
+		
+		draw color $myDict($cp_type)
+
+		draw sphere [list $x $y $z] radius 0.1 	
+	}
+	
+}
+
+puts " - - - - - - - - - - - - - - - - "
+puts "|   Critical Point   |   Color   |"
+puts " - - - - - - - - - - - - - - - - "
+puts "|        Nuclear     |    red    |"
+puts "|         Bond       |    blue   |"
+puts "|         Ring       |   green   |"
+puts "|         Cage       |   yellow  |"
+puts " - - - - - - - - - - - - - - - - "
+
+close $fileID
