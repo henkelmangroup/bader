@@ -153,14 +153,14 @@ as GaussView) for Gaussian cube files.
 Examples can be found in the \'examples\' directory or downloaded here:
 
 
-- [NaCl](https://github.com/henkelmangroup/bader/raw/refs/heads/main/examples/NaCl.tar.gz) crystal (vasp chgcar)
+- [NaCl](https://raw.githubusercontent.com/henkelmangroup/bader/main/examples/NaCl.tar.gz) crystal (vasp chgcar)
 - [NaCl](https://raw.githubusercontent.com/henkelmangroup/bader/main/examples/NaCl_wcore.tar.gz) crystal including core charges
   (vasp chgcar)
-- [C<sub>2</sub>H<sub>4</sub>](examples/C2H4a.tar.gz) molecule, orientation 1 (vasp
+- [C<sub>2</sub>H<sub>4</sub>](https://raw.githubusercontent.com/henkelmangroup/bader/main/examples/C2H4a.tar.gz) molecule, orientation 1 (vasp
   chgcar)
-- [C<sub>2</sub>H<sub>4</sub>](examples/C2H4b.tar.gz) molecule, orientation 2 (vasp
+- [C<sub>2</sub>H<sub>4</sub>](https://raw.githubusercontent.com/henkelmangroup/bader/main/examples/C2H4b.tar.gz) molecule, orientation 2 (vasp
   chgcar)
-- [H<sub>2</sub>O](examples/H2O.tar.gz) molecule (gaussian cube)
+- [H<sub>2</sub>O](https://raw.githubusercontent.com/henkelmangroup/bader/main/examples/H2O.tar.gz) molecule (gaussian cube)
 
 ## Note for VASP users
 
