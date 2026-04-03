@@ -152,8 +152,9 @@ as GaussView) for Gaussian cube files.
 
 Examples can be found in the \'examples\' directory or downloaded here:
 
-- [NaCl](examples/NaCl.tar.gz) crystal (vasp chgcar)
-- [NaCl](examples/NaCl_wcore.tar.gz) crystal including core charges
+
+- [NaCl](https://github.com/henkelmangroup/bader/raw/refs/heads/main/examples/NaCl.tar.gz) crystal (vasp chgcar)
+- [NaCl](https://raw.githubusercontent.com/henkelmangroup/bader/main/examples/NaCl_wcore.tar.gz) crystal including core charges
   (vasp chgcar)
 - [C<sub>2</sub>H<sub>4</sub>](examples/C2H4a.tar.gz) molecule, orientation 1 (vasp
   chgcar)
