@@ -1617,30 +1617,32 @@ MODULE bader_mod
 !-----------------------------------------------------------------------------------!
 ! assign_surrounding_pts: check the surrounding points of p to see if their volnum
 !                         is known
+! Ray: doesn't seem like my code and it's unused. not sure what it's for
+! Ray: commented out on 20261006
 !-----------------------------------------------------------------------------------!
 
-  SUBROUTINE assign_surrounding_pts2(bdr,chg,p)
-
-    TYPE(bader_obj) :: bdr
-    TYPE(charge_obj) :: chg
-    INTEGER, DIMENSION(3), INTENT(IN) :: p
-    INTEGER, DIMENSION(3) :: pt
-    INTEGER :: d1, d2, d3
-
-    DO d1 = -1,1
-      DO d2 = -1,1
-        DO d3 = -1,1
-          pt = p + (/d1,d2,d3/)
-          CALL pbc(pt,chg%npts)
-          IF (bdr%known(pt(1),pt(2),pt(3)) /= 2) THEN
-            CALL known_volnum_ongrid2(bdr,chg,pt)
-          END IF
-        END DO
-      END DO
-    END DO 
-
-  RETURN
-  END SUBROUTINE assign_surrounding_pts2
+!  SUBROUTINE assign_surrounding_pts2(bdr,chg,p)
+!
+!    TYPE(bader_obj) :: bdr
+!    TYPE(charge_obj) :: chg
+!    INTEGER, DIMENSION(3), INTENT(IN) :: p
+!    INTEGER, DIMENSION(3) :: pt
+!    INTEGER :: d1, d2, d3
+!
+!    DO d1 = -1,1
+!      DO d2 = -1,1
+!        DO d3 = -1,1
+!          pt = p + (/d1,d2,d3/)
+!          CALL pbc(pt,chg%npts)
+!          IF (bdr%known(pt(1),pt(2),pt(3)) /= 2) THEN
+!            CALL known_volnum_ongrid2(bdr,chg,pt)
+!          END IF
+!        END DO
+!      END DO
+!    END DO 
+!
+!  RETURN
+!  END SUBROUTINE assign_surrounding_pts2
 
 !-----------------------------------------------------------------------------------!
 ! known_volnum_ongrid: return number of the associated bader volnum if nearest
@@ -1709,36 +1711,38 @@ MODULE bader_mod
 !-----------------------------------------------------------------------------------!
 ! reassign_volnum_ongrid: reassign the surrounding points of a edge point as unknown
 !                         points
+! Ray: doesn't seem like my code and not sure what it's for
+! Ray: commented out on 20261006
 !-----------------------------------------------------------------------------------!
 
-  SUBROUTINE reassign_volnum_ongrid(bdr,chg,p)
-
-    TYPE(bader_obj) :: bdr
-    TYPE(charge_obj) :: chg
-    INTEGER, DIMENSION(3), INTENT(IN) :: p
-    INTEGER, DIMENSION(3) :: pt
-
-    pt = (/p(1)+1,p(2),p(3)/)
-    CALL pbc(pt,chg%npts)
-    bdr%known(pt(1),pt(2),pt(3)) = 0
-    pt = (/p(1)-1,p(2),p(3)/)
-    CALL pbc(pt,chg%npts)
-    bdr%known(pt(1),pt(2),pt(3)) = 0
-    pt = (/p(1),p(2)+1,p(3)/)
-    CALL pbc(pt,chg%npts)
-    bdr%known(pt(1),pt(2),pt(3)) = 0
-    pt = (/p(1),p(2)-1,p(3)/)
-    CALL pbc(pt,chg%npts)
-    bdr%known(pt(1),pt(2),pt(3)) = 0
-    pt = (/p(1),p(2),p(3)+1/)
-    CALL pbc(pt,chg%npts)
-    bdr%known(pt(1),pt(2),pt(3)) = 0
-    pt = (/p(1),p(2),p(3)-1/)
-    CALL pbc(pt,chg%npts)
-    bdr%known(pt(1),pt(2),pt(3)) = 0
-
-  RETURN
-  END SUBROUTINE reassign_volnum_ongrid
+!  SUBROUTINE reassign_volnum_ongrid(bdr,chg,p)
+!
+!    TYPE(bader_obj) :: bdr
+!    TYPE(charge_obj) :: chg
+!    INTEGER, DIMENSION(3), INTENT(IN) :: p
+!    INTEGER, DIMENSION(3) :: pt
+!
+!    pt = (/p(1)+1,p(2),p(3)/)
+!    CALL pbc(pt,chg%npts)
+!    bdr%known(pt(1),pt(2),pt(3)) = 0
+!    pt = (/p(1)-1,p(2),p(3)/)
+!    CALL pbc(pt,chg%npts)
+!    bdr%known(pt(1),pt(2),pt(3)) = 0
+!    pt = (/p(1),p(2)+1,p(3)/)
+!    CALL pbc(pt,chg%npts)
+!    bdr%known(pt(1),pt(2),pt(3)) = 0
+!    pt = (/p(1),p(2)-1,p(3)/)
+!    CALL pbc(pt,chg%npts)
+!    bdr%known(pt(1),pt(2),pt(3)) = 0
+!    pt = (/p(1),p(2),p(3)+1/)
+!    CALL pbc(pt,chg%npts)
+!    bdr%known(pt(1),pt(2),pt(3)) = 0
+!    pt = (/p(1),p(2),p(3)-1/)
+!    CALL pbc(pt,chg%npts)
+!    bdr%known(pt(1),pt(2),pt(3)) = 0
+!
+!  RETURN
+!  END SUBROUTINE reassign_volnum_ongrid
 
 !-----------------------------------------------------------------------------------!
 ! reassign_volnum_ongrid: reassign the surrounding points of a edge point as unknown

@@ -187,7 +187,6 @@
     TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cp_static
     TYPE(ions_obj) :: ions
     TYPE(options_obj) :: opts
-    INTEGER, DIMENSION(:,:), ALLOCATABLE :: atom_connectivity
     INTEGER,DIMENSION(4) :: ucpCounts
     INTEGER :: n, ucptnum, ij, it_num, rot_num
     LOGICAL :: phmrCompliant, isReduced
@@ -251,36 +250,31 @@
     TYPE(charge_obj), INTENT(INOUT) :: chg
     TYPE(options_obj), INTENT(INOUT) :: opts
     TYPE(ions_obj), INTENT(INOUT) :: ions
-    TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpcl, cpl, cpclt
+    TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpcl, cpl
     TYPE(static_cp_list), ALLOCATABLE, DIMENSION(:) :: cps_read
 
     ! The above three are CP candidate list, CP list and CP list temp
     ! copy
     ! for points, 1 and 2 are +1, -1
 
-    REAL(q2), DIMENSION(:,:), ALLOCATABLE :: cpRoster, fullcpRoster, reducedcpRoster, &
-      static_search
+    REAL(q2), DIMENSION(:,:), ALLOCATABLE :: cpRoster, fullcpRoster, reducedcpRoster
     REAL(q2), DIMENSION(8,3,3) :: nnhes !hessian of 8 nn
-    REAL(q2), DIMENSION(10,3) :: rList,temList
-    REAL(q2), DIMENSION(8,3) :: nngrad  
-    REAL(q2), DIMENSION(3,3) :: hessianMatrix, eigvecs, interpolHessian, &
+    REAL(q2), DIMENSION(3,3) :: hessianMatrix, interpolHessian, &
       ggrid
-    REAL(q2), DIMENSION(3) :: tem, eigvals, truer, grad, prevgrad, temprealr, &
+    REAL(q2), DIMENSION(3) :: truer, temprealr, &
       distance, & ! vector to 000 in trilinear 
-      finR, nexttem, previoustem, averager, temcap, temscale
-    REAL(q2) :: temnormcap
-
+      finR
     INTEGER, DIMENSION(:,:), ALLOCATABLE :: descendPoints, ringPoints, nnind, &
-      atom_connectivity, nucleiInd, ring_connectivity
+      nucleiInd
     INTEGER, DIMENSION(:), ALLOCATABLE :: RingList
     INTEGER, DIMENSION(20,3) :: iniIList
     INTEGER, DIMENSION(4) :: cpCounts,ucpCounts ! the 4 elements are
     ! nuclear, bond, ring, cage CP coutns
     INTEGER, DIMENSION(3) :: p, tempr
     INTEGER, DIMENSION(2) :: connectedAtoms
-    INTEGER :: n1, n2, n3, cptnum, ucptnum, i, j, k, debugnum,ij, &
+    INTEGER :: n1, cptnum, ucptnum, i, j, k, debugnum,ij, &
       setcount, stat, axisnum,&
-      avgMode, stepcount, nnlayers, averagecount
+      avgMode, nnlayers
 
     CHARACTER(128) :: smoothenedCHGCAR
 
@@ -1475,7 +1469,7 @@
       REAL(q2),DIMENSION(3) :: r
       REAL(q2) :: min_distance, distance
       INTEGER, DIMENSION(3) :: p
-      INTEGER :: CageSearch, ucptnum, nearest_cage, n
+      INTEGER :: CageSearch, ucptnum, n
       p = NINT(r)
       CALL pbc(p,chg%npts)
       IF (bdr%volnum(p(1),p(2),p(3)) == bdr%bnum + 1) THEN
@@ -1916,7 +1910,7 @@
       TYPE(charge_obj) :: chg
       TYPE(options_obj) :: opts
       TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpl
-      REAL(q2), DIMENSION(3) :: eigvals, grad
+      REAL(q2), DIMENSION(3) :: eigvals
       REAL(q2), DIMENSION(3,3) :: eigvecs, hessianMatrix
       INTEGER, DIMENSION(4) :: ucpCounts
       INTEGER, DIMENSION(2) :: connectedAtoms
@@ -2413,23 +2407,6 @@
     END FUNCTION GetPointDistanceR
 
 
-    ! USED IN THIS MODULE
-    SUBROUTINE MakeCPRoster(cpr,cptnum,r)
-      REAL(q2), DIMENSION(:,:), ALLOCATABLE :: cpr
-      INTEGER :: cptnum
-      REAL(q2), DIMENSION(3) :: r
-      cpr(cptnum,:) = r
-    END SUBROUTINE MakeCPRoster
-    
-    !Stores every coordinate converged to, even if nonunique
-    ! USED IN THIS MODULE
-    SUBROUTINE MakeFullCPRoster(cpr,cptnum,r)
-      REAL(q2), DIMENSION(:,:), ALLOCATABLE :: cpr
-      INTEGER :: cptnum
-      REAL(q2), DIMENSION(3) :: r
-      cpr(cptnum, :) = r
-    END SUBROUTINE MakeFullCPRoster
-
     ! this function interpolates the gradient of a point. weight towards each nn
     ! is determined by its distance to that neighbor. 
     FUNCTION R2GradInterpol(nnInd,r,chg,nnlayers)
@@ -2777,7 +2754,7 @@
       TYPE(cpc), ALLOCATABLE, DIMENSION(:) :: cp_static, reduced_cp_static
       TYPE(options_obj) :: opts
       INTEGER, DIMENSION(4) :: ucpCounts, reduced_ucpCounts
-      INTEGER :: ucptnum, reduced_ucptnum, i, j, weight, dupCount
+      INTEGER :: ucptnum, reduced_ucptnum, i, j, dupCount
       REAL(q2), DIMENSION(3) :: avg_r
       LOGICAL :: isReduced
 
@@ -2904,121 +2881,6 @@
       CDGradR = trilinear_interpol_grad(nnGrad,distance)
       RETURN
     END FUNCTION CDGradR
-
-
-    ! This subroutine takes in two cartesian coordinates, draw a line in between
-    ! with given interval, output charge density, gradient, hessian, tem into
-    ! seperate debug files, and terminates program at the end of this function.
-    SUBROUTINE DebugLine(iP,fP,iS,chg)
-    ! iP is initial Point, fP is final Point, iS is interval Size
-    TYPE(charge_obj) :: chg
-    REAL(q2),DIMENSION(8,3,3) :: nnHes
-    REAL(q2),DIMENSION(8,3) :: nnGrad
-    REAL(q2),DIMENSION(3,3) :: hes
-    REAL(q2),DIMENSION(3) :: p, iP, fP, sZ ! sZ is the acutal step size
-    REAL(q2),DIMENSION(3) :: grad, distance
-    ! sZ should be slightly different from iS due to rounding 
-    REAL(q2) :: iS, rho
-    INTEGER,DIMENSION(8,3) :: nnind
-    INTEGER :: sN ! step number
-    INTEGER :: i, j
-    OPEN(50,FILE='debug_line_charge.dat',STATUS='REPLACE',ACTION='WRITE')
-    OPEN(51,FILE='debug_line_gradient_cart.dat',STATUS='REPLACE',ACTION='WRITE')
-    OPEN(52,FILE='debug_line_hessian_cart.dat',STATUS='REPLACE',ACTION='WRITE')
-    OPEN(53,FILE='debug_line_rhograd_cart.dat',STATUS='REPLACE',ACTION='WRITE')
-    sN = CEILING( Mag( fP - iP ) / iS )
-    sZ = ( fP - iP ) / sN
-    DO i = 0, sN
-      p = iP + i * sZ ! This is in cartesian
-      PRINT *, 'Position in cartesian is'
-      PRINT *, p
-      p = MATMUL(chg%car2lat,p) ! Now it's in lattice
-      PRINT *, 'Position in lattie is'
-      PRINT *, p
-      CALL pbc_r_lat(p,chg%npts)
-      grad = rho_grad(chg,p,rho)
-      rho = rho
-      WRITE (53,*) grad
-      PRINT *, "cartesian grad from rho_grad is "
-      PRINT *, grad 
-      nnind = SimpleNN(p,chg)
-      distance = p - nnind(1,:)
-      DO j = 1,8
-        nngrad(j,:) = CDGrad(nnind(j,:),chg)
-        nnhes(j,:,:) = CDHessian(nnind(j,:),chg)
-      END DO
-      grad = trilinear_interpol_grad(nnGrad,distance) ! val r interpol
-      PRINT *, 'cartesian grad from this mod is'
-      PRINT *, grad
-      hes = trilinear_interpol_hes(nnHes,distance)
-      WRITE (50,*) rho
-      PRINT *, 'rho is ', rho
-      WRITE (51,*) grad
-      grad = MATMUL(grad,chg%lat2car)
-      PRINT *, 'lattice grad from this mod is '
-      PRINT *, grad
-      WRITE (52,*) hes(1,:)
-      WRITE (52,*) hes(2,:)
-      WRITE (52,*) hes(3,:)
-      PRINT *, 'hes is'
-      PRINT *, hes(1,:)
-      PRINT *, hes(2,:)
-      PRINT *, hes(3,:)
-    END DO
-    CLOSE(50)
-    CLOSE(51)
-    CLOSE(52)
-    CLOSE(53)
-    END SUBROUTINE
-
-    ! This subroutines takes lattice ranges and output on lattice rho, gradient
-    ! and hessian.
-    SUBROUTINE DebugRGHLat(xmin,xmax,ymin,ymax,zmin,zmax,chg)
-      TYPE(charge_obj) :: chg
-      REAL(q2),DIMENSION(3,3) :: hes
-      REAL(q2),DIMENSION(3) :: grad
-      INTEGER,DIMENSION(3) :: lat
-      INTEGER :: xmin,xmax,ymin,ymax,zmin,zmax,i,j,k
-      DO i = xmin,xmax
-        DO j = ymin,ymax
-          DO k = zmin,zmax
-            lat=(/i,j,k/)
-            PRINT *, 'lattice point is '
-            PRINT *, lat
-            PRINT *, 'cartesian point is'
-            PRINT *, MATMUL(chg%lat2car,lat)
-            PRINT *, 'gradient in cartesian units is'
-            grad = CDGrad(lat,chg)
-            hes = CDHessian(lat,chg)
-            PRINT *, grad
-            PRINT *, 'gradient in cartesian is'
-            PRINT *, MATMUL(chg%lat2car,grad)
-            PRINT *, 'hessian in cartesian is'
-            PRINT *, hes(1,:)
-            PRINT *, hes(2,:)
-            PRINT *, hes(3,:)
-            PRINT *, 'hessian in lattice units is'
-            hes = MATMUL(TRANSPOSE(chg%lat2car),MATMUL(hes,chg%lat2car))
-            PRINT *, hes(1,:)
-            PRINT *, hes(2,:)
-            PRINT *, hes(3,:)
-          END DO
-        END DO
-      END DO
-    END SUBROUTINE
-  
-    ! USED IN THIS MODULE
-    SUBROUTINE DiagonalOnlyHes(hes)
-      REAL(q2), DIMENSION(3,3) :: hes
-      hes(1,2) = 0
-      hes(1,3) = 0
-      hes(2,3) = 0
-      hes(2,1) = 0
-      hes(3,2) = 0
-      hes(3,1) = 0
-    END SUBROUTINE
-
-    ! This subroutine finds out which point leads to finding of a critical point
 
 
     ! This function calculates TEM for a grid point
@@ -3332,14 +3194,13 @@
       TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpl
       TYPE(options_obj) :: opts
       INTEGER, DIMENSION(4) :: ucpCounts
-      INTEGER,DIMENSION(3) :: p,pn,trueInd
+      INTEGER,DIMENSION(3) :: p,pn
       INTEGER :: n1,n2,n3
       INTEGER :: UCPTnum, stepCount
       INTEGER :: uCCbefore,uCCafter !cage count before and after
-      REAL(q2),DIMENSION(3,3) :: hessianMatrix 
-      REAL(q2),DIMENSION(3) :: trueR,r,grad 
+      REAL(q2),DIMENSION(3) :: trueR
       REAL(q2) :: current_rho, test_rho
-      LOGICAL :: isUnique, minimized, noRecording
+      LOGICAL ::  minimized, noRecording
       minimized = .FALSE.
       stepCount = 0
       current_rho = chg%rho(p(1),p(2),p(3))
@@ -3398,26 +3259,6 @@
       ! To catch cages that does not produce three positive eigenvalues:
     END SUBROUTINE DensityDescendAndRecord
 
-    ! USED IN THIS MODULE
-    SUBROUTINE PrintNeighborCharges(p,chg)
-    TYPE(charge_obj) :: chg
-    INTEGER,DIMENSION(3) :: p
-    INTEGER :: i,j,k
-    PRINT *, "Printing charges of all neighbors at "
-    PRINT *, p, rho_val(chg,p(1),p(2),p(3))
-    DO i = 1, 3
-      DO j = 1,3
-        DO k = 1,3
-          IF ( i == 0 .AND. j == 0 .AND. k == 0) THEN
-            CYCLE
-          END IF
-          PRINT *, rho_val(chg,p(1)+i,p(1)+j,p(1)+k)
-        END DO
-      END DO
-    END DO
-    END SUBROUTINE PrintNeighborCharges
-
-
 
     FUNCTION trace(mat3x3)
       REAL(q2) :: trace
@@ -3425,64 +3266,6 @@
       trace = mat3x3(1,1) + mat3x3(2,2) + mat3x3(3,3)
     END FUNCTION 
 
-    ! Find the eigenvalues by finding roots to the characteristic polynomial
-    SUBROUTINE EigvalCharPoly(hessianMatrix,eigvals,eigvecs)
-      ! characteristic polynomial of a 3x3 matrix is 
-      ! https://mathworld.wolfram.com/CharacteristicPolynomial.html
-      ! P3(x) = 1/6 * (trace(A)**3 + 2 trace(A**3) - 3 trace (A) trace(A**2) -
-      !         1/2 * (trace(A)**2 - trace(A**2))x + trace(A)x**2 - x**3
-      REAL(q2),DIMENSION(3,3) :: hessianMatrix, eigvecs, hessianMatrix2
-      REAL(q2),DIMENSION(3) :: eigvals
-      REAL(q2) :: a,b,c,d !coefficients for the characteristic polynomial
-      REAL(q2) :: b23c ! -b**2 - 3*c
-      COMPLEX :: cabbage ! or junk or crap etc.
-      COMPLEX :: cabbage1, cabbage2,cabbage3
-      COMPLEX :: top1,bot1,top2,bot2
-      COMPLEX :: eigval1,eigval2,eigval3
-      a = -1
-      b = trace(hessianMatrix)
-      hessianMatrix2 = MATMUL(hessianMatrix,hessianMatrix)
-      c = -(0.5 * (trace(hessianMatrix)**2 - &
-        trace(hessianMatrix2)))
-      d = (1./6.) * (trace(hessianMatrix)**3 + &
-          2. * trace(MATMUL(MATMUL(hessianMatrix,hessianMatrix),hessianMatrix))&
-          - 3. * trace(hessianMatrix) * trace(MATMUL(hessianMatrix,hessianMatrix)) )
-      ! since a is -1, a is already subsituted in for roots
-      b23c = -b**2. - 3.*c
-      !PRINT *, "b23c is ", b23c
-      cabbage1 = -2.*(b**3) - (9.*b*c) - (27.*d)
-      cabbage2 = -b**2. * c**2. - 4.*c**3. +4.*b**3 * d + &
-        18.*b*c*d + 27.*d**2
-      !PRINT *, "cabbage1 is ", cabbage1
-      !PRINT *, "cabbage2 is ", cabbage2
-      cabbage3 = 3. * SQRT(3.) * SQRT(cabbage2)
-      !PRINT *, "cabbage3 is ", cabbage3
-      cabbage = (cabbage1 + cabbage3)**(1./3.)
-      !PRINT *, "cabbage is ", cabbage
-      top1 = 2.**(1./3.)*b23c
-      bot1 = 3*cabbage
-      top2 = cabbage
-      bot2 = 3.*2.**(1./3.)
-      eigval1 = b/3. + top1/bot1 - top2/bot2
-      !PRINT *, "eigval1 is ", eigval1
-      top1 = (1 + CMPLX(0,SQRT(3.)))*(b23c)
-      bot1 = 3.*2.**(2./3.) * cabbage
-      top2 = (1-CMPLX(0,SQRT(3.)))*cabbage
-      bot2 = 6.*2.**(1./3.)
-      eigval2 = b/3. - top1/bot1 + top2/bot2
-      !PRINT *, "eigval2 is ", eigval2
-      top1 = (1 - CMPLX(0,SQRT(3.)))*b23c
-      bot1 = 3.*2.**(2./3.)*cabbage
-      top2 = (1 + CMPLX(0,SQRT(3.)))*cabbage
-      bot2 = 6.*2.**(1./3.)
-      eigval3 = b/3. - top1/bot1 + top2/bot2
-      !PRINT *, "eigval3 is ", eigval3
-      eigvals(1) = REAL(eigval1)
-      eigvals(2) = REAL(eigval2)
-      eigvals(3) = REAL(eigval3)
-      !PRINT *, "eigvals are"
-      !PRINT *, eigvals
-    END SUBROUTINE
 
     ! This subroutine aims at reducing the bips and bumps in a CHGCAR by
     ! averaging it.
@@ -3839,12 +3622,6 @@
     END SUBROUTINE StaticCheckReadStatic
 
 
-    ! Returns the number of symmetry operations in the AFLOW file.
-    FUNCTION ReadSymOpSize()
-      INTEGER :: ReadSymOpSize
-
-      RETURN
-    END FUNCTION ReadSymOpSize
 
     ! USED IN THIS MODULE
     SUBROUTINE get_voxvol(chg,ions)
@@ -3878,139 +3655,7 @@
 
     END SUBROUTINE
 
-    SUBROUTINE DebugGetRhoAround(p,chg,ions)
-      TYPE(charge_obj) :: chg
-      TYPE(ions_obj) :: ions
-      INTEGER,DIMENSION(3) :: p
-      PRINT *, "printing rho_val around ", p       
-      PRINT *, "x-1 to x+1 are ", rho_val(chg,p(1)-1,p(2),p(3)),rho_val(chg,p(1),p(2),p(3)),rho_val(chg,p(1)+1,p(2),p(3))
-      PRINT *, "y-1 to y+1 are ", rho_val(chg,p(1),p(2)-1,p(3)),rho_val(chg,p(1),p(2),p(3)),rho_val(chg,p(1),p(2)+1,p(3))
-      PRINT *, "z-1 to z+1 are ", rho_val(chg,p(1),p(2),p(3)-1),rho_val(chg,p(1),p(2),p(3)),rho_val(chg,p(1),p(2),p(3)+1)
-      PRINT *, "voxel length on 3 directions are"
-      PRINT *, "x: ", SQRT(ions%lattice(1,1)**2 +ions%lattice(1,2)**2 +ions%lattice(1,3)**2) &
-        / chg%npts(1)
-      PRINT *, "y: ", SQRT(ions%lattice(2,1)**2 +ions%lattice(2,2)**2 +ions%lattice(2,3)**2) &
-        / chg%npts(2)
-      PRINT *, "z: ", SQRT(ions%lattice(3,1)**2 +ions%lattice(3,2)**2 +ions%lattice(3,3)**2) &
-        / chg%npts(3)
-    END SUBROUTINE DebugGetRhoAround
-
-    ! This function should print the density, gradient and curvature of a grid point.
-    SUBROUTINE DebugGetInfo(grid,chg)
-      TYPE(charge_obj) :: chg
-      INTEGER, DIMENSION(3) :: grid
-      PRINT *, 'grid point is'
-      PRINT *, grid
-      PRINT *, 'mag(grad:'
-      PRINT *, Mag(CDGrad(grid,chg))
-    END SUBROUTINE DebugGetInfo
-
-    SUBROUTINE DebugCPTracer(rt,chg,cpl,ucptnum)
-      TYPE(charge_obj) :: chg
-      TYPE(cpc),ALLOCATABLE,DIMENSION(:) :: cpl
-      REAL(q2),DIMENSION(3) :: rt ! This is the target cart location.
-      REAL(q2),DIMENSION(3) :: rc ! This is current cart location.
-      INTEGER :: i, ucptnum
-      DO i = 1, ucptnum
-        rc = MATMUL(chg%lat2car,cpl(i)%truer)
-        IF (ABS(rc(1) - rt(1)) .le. 0.001 .AND. &
-            ABS(rc(2) - rt(2)) .le. 0.001 .AND. &
-            ABS(rc(3) - rt(3)) .le. 0.001 ) THEN
-          PRINT *, "De Bugger: The given CP is found by trajectory starting at"
-          PRINT *, cpl(i)%ind
-        END IF
-      END DO
-    END SUBROUTINE DebugCPTracer
-
-    ! Below is a check on all core functions
-    ! Functions being checked: eigenvalues and eigenvectors
-    SUBROUTINE DebugCoreFunctionsCheck(chg)
-      TYPE(charge_obj) :: chg
-      REAL(q2),DIMENSION(3,3) :: hessianMatrix,eigvecs
-      REAL(q2),DIMENSION(3) :: eigvals
-      INTEGER :: it_num, rot_num 
-      !This following test is not working well
-      !hessianMatrix(1,1) = 0.3987508399038720
-      !hessianMatrix(1,2) = 0.4997246160218287 
-      !hessianMatrix(1,3) = 0.7752726241455388
-      !hessianMatrix(2,1) = 0.5993296708147727
-      !hessianMatrix(2,2) = 0.6510026529797813
-      !hessianMatrix(2,3) = 0.7907512182895509
-      !hessianMatrix(3,1) = 0.2018206933392253
-      !hessianMatrix(3,2) = 0.7068772764652435
-      !hessianMatrix(3,3) = 0.05810136673621315
-      !---------------------------------------
-      hessianMatrix(1,1) = 4570.188002120697
-      hessianMatrix(1,2) = 852.1787784831047
-      hessianMatrix(1,3) = 835.9831203358196
-      hessianMatrix(2,1) = 852.1787784831047
-      hessianMatrix(2,2) = 7811.922523438933
-      hessianMatrix(2,3) = 846.7252769646717
-      hessianMatrix(3,1) = 835.9831203358196
-      hessianMatrix(3,2) = 846.7252769646717
-      hessianMatrix(3,3) = 4260.374867575962
-      CALL DSYEVJ3(hessianMatrix,eigvecs,eigvals)
-      PRINT *, "DSYEVJ3 Produces"
-      PRINT *, "eigvec 1"
-      PRINT  *, eigvecs(1,:)
-      PRINT *, "eigvec 2"
-      PRINT  *, eigvecs(2,:)
-      PRINT *, "eigvec 3"
-      PRINT  *, eigvecs(3,:)
-      PRINT *, "eigvals are"
-      PRINT *, eigvals
-      hessianMatrix(1,1) = 4570.188002120697
-      hessianMatrix(1,2) = 852.1787784831047
-      hessianMatrix(1,3) = 835.9831203358196
-      hessianMatrix(2,1) = 852.1787784831047
-      hessianMatrix(2,2) = 7811.922523438933
-      hessianMatrix(2,3) = 846.7252769646717
-      hessianMatrix(3,1) = 835.9831203358196
-      hessianMatrix(3,2) = 846.7252769646717
-      hessianMatrix(3,3) = 4260.374867575962
-      CALL jacobi_eigenvalue(3,hessianMatrix,9999,eigvecs,eigvals,&
-        it_num, rot_num )
-      PRINT *, "jacobi Produces"
-      PRINT *, "eigvec 1"
-      PRINT  *, eigvecs(1,:)
-      PRINT *, "eigvec 2"
-      PRINT  *, eigvecs(2,:)
-      PRINT *, "eigvec 3"
-      PRINT  *, eigvecs(3,:)
-      PRINT *, "eigvals are"
-      PRINT *, eigvals
-      PRINT *, "EigvalCharPoly produces"
-      hessianMatrix(1,1) = 4570.188002120697
-      hessianMatrix(1,2) = 852.1787784831047
-      hessianMatrix(1,3) = 835.9831203358196
-      hessianMatrix(2,1) = 852.1787784831047
-      hessianMatrix(2,2) = 7811.922523438933
-      hessianMatrix(2,3) = 846.7252769646717
-      hessianMatrix(3,1) = 835.9831203358196
-      hessianMatrix(3,2) = 846.7252769646717
-      hessianMatrix(3,3) = 4260.374867575962
-      CALL EigvalCharPoly(hessianMatrix,eigvals,eigvecs)
-      IF (eigvecs(1,1) /= -0.5694273336689270 .OR. &
-          eigvecs(1,2) /= -0.7140883142791939 .OR. & 
-          eigvecs(1,3) /= -0.4072227781946826 .OR. &
-          eigvecs(2,1) /= -0.6717960446248690 .OR. &
-          eigvecs(2,2) /= -0.1747987305973604 .OR. &
-          eigvecs(2,3) /= 0.7198162808716766 .OR. & 
-          eigvecs(3,1) /= -0.7198162808716766 .OR. &
-          eigvecs(3,2) /= 0.05039746667582087 .OR. &
-          eigvecs(3,3) /= 0.5695024751675655) THEN
-        PRINT *, "Eigenvalues produced are not consistent with Mathematica!"
-        PRINT *, "eigvec 1"
-        PRINT  *, eigvecs(1,:)
-        PRINT *, "eigvec 2"
-        PRINT  *, eigvecs(2,:)
-        PRINT *, "eigvec 3"
-        PRINT  *, eigvecs(3,:)
-        PRINT *, "eigvals are"
-        PRINT *, eigvals
-      END IF
-    END SUBROUTINE DebugCoreFunctionsCheck
-    
+   
     SUBROUTINE OutPutParameters(opts)
       TYPE(options_obj) :: opts
       
