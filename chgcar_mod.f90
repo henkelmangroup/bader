@@ -78,7 +78,8 @@ MODULE chgcar_mod
     ALLOCATE(ions%r_car(ions%nions,3))
     READ(100,*) !GH: read Direct line
     DO i = 1, ions%nions
-      READ(100,'(3F10.6)') ions%r_dir(i,:)
+      !READ(100,'(3F10.6)') ions%r_dir(i,:) !This format requirement seems to cause atom positions to be read incorrectly
+      READ(100,*) ions%r_dir(i,:)
       ions%r_car(i,:) = MATMUL(ions%dir2car, ions%r_dir(i,:))
     END DO
     READ(100,*) 
