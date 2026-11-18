@@ -2186,11 +2186,7 @@
       voidDweller = .FALSE. !if there are rings connecting to vacuum
       DO n=1,ucptnum
         IF (cpl(n)%negCount == 1) THEN
-          IF (CheckIsolatedRing) THEN
-            CYCLE
-          ELSE
-            CheckIsolatedRing = ALL(cpl(n)%connectedAtoms /= -2 ) .AND. ALL(cpl(n)%connectedAtoms /= 0) 
-          END IF
+          CheckIsolatedRing = ALL(cpl(n)%connectedAtoms /= -2 ) .AND. ALL(cpl(n)%connectedAtoms /= 0) 
           IF (voidDweller) THEN
             CYCLE
           ELSE
